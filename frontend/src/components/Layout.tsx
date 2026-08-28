@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, LayoutDashboard, Car, FileText, ClipboardList, User, LogOut, Menu, X } from 'lucide-react';
+import { GlobalAIAssistant } from './GlobalAIAssistant';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -170,6 +171,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </div>
       </nav>
+
+      {/* Global AI Assistant */}
+      <GlobalAIAssistant />
     </div>
   );
 }

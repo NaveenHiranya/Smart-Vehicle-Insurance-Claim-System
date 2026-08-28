@@ -55,7 +55,8 @@ export function GarageClaimDetailPage() {
     setItems((prev) => {
       const updated = [...prev];
       const item = { ...updated[idx] };
-      (item as any)[field] = Number(value) || 0;
+      const num = parseFloat(value) || 0;
+      (item as any)[field] = num;
       item.laborCost = Math.round(item.laborHours * item.laborRate);
       item.subtotal = item.partCost + item.laborCost + item.paintMaterials;
       updated[idx] = item;
@@ -262,24 +263,28 @@ export function GarageClaimDetailPage() {
                   <td className="py-2">
                     {editMode ? (
                       <input type="number" value={item.partCost} onChange={(e) => updateItem(idx, 'partCost', e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         className="px-2 py-1 border border-gray-300 rounded text-xs w-24" />
                     ) : `Rs. ${item.partCost.toLocaleString()}`}
                   </td>
                   <td className="py-2">
                     {editMode ? (
                       <input type="number" step="0.5" value={item.laborHours} onChange={(e) => updateItem(idx, 'laborHours', e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         className="px-2 py-1 border border-gray-300 rounded text-xs w-20" />
                     ) : item.laborHours}
                   </td>
                   <td className="py-2">
                     {editMode ? (
                       <input type="number" value={item.laborRate} onChange={(e) => updateItem(idx, 'laborRate', e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         className="px-2 py-1 border border-gray-300 rounded text-xs w-24" />
                     ) : `Rs. ${item.laborRate.toLocaleString()}`}
                   </td>
                   <td className="py-2">
                     {editMode ? (
                       <input type="number" value={item.paintMaterials} onChange={(e) => updateItem(idx, 'paintMaterials', e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         className="px-2 py-1 border border-gray-300 rounded text-xs w-24" />
                     ) : `Rs. ${item.paintMaterials.toLocaleString()}`}
                   </td>

@@ -1,1 +1,0 @@
-Google Generative AI SDK (`@google/generative-ai`) with the `gemini-2.5-flash` vision model for multimodal document analysis; Prisma ORM for database access; Node.js `fs`/`path` for local image I/O; `dotenv` for environment configuration.

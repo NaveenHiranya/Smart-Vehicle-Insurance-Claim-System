@@ -1,1 +1,0 @@
-Backend requires `JWT_SECRET`, `GEMINI_API_KEY`, and `DATABASE_URL` environment variables at startup (validated in `index.ts`); copy `backend/.env.example` to `backend/.env`. A seed script `backend/src/scripts/seedAdmin.ts` creates the initial admin account.

@@ -44,7 +44,7 @@ export function AdminClaimsPage() {
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-400"></div></div>;
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Claims</h1>
         <p className="text-gray-500 mt-1">{claims.length} claims</p>
@@ -74,7 +74,8 @@ export function AdminClaimsPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">User</th>
@@ -121,6 +122,7 @@ export function AdminClaimsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         {claims.length === 0 && <div className="p-12 text-center text-gray-400"><p>No claims found</p></div>}
       </div>
     </div>

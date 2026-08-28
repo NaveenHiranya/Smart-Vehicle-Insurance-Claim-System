@@ -30,7 +30,7 @@ export function AdminDashboardPage() {
   const pendingClaims = (stats?.claimsByStatus?.SUBMITTED || 0) + (stats?.claimsByStatus?.UNDER_REVIEW || 0) + (stats?.claimsByStatus?.GARAGE_REVIEW || 0) + (stats?.claimsByStatus?.GARAGE_ESTIMATED || 0);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
         <p className="text-gray-500 mt-1">System overview and recent activity</p>
@@ -111,7 +111,7 @@ export function AdminDashboardPage() {
       </div>
 
       {/* Quick links */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { to: '/admin/users', label: 'Manage Users', icon: Users, color: 'bg-blue-600' },
           { to: '/admin/claims', label: 'Review Claims', icon: ClipboardList, color: 'bg-primary-600' },

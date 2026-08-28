@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Shield, Wrench, User } from 'lucide-react';
+import { Shield, Wrench, User, AlertCircle } from 'lucide-react';
 import api from '../../services/api';
 
 export function AdminLoginPage() {
@@ -47,7 +47,10 @@ export function AdminLoginPage() {
         <div className="bg-gray-800 rounded-2xl p-8 shadow-xl border border-gray-700">
           <h2 className="text-lg font-semibold text-white mb-6">Sign in to Admin</h2>
           {error && (
-            <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-sm text-red-300">{error}</div>
+            <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-300">{error}</p>
+            </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

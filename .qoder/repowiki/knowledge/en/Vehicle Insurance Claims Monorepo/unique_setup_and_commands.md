@@ -1,1 +1,0 @@
-No monorepo-wide build or run script is present at the root; each child (`backend/`, `frontend/`) is started independently.

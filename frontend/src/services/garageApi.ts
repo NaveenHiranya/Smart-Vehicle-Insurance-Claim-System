@@ -16,7 +16,9 @@ garageApi.interceptors.request.use((config) => {
 garageApi.interceptors.response.use(
   (r) => r,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    const url = error.config?.url || '';
+    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/register');
+    if (!isAuthRoute && (error.response?.status === 401 || error.response?.status === 403)) {
       localStorage.removeItem('garageToken');
       localStorage.removeItem('garageUser');
       window.location.href = '/garage/login';

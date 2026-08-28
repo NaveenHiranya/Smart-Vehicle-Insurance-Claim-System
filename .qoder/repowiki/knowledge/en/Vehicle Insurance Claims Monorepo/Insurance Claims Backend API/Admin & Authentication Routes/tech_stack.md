@@ -1,1 +1,0 @@
-Express Router with JWT-based authentication using `jsonwebtoken` (HS256 via `JWT_SECRET` env var) and password hashing via `bcryptjs` (cost factor 12); Prisma client used for all database queries.

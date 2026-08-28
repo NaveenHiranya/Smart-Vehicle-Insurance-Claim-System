@@ -1,0 +1,1 @@
+Run `backend/scripts/seedAdmin.ts` (via Prisma/npx) after setting up `.env` to create the initial admin account at `admin@autoshield.com` with password `Admin@1234`; required env vars validated at startup are `JWT_SECRET`, `GEMINI_API_KEY`, `DATABASE_URL`, plus optional `CORS_ORIGIN` and `UPLOAD_DIR`.

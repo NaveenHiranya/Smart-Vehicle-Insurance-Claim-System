@@ -1,1 +1,0 @@
-Express routes and domain services for creating, submitting, analyzing, estimating, and chatting about vehicle insurance claims, powered by Google Gemini image analysis and conversational assistance.

@@ -1,5 +1,0 @@
-- Authentication state is exposed through a React Context (`AuthContext`) with a custom `useAuth()` hook that throws if used outside `AuthProvider`.
-- HTTP clients are created per role via `axios.create` with interceptors that inject Bearer tokens from `localStorage` and redirect to login on 401/403 responses.
-- Route-level access control is enforced by wrapping page components in `ProtectedRoute` or `AdminProtectedRoute` components rather than checking auth inside pages.
-- Shared domain shapes are declared once in `src/types/index.ts` as TypeScript interfaces and reused across services and pages instead of inline types.
-- Customer and admin features are separated into distinct route namespaces (`/` vs `/admin/*`) with separate layout wrappers and API base URLs.

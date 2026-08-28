@@ -29,30 +29,30 @@ export function GarageDashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">{garageName}</h1>
-      <p className="text-gray-500 mb-6">Garage Dashboard</p>
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">{garageName}</h1>
+      <p className="text-gray-500 mb-5 text-sm">Garage Dashboard</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-orange-100 rounded-lg"><Wrench className="h-5 w-5 text-orange-600" /></div>
-            <span className="text-sm font-medium text-gray-600">Total Claims</span>
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 bg-orange-100 rounded-lg"><Wrench className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" /></div>
+            <span className="text-xs sm:text-sm font-medium text-gray-600">Total</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{claims.length}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{claims.length}</p>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-orange-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-orange-100 rounded-lg"><Clock className="h-5 w-5 text-orange-600" /></div>
-            <span className="text-sm font-medium text-gray-600">Pending Review</span>
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-orange-200">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 bg-orange-100 rounded-lg"><Clock className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" /></div>
+            <span className="text-xs sm:text-sm font-medium text-gray-600">Pending</span>
           </div>
-          <p className="text-3xl font-bold text-orange-600">{pendingReview.length}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-orange-600">{pendingReview.length}</p>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-green-100 rounded-lg"><CheckCircle className="h-5 w-5 text-green-600" /></div>
-            <span className="text-sm font-medium text-gray-600">Estimated / Processed</span>
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg"><CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" /></div>
+            <span className="text-xs sm:text-sm font-medium text-gray-600">Estimated</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{estimated.length}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{estimated.length}</p>
         </div>
       </div>
 

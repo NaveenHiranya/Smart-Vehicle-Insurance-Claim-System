@@ -1,1 +1,0 @@
-Development server runs via `npm run dev` (Vite) and proxies `/api` and `/uploads` requests to `http://localhost:5000`; production build runs `tsc -b && vite build`; linting via `oxlint`.

@@ -1,6 +1,0 @@
-- Every route handler wraps its body in try/catch and returns a uniform `{ error: string }` JSON response with appropriate HTTP status codes (400/404/500).
-- Ownership checks are performed by querying Prisma with `where: { id: param(req, '...'), userId: req.userId }` before any mutation or read.
-- Route handlers use a local `param(req, name)` helper to cast Express 5 `string | string[]` params to `string` instead of inline type assertions.
-- AI interactions are driven by fixed system prompts stored as module-level constants (`SYSTEM_PROMPT`, `DAMAGE_ANALYSIS_PROMPT`) that constrain the Gemini model output format.
-- Long-running or optional downstream work (damage analysis, repair estimate generation) is invoked asynchronously via `.catch(...)` fire-and-forget calls so they do not block the HTTP response.
-- Services load heavy or potentially circular dependencies lazily with `await import('./repairEstimateService.js')` rather than top-level imports.

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../services/api';
 import type { Vehicle, InsurancePolicy } from '../types';
-import { Camera, Image, X, ChevronLeft, ChevronRight, Check, MapPin } from 'lucide-react';
+import { Camera, Image, X, ChevronLeft, ChevronRight, Check, MapPin, FolderOpen } from 'lucide-react';
 
 const steps = ['Incident Info', 'Select Garage', 'Vehicle Photos', 'Damage Photos', 'Review & Submit'];
 
@@ -20,6 +20,8 @@ export function NewClaimPage() {
   const [garages, setGarages] = useState<any[]>([]);
   const fullCameraRef = useRef<HTMLInputElement>(null);
   const damageCameraRef = useRef<HTMLInputElement>(null);
+  const fullBrowseRef = useRef<HTMLInputElement>(null);
+  const damageBrowseRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     vehicleId: searchParams.get('vehicleId') || '',
@@ -224,28 +226,23 @@ export function NewClaimPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Full Vehicle Photos</h2>
             <p className="text-sm text-gray-500 mb-4">Upload photos of your entire vehicle from different angles (front, rear, left, right sides).</p>
             <div className="flex flex-col sm:flex-row gap-3">
-              <div {...fullDropzone.getRootProps()} className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition">
+              <div {...fullDropzone.getRootProps()} className="hidden sm:flex flex-1 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition flex-col items-center justify-center">
                 <input {...fullDropzone.getInputProps()} />
                 <Camera className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">Drag & drop photos here, or <span className="text-primary-600 font-medium">browse</span></p>
                 <p className="text-xs text-gray-400 mt-1">JPEG, PNG, or WebP (max 10MB each)</p>
               </div>
-              <div className="flex flex-col gap-2 sm:w-40">
-                <button
-                  type="button"
-                  onClick={() => fullCameraRef.current?.click()}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition shadow-sm"
-                >
-                  <Camera className="h-5 w-5" /> Take Photo
+              <div className="flex sm:flex-col gap-2 sm:w-40">
+                <button type="button" onClick={() => fullCameraRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition shadow-sm">
+                  <Camera className="h-5 w-5" /> <span>Take Photo</span>
                 </button>
-                <input
-                  ref={fullCameraRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleCameraCapture('full')}
-                />
+                <button type="button" onClick={() => fullBrowseRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+                  <FolderOpen className="h-5 w-5" /> <span>Browse</span>
+                </button>
+                <input ref={fullCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraCapture('full')} />
+                <input ref={fullBrowseRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCameraCapture('full')} />
               </div>
             </div>
             {uploadedImages.full.length > 0 && (
@@ -267,27 +264,22 @@ export function NewClaimPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Damage Close-Up Photos</h2>
             <p className="text-sm text-gray-500 mb-4">Upload close-up photos of specific damaged areas for detailed AI analysis.</p>
             <div className="flex flex-col sm:flex-row gap-3">
-              <div {...damageDropzone.getRootProps()} className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition">
+              <div {...damageDropzone.getRootProps()} className="hidden sm:flex flex-1 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition flex-col items-center justify-center">
                 <input {...damageDropzone.getInputProps()} />
                 <Image className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">Drag & drop close-up photos here, or <span className="text-primary-600 font-medium">browse</span></p>
               </div>
-              <div className="flex flex-col gap-2 sm:w-40">
-                <button
-                  type="button"
-                  onClick={() => damageCameraRef.current?.click()}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition shadow-sm"
-                >
-                  <Camera className="h-5 w-5" /> Take Photo
+              <div className="flex sm:flex-col gap-2 sm:w-40">
+                <button type="button" onClick={() => damageCameraRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition shadow-sm">
+                  <Camera className="h-5 w-5" /> <span>Take Photo</span>
                 </button>
-                <input
-                  ref={damageCameraRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleCameraCapture('damage')}
-                />
+                <button type="button" onClick={() => damageBrowseRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+                  <FolderOpen className="h-5 w-5" /> <span>Browse</span>
+                </button>
+                <input ref={damageCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraCapture('damage')} />
+                <input ref={damageBrowseRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCameraCapture('damage')} />
               </div>
             </div>
             {uploadedImages.damage.length > 0 && (

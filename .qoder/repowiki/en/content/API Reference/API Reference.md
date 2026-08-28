@@ -8,8 +8,11 @@
 - [policies.ts](file://backend/src/routes/policies.ts)
 - [claims.ts](file://backend/src/routes/claims.ts)
 - [admin.ts](file://backend/src/routes/admin.ts)
+- [garageAuth.ts](file://backend/src/routes/garageAuth.ts)
+- [garage.ts](file://backend/src/routes/garage.ts)
 - [auth.ts (middleware)](file://backend/src/middleware/auth.ts)
 - [adminAuth.ts](file://backend/src/middleware/adminAuth.ts)
+- [garageAuth.ts (middleware)](file://backend/src/middleware/garageAuth.ts)
 - [errorHandler.ts](file://backend/src/middleware/errorHandler.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
 - [package.json](file://backend/package.json)
@@ -18,11 +21,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated health check endpoint response to reflect "Flash Claim API" branding
-- Updated package description to "Flash Claim - Vehicle Insurance Claim & Damage Assessment Backend"
-- Updated system identification throughout backend responses and console logs
-- Enhanced AI assistant branding to "Flash Claim Assistant"
-- Updated frontend branding references for consistency
+- Added comprehensive Garage API section with authentication endpoints (register, login, profile)
+- Added Garage claim management endpoints (list assigned claims, get claim details, submit estimates)
+- Updated architecture diagram to include Garage routes
+- Enhanced authentication requirements summary to include Garage endpoints
+- Added Garage-specific error handling and status codes
 
 ## Table of Contents
 1. Introduction
@@ -37,7 +40,7 @@
 10. Appendices
 
 ## Introduction
-This document provides comprehensive API reference documentation for the Flash Claim Vehicle Insurance Claim System backend. It covers all RESTful endpoints grouped by domain: Authentication, Vehicles, Policies, Claims, and Administrative functions. For each endpoint, you will find HTTP methods, URL patterns, authentication requirements, request/response schemas, parameter specifications, error codes, and example payloads. It also includes guidance on pagination, filtering, rate limiting, versioning, and client implementation best practices.
+This document provides comprehensive API reference documentation for the Flash Claim Vehicle Insurance Claim System backend. It covers all RESTful endpoints grouped by domain: Authentication, Vehicles, Policies, Claims, Garage Management, and Administrative functions. For each endpoint, you will find HTTP methods, URL patterns, authentication requirements, request/response schemas, parameter specifications, error codes, and example payloads. It also includes guidance on pagination, filtering, rate limiting, versioning, and client implementation best practices.
 
 ## Project Structure
 The backend is an Express application that mounts route modules under a common /api prefix. Middleware handles CORS, JSON parsing, static file serving for uploads, and centralized error handling. Routes are organized by feature with shared middleware for authentication and authorization.
@@ -50,15 +53,19 @@ API --> VehicleRoutes["/api/vehicles/*"]
 API --> PolicyRoutes["/api/policies/*"]
 API --> ClaimRoutes["/api/claims/*"]
 API --> AdminRoutes["/api/admin/*"]
+API --> GarageAuthRoutes["/api/garage/auth/*"]
+API --> GarageRoutes["/api/garage/*"]
 AuthRoutes --> DB["Prisma + SQLite"]
 VehicleRoutes --> DB
 PolicyRoutes --> DB
 ClaimRoutes --> DB
 AdminRoutes --> DB
+GarageAuthRoutes --> DB
+GarageRoutes --> DB
 ```
 
 **Diagram sources**
-- [index.ts:14-34](file://backend/src/index.ts#L14-L34)
+- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
 
 **Section sources**
 - [index.ts:14-49](file://backend/src/index.ts#L14-L49)
@@ -70,12 +77,14 @@ AdminRoutes --> DB
 - File Uploads: Multer-based image and document upload with static serving under /uploads.
 - Error Handling: Centralized error handler returning consistent JSON errors.
 - AI Integration: Flash Claim Assistant powered by Google Gemini for intelligent claim support.
+- Garage Management: Dedicated garage portal with approval workflow and claim assignment system.
 
-**Updated** Added Flash Claim Assistant integration for enhanced AI-powered claim assistance.
+**Updated** Added comprehensive Garage API with dedicated authentication and claim management capabilities.
 
 **Section sources**
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [garageAuth.ts:6-31](file://backend/src/middleware/garageAuth.ts#L6-L31)
 - [schema.prisma:10-202](file://backend/prisma/schema.prisma#L10-L202)
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
 - [claimAssistantService.ts:4-17](file://backend/src/services/claimAssistantService.ts#L4-L17)
@@ -86,6 +95,7 @@ The API follows a layered architecture:
 - Route handlers validate inputs, enforce auth, interact with Prisma, and return JSON responses.
 - Services encapsulate AI-driven logic (damage analysis, repair estimates, document verification, chat assistant).
 - Static assets (uploaded files) are served from a configured directory.
+- Garage portal provides separate authentication and claim management workflows.
 
 ```mermaid
 sequenceDiagram
@@ -95,7 +105,7 @@ participant R as "Route Handler"
 participant M as "Middleware"
 participant P as "Prisma"
 C->>E : HTTP Request
-E->>M : Apply CORS, JSON parse, Auth/Admin
+E->>M : Apply CORS, JSON parse, Auth/Admin/Garage
 M-->>E : Next or 401/403
 E->>R : Dispatch to route
 R->>P : Query/Mutation
@@ -107,6 +117,7 @@ R-->>C : JSON Response
 - [index.ts:17-34](file://backend/src/index.ts#L17-L34)
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [garageAuth.ts:6-31](file://backend/src/middleware/garageAuth.ts#L6-L31)
 
 ## Detailed Component Analysis
 
@@ -155,6 +166,47 @@ Error response pattern:
 - [auth.ts:11-105](file://backend/src/routes/auth.ts#L11-L105)
 - [auth.ts:107-165](file://backend/src/routes/auth.ts#L107-L165)
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
+
+### Garage Authentication API
+Base path: /api/garage/auth
+
+- POST /api/garage/auth/register
+  - Auth: None
+  - Request body fields: email, password, name, ownerName, phone, address, city, licenseNumber, specialties (optional array)
+  - Success response: garage object (id, email, name, ownerName, phone, address, city, licenseNumber, specialties, isActive, isApproved, createdAt), message
+  - Errors: 400 validation, 409 duplicate email, 500 server error
+  - Notes: Password hashed; account requires admin approval before login; token expires in 7 days
+
+- POST /api/garage/auth/login
+  - Auth: None
+  - Request body fields: email, password
+  - Success response: garage object (id, email, name, ownerName, phone, address, city, licenseNumber, specialties), token (JWT)
+  - Errors: 400 missing fields, 401 invalid credentials, 403 account pending approval or inactive, 500 server error
+
+- GET /api/garage/auth/profile
+  - Auth: Required (Bearer token with garage role)
+  - Response: garage profile (id, email, name, ownerName, phone, address, city, licenseNumber, specialties, isActive, createdAt)
+  - Errors: 401 unauthorized, 403 garage access required, 404 not found, 500 server error
+
+Garage authentication flow:
+- Garages register accounts that require admin approval before use.
+- Approved garages obtain JWT tokens with garage role.
+- Include Authorization: Bearer <token> on protected garage endpoints.
+- Token contains garageId and role; validated by garage middleware.
+
+Example request headers:
+- Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+
+Example success response (garage login):
+- { garage: { id, email, name, ownerName, phone, address, city, licenseNumber, specialties }, token }
+
+**Updated** Added comprehensive garage authentication system with approval workflow.
+
+**Section sources**
+- [garageAuth.ts:11-56](file://backend/src/routes/garageAuth.ts#L11-L56)
+- [garageAuth.ts:58-109](file://backend/src/routes/garageAuth.ts#L58-L109)
+- [garageAuth.ts:111-133](file://backend/src/routes/garageAuth.ts#L111-L133)
+- [garageAuth.ts (middleware):6-31](file://backend/src/middleware/garageAuth.ts#L6-L31)
 
 ### Vehicles API
 Base path: /api/vehicles
@@ -319,6 +371,43 @@ Notes:
 - [claims.ts:399-421](file://backend/src/routes/claims.ts#L399-L421)
 - [claims.ts:423-447](file://backend/src/routes/claims.ts#L423-L447)
 
+### Garage Claims API
+Base path: /api/garage
+- All endpoints require garage authentication (Bearer token with garage role).
+
+- GET /api/garage/claims
+  - Query params: status (filter by claim status)
+  - Response: list of claims assigned to this garage with user, vehicle, damage assessment, repair estimate, and image counts
+  - Errors: 401 unauthorized, 403 garage access required, 500 server error
+
+- GET /api/garage/claims/:id
+  - Response: full claim detail including user, vehicle, images, damage assessment, repair estimate, garage estimate, documents, and admin notes
+  - Errors: 401 unauthorized, 403 garage access required, 404 not found, 500 server error
+
+- POST /api/garage/claims/:id/estimate
+  - Request body fields: items (array of repair items), totalPartsCost (float), totalLaborCost (float), totalCost (float), estimatedDays (int), notes (optional string)
+  - Validation: At least one repair item required; AI damage assessment must be completed first
+  - Success response: created or updated garage estimate
+  - Side effects: Updates claim status to GARAGE_ESTIMATED
+  - Errors: 400 validation or missing AI assessment, 404 not found, 500 server error
+
+Garage claim workflow:
+- Garages can view claims assigned to them with filtering by status.
+- Each claim includes comprehensive details for assessment and estimation.
+- Garages can submit repair estimates which update claim status automatically.
+- Estimates can be revised after initial submission.
+
+Example request body for estimate submission:
+- { items: [{ damageType, partName, partCost, laborHours, laborRate, paintMaterials }], totalPartsCost, totalLaborCost, totalCost, estimatedDays, notes }
+
+**Updated** Added comprehensive garage claim management with approval workflow integration.
+
+**Section sources**
+- [garage.ts:12-36](file://backend/src/routes/garage.ts#L12-L36)
+- [garage.ts:38-65](file://backend/src/routes/garage.ts#L38-L65)
+- [garage.ts:67-133](file://backend/src/routes/garage.ts#L67-L133)
+- [garageAuth.ts (middleware):6-31](file://backend/src/middleware/garageAuth.ts#L6-L31)
+
 ### Administrative API
 Base path: /api/admin
 - All endpoints require admin authentication (Bearer token with admin role).
@@ -368,6 +457,7 @@ Base path: /api/admin
 - Route modules depend on Prisma client for data operations.
 - Authentication middleware depends on JWT library and environment secret.
 - Admin middleware additionally queries User to verify admin flag.
+- Garage middleware validates garage role and account status.
 - Claims routes integrate multiple services for AI features (damage analysis, repair estimate, document verification, chat assistant).
 - Static file serving serves uploaded content under /uploads.
 
@@ -378,26 +468,30 @@ B["routes/vehicles.ts"] --> M1
 C["routes/policies.ts"] --> M1
 D["routes/claims.ts"] --> M1
 E["routes/admin.ts"] --> M2["middleware/adminAuth.ts"]
+F["routes/garageAuth.ts"] --> M3["middleware/garageAuth.ts"]
+G["routes/garage.ts"] --> M3
 D --> S1["services/damageAnalysisService.ts"]
 D --> S2["services/repairEstimateService.ts"]
 D --> S3["services/documentVerificationService.ts"]
 D --> S4["services/claimAssistantService.ts"]
-A & B & C & D & E --> P["utils/prisma.ts"]
+A & B & C & D & E & F & G --> P["utils/prisma.ts"]
 ```
 
 **Diagram sources**
 - [index.ts:30-34](file://backend/src/index.ts#L30-L34)
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [garageAuth.ts:6-31](file://backend/src/middleware/garageAuth.ts#L6-L31)
 
 **Section sources**
 - [index.ts:30-34](file://backend/src/index.ts#L30-L34)
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [garageAuth.ts:6-31](file://backend/src/middleware/garageAuth.ts#L6-L31)
 
 ## Performance Considerations
 - Pagination: Not currently implemented. For large datasets (e.g., claims, policies), consider adding query parameters like page and limit to reduce payload sizes and improve performance.
-- Filtering: Some endpoints support filtering (claims by status, admin claims by status/search, admin documents by verification status). Expand filters where useful.
+- Filtering: Some endpoints support filtering (claims by status, admin claims by status/search, admin documents by verification status, garage claims by status). Expand filters where useful.
 - Rate Limiting: No built-in rate limiting. Implement middleware (e.g., express-rate-limit) to protect against abuse and ensure fair usage.
 - File Uploads: Enforce size limits and allowed MIME types to prevent abuse and storage exhaustion.
 - Database Queries: Use selective field projection and indexes where appropriate to optimize read-heavy endpoints.
@@ -407,7 +501,7 @@ A & B & C & D & E --> P["utils/prisma.ts"]
 ## Troubleshooting Guide
 Common issues and resolutions:
 - 401 Unauthorized: Missing or invalid Authorization header. Ensure Bearer token format and validity. Check JWT secret configuration.
-- 403 Forbidden: Admin-only endpoint accessed without admin privileges. Verify user role.
+- 403 Forbidden: Admin-only endpoint accessed without admin privileges or garage access required. Verify user role and account status.
 - 400 Bad Request: Missing or invalid fields. Validate request bodies according to endpoint specs.
 - 404 Not Found: Resource does not exist or belongs to another user. Confirm IDs and ownership checks.
 - 500 Internal Server Error: Unexpected server-side failure. Check logs and environment variables (DATABASE_URL, JWT_SECRET, UPLOAD_DIR, CORS_ORIGIN).
@@ -423,37 +517,47 @@ Health check:
 **Section sources**
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [garageAuth.ts:6-31](file://backend/src/middleware/garageAuth.ts#L6-L31)
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
 - [index.ts:48-55](file://backend/src/index.ts#L48-L55)
 
 ## Conclusion
-This API provides a robust foundation for managing vehicles, policies, and insurance claims with AI-assisted workflows and administrative oversight through the Flash Claim platform. Follow the authentication and authorization rules, adhere to request schemas, and implement client-side retries and error handling for resilient integrations. Adopt pagination and rate limiting as your scale grows.
+This API provides a robust foundation for managing vehicles, policies, and insurance claims with AI-assisted workflows and administrative oversight through the Flash Claim platform. The addition of comprehensive garage management capabilities enables repair shops to participate in the claim process with dedicated authentication and claim estimation workflows. Follow the authentication and authorization rules, adhere to request schemas, and implement client-side retries and error handling for resilient integrations. Adopt pagination and rate limiting as your scale grows.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
 ## Appendices
 
 ### Authentication Requirements Summary
-- Public endpoints: /api/auth/register, /api/auth/login
-- Protected endpoints: /api/vehicles/*, /api/policies/*, /api/claims/*
+- Public endpoints: /api/auth/register, /api/auth/login, /api/garage/auth/register, /api/garage/auth/login
+- Protected endpoints: /api/vehicles/*, /api/policies/*, /api/claims/* (user authentication)
+- Garage endpoints: /api/garage/* (garage authentication with role verification)
 - Admin endpoints: /api/admin/* require admin role
 
 Include Authorization: Bearer <token> for protected routes.
 
+**Updated** Added garage authentication requirements with role-based access control.
+
 **Section sources**
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [garageAuth.ts:6-31](file://backend/src/middleware/garageAuth.ts#L6-L31)
 
 ### Data Models Overview
 Key entities and relationships:
 - User owns Vehicles, Policies, Claims
+- Garage manages Claims and GarageEstimates
 - Claim links to Vehicle and optional Policy
 - Claim has many Images and Documents
 - DamageAssessment and RepairEstimate are linked to Claim
+- GarageEstimate links Garage and Claim
 - ChatMessage threads per Claim
+
+**Updated** Added Garage and GarageEstimate models for garage portal functionality.
 
 **Section sources**
 - [schema.prisma:10-202](file://backend/prisma/schema.prisma#L10-L202)
+- [schema.prisma:220-256](file://backend/prisma/schema.prisma#L220-L256)
 
 ### Versioning Strategy and Deprecation Policy
 - Current versioning: Path-based v1 not present; base paths are stable (/api/*).
@@ -468,6 +572,9 @@ Key entities and relationships:
 - Handle errors gracefully using the standardized error response shape.
 - For file uploads, use multipart/form-data and respect field names and limits.
 - Implement retry logic with exponential backoff for transient errors.
+- For garage portal, handle approval workflow states and account status checks.
+
+**Updated** Added guidelines for garage portal client implementation including approval workflow handling.
 
 [No sources needed since this section provides general guidance]
 
@@ -476,8 +583,9 @@ Key entities and relationships:
 - **Description**: Vehicle Insurance Claim & Damage Assessment Backend
 - **AI Assistant**: Flash Claim Assistant powered by Google Gemini
 - **Frontend Branding**: Flash Claim Smart Claims Platform
+- **Garage Portal**: Dedicated repair shop management interface with approval workflow
 
-**Updated** System identification now consistently uses "Flash Claim" branding across all endpoints and responses.
+**Updated** System identification now consistently uses "Flash Claim" branding across all endpoints and responses, including new garage portal functionality.
 
 **Section sources**
 - [package.json:4](file://backend/package.json#L4)

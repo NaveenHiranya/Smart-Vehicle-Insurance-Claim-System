@@ -1,8 +1,0 @@
-The module is split across backend Express routes and a React frontend under `/admin` routes.
-
-- Backend entry (`backend/src/index.ts`) mounts an `adminRoutes` router at `/api/admin`, guarded by a single `adminAuthMiddleware` that verifies a JWT and enforces `user.isAdmin`, returning 401/403 otherwise.
-- All admin endpoints live in `backend/src/routes/admin.ts`: stats aggregation, user listing, filtered/searchable claim listing, full claim detail retrieval, status updates, document approval/rejection, and CRUD on `adminNote` records. Each route follows a try/catch pattern that logs errors and returns `{ error: ... }` JSON.
-- Shared infrastructure: Prisma client (`backend/src/utils/prisma.ts`) for DB access; `backend/src/types/index.ts` defines `AuthRequest`; uploads are served statically via `express.static('./uploads')`.
-- Frontend admin pages live in `frontend/src/pages/admin/` (`AdminDashboardPage`, `AdminClaimsPage`, `AdminClaimDetailPage`, `AdminDocumentsPage`, `AdminUsersPage`, `AdminLoginPage`) and share layout/auth wrappers (`AdminLayout`, `AdminProtectedRoute`).
-- The frontend calls the admin API through a dedicated `frontend/src/services/adminApi.ts` (separate from the user-facing `api.ts`), keeping admin and user clients decoupled.
-- Admin state changes (status, verification, notes) are written directly to the same Prisma schema used by the user app, so updates appear immediately in the user view without a separate data store.

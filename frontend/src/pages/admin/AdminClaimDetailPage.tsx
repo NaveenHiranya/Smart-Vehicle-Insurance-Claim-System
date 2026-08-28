@@ -101,7 +101,7 @@ export function AdminClaimDetailPage() {
   if (!claim) return null;
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="w-full">
       <button onClick={() => navigate('/admin/claims')}
         className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 mb-5 font-medium">
         <ArrowLeft className="h-4 w-4" /> Back to Claims

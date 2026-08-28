@@ -1,5 +1,0 @@
-- Every admin route wraps its body in try/catch, logs the error with a descriptive prefix, and responds with `{ error: '...' }` JSON plus an appropriate HTTP status.
-- Admin-only routes are protected by mounting `adminAuthMiddleware` at the top of the router rather than per-route, enforcing JWT presence, validity, and `isAdmin` flag uniformly.
-- Query parameters are read as optional strings and conditionally added to a `where` object before passing to Prisma, allowing zero or many filters (e.g. status, search) to compose cleanly.
-- Frontend admin functionality is isolated behind a dedicated `adminApi` service and `AdminProtectedRoute` wrapper, keeping admin requests and navigation separate from the regular user flow.
-- Status values are validated against an explicit allowlist array (`['DRAFT','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED','COMPLETED']` or `['vehicle','document','general']`) before being persisted.

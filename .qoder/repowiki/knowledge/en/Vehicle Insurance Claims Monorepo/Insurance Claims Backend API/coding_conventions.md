@@ -1,5 +1,0 @@
-- Route handlers in `src/routes/` stay thin and delegate validation and business logic to corresponding services under `src/services/`.
-- Authentication and authorization are enforced per-route using reusable middleware (`auth.ts`, `adminAuth.ts`) rather than inline checks.
-- Database access goes exclusively through the shared Prisma client exported from `src/utils/prisma.ts`.
-- External AI calls (Gemini vision) are isolated in utility/service modules so routes remain free of third-party SDK details.
-- All unhandled errors are caught by the single `errorHandler` middleware mounted last in the Express pipeline.

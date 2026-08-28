@@ -1,1 +1,0 @@
-Express.js with TypeScript, Multer for multipart file uploads, UUID v4 for generated filenames, Prisma Client for database access, CORS for cross-origin requests, dotenv for environment configuration.

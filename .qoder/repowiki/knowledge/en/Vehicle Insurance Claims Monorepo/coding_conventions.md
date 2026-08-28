@@ -1,2 +1,0 @@
-- Domain entities are modeled once in Prisma and consumed by both the backend API and the frontend UI.
-- Each top-level service directory is self-contained with its own dependencies, scripts, and configuration.

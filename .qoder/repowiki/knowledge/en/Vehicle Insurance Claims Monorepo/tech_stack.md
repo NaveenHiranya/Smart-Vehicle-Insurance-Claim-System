@@ -1,1 +1,0 @@
-React + Vite for the client, Express + TypeScript + Prisma for the server, both targeting the shared vehicle insurance claim domain model defined in Prisma.

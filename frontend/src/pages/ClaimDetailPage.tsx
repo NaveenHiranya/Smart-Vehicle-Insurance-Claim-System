@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import type { Claim, DamageItem } from '../types';
-import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Send, Shield, MessageSquare, ListTodo, Lightbulb, CheckCircle2, Circle, Clock, XCircle, BadgeCheck, StickyNote, Camera, Wrench } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Send, Shield, MessageSquare, ListTodo, CheckCircle2, Circle, Clock, XCircle, BadgeCheck, StickyNote, Camera, Wrench } from 'lucide-react';
 import { uploadUrl } from '../utils/uploadUrl';
 
 export function ClaimDetailPage() {
@@ -108,38 +108,6 @@ export function ClaimDetailPage() {
     ];
   }, [claim]);
 
-  // --- AI Suggestions based on claim state ---
-  const suggestions = useMemo(() => {
-    if (!claim) return [];
-    const tips: { icon: string; text: string }[] = [];
-    const docs = claim.documents || [];
-    const docTypes = docs.map((d) => d.type);
-
-    if (!claim.images || claim.images.length === 0)
-      tips.push({ icon: '📷', text: 'Upload full-vehicle and close-up damage photos for a more accurate AI assessment.' });
-    if (claim.images && claim.images.length > 0 && !claim.damageAssessment)
-      tips.push({ icon: '🤖', text: 'Run AI damage analysis to get an automated repair estimate.' });
-    if (!docTypes.includes('LICENSE'))
-      tips.push({ icon: '🪪', text: "Upload your driver's license to speed up the insurance review." });
-    if (!docTypes.includes('REGISTRATION'))
-      tips.push({ icon: '📄', text: 'Upload your vehicle registration document.' });
-    if (!docTypes.includes('ACCIDENT_REPORT') && claim.hasPoliceReport)
-      tips.push({ icon: '🚔', text: 'You marked a police report was filed — upload it to strengthen your claim.' });
-    if (docs.some((d) => d.verificationStatus === 'ISSUES_FOUND'))
-      tips.push({ icon: '⚠️', text: 'One or more documents have issues. Replace them with clearer photos.' });
-    if (docs.some((d) => d.verificationStatus === 'UNREADABLE'))
-      tips.push({ icon: '🔍', text: 'Some documents are unreadable. Re-upload with better lighting and focus.' });
-    if (claim.damageAssessment?.overallSeverity === 'SEVERE')
-      tips.push({ icon: '🚗', text: 'Severe damage detected. Avoid driving the vehicle until it has been inspected by a mechanic.' });
-    if (claim.status === 'DRAFT')
-      tips.push({ icon: '📨', text: 'Your claim is still a draft. Submit it when you have added all photos and documents.' });
-    if (claim.status === 'UNDER_REVIEW')
-      tips.push({ icon: '⏳', text: 'Your claim is under review. Ensure all documents are verified to avoid delays.' });
-    if (tips.length === 0)
-      tips.push({ icon: '✅', text: 'Everything looks good! Your claim is progressing well.' });
-
-    return tips;
-  }, [claim]);
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div></div>;
   if (!claim) return null;
@@ -175,6 +143,36 @@ export function ClaimDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Claim Progress Checklist */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <ListTodo className="h-5 w-5 text-primary-600" /> Claim Progress
+            </h2>
+            <ol className="space-y-2">
+              {todoSteps.map((step, i) => (
+                <li key={i} className="flex items-center gap-3">
+                  {step.issue ? (
+                    <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                  ) : step.done ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-gray-300 flex-shrink-0" />
+                  )}
+                  <span className={`text-sm ${
+                    step.issue ? 'text-red-600 font-medium' :
+                    step.done ? 'text-gray-600' :
+                    'text-gray-700'
+                  }`}>
+                    {step.label}
+                  </span>
+                  {!step.done && !step.issue && (
+                    <Clock className="h-3.5 w-3.5 text-gray-300 ml-auto flex-shrink-0" />
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+
           {/* Images */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Claim Images ({claim.images?.length || 0})</h2>
@@ -398,47 +396,6 @@ export function ClaimDetailPage() {
                 );
               })}
             </div>
-          </div>
-
-          {/* Claim Progress Checklist */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <ListTodo className="h-5 w-5 text-primary-600" /> Claim Progress
-            </h2>
-            <ol className="space-y-2">
-              {todoSteps.map((step, i) => (
-                <li key={i} className="flex items-center gap-3">
-                  {step.issue ? (
-                    <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                  ) : step.done ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-gray-300 flex-shrink-0" />
-                  )}
-                  <span className={`text-sm ${step.issue ? 'text-red-600 font-medium' : step.done ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                    {step.label}
-                  </span>
-                  {!step.done && !step.issue && (
-                    <Clock className="h-3.5 w-3.5 text-gray-300 ml-auto flex-shrink-0" />
-                  )}
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          {/* Suggestions */}
-          <div className="bg-white rounded-xl shadow-sm border border-yellow-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Lightbulb className="h-5 w-5 text-yellow-500" /> Suggestions
-            </h2>
-            <ul className="space-y-2.5">
-              {suggestions.map((s, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
-                  <span className="text-base leading-none mt-0.5">{s.icon}</span>
-                  <span>{s.text}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Documents Approved by Insurance */}

@@ -10,6 +10,7 @@ import claimRoutes from './routes/claims.js';
 import adminRoutes from './routes/admin.js';
 import garageAuthRoutes from './routes/garageAuth.js';
 import garageRoutes from './routes/garage.js';
+import generalChatRoutes from './routes/generalChat.js';
 import prisma from './utils/prisma.js';
 
 dotenv.config();
@@ -47,6 +48,7 @@ app.use('/api/claims', claimRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/garage/auth', garageAuthRoutes);
 app.use('/api/garage', garageRoutes);
+app.use('/api/general-chat', generalChatRoutes);
 
 // Health check
 app.get('/api/health', async (_req, res) => {

@@ -1,0 +1,6 @@
+- Admin routes are grouped under a single Express router mounted at `/api/admin` and protected globally with `router.use(adminAuthMiddleware)` so every handler inherits admin-only access.
+- Each route handler wraps its logic in try/catch and returns a uniform `{ error: '...' }` JSON body with appropriate HTTP status codes instead of throwing unhandled errors.
+- Prisma queries use explicit `select`/`include` projections to fetch only the fields needed by the admin view (e.g., user name, vehicle make/model, document counts) rather than returning full entities.
+- Frontend admin requests are funneled through a single `adminApi` axios instance that reads `adminToken` from localStorage, attaches it as a Bearer header, and redirects to `/admin/login` on 401/403 responses.
+- Claim status transitions are validated server-side against a whitelist of allowed values before persisting changes to the database.
+- Document verification actions set both `verificationStatus` and a structured `verificationResult` JSON object containing `status`, `issues`, and `approvedByAdmin` flags.

@@ -1,1 +1,0 @@
-Express + TypeScript backend with Prisma ORM over SQLite (dev) / PostgreSQL (prod); JWT-based admin auth; React + Vite frontend using Tailwind CSS and Lucide icons; file uploads stored on disk under `backend/uploads/` and served statically.
