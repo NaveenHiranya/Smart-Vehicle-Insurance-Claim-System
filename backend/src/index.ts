@@ -8,8 +8,19 @@ import vehicleRoutes from './routes/vehicles.js';
 import policyRoutes from './routes/policies.js';
 import claimRoutes from './routes/claims.js';
 import adminRoutes from './routes/admin.js';
+import prisma from './utils/prisma.js';
 
 dotenv.config();
+
+// ── Startup validation ────────────────────────────────────────────────────────
+const REQUIRED_ENV = ['JWT_SECRET', 'GEMINI_API_KEY', 'DATABASE_URL'] as const;
+const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missing.length) {
+  console.error(`[startup] Missing required environment variables: ${missing.join(', ')}`);
+  console.error('[startup] Copy backend/.env.example to backend/.env and fill in the values.');
+  process.exit(1);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,8 +45,13 @@ app.use('/api/claims', claimRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'AutoShield AI API' });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await prisma.user.count();
+    res.json({ status: 'ok', service: 'AutoShield AI API', db: 'connected' });
+  } catch {
+    res.status(503).json({ status: 'error', service: 'AutoShield AI API', db: 'unreachable' });
+  }
 });
 
 // Error handler

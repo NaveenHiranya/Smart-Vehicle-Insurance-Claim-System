@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const adminApi = axios.create({ baseURL: '/api/admin' });
+const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/admin` : '/api/admin';
+
+const adminApi = axios.create({ baseURL: BASE });
 
 adminApi.interceptors.request.use((config) => {
   const token = localStorage.getItem('adminToken');
