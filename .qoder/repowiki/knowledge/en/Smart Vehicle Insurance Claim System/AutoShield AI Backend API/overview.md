@@ -1,0 +1,1 @@
+Express-based backend that wires domain routes (auth, vehicles, policies, claims) into a single server with shared middleware, Prisma data access, and Gemini-powered claim services.

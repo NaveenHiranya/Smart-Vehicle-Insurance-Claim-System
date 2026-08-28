@@ -1,0 +1,1 @@
+- Each service maintains its own dependency graph and build pipeline under its own directory, with no shared code between frontend and backend.

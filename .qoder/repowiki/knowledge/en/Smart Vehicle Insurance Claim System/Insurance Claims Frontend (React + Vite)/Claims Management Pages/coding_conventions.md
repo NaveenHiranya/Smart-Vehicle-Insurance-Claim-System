@@ -1,0 +1,6 @@
+- Each page is a named functional component exported from its file and manages local state with `useState` plus side effects with `useEffect`.
+- API calls go through a shared `api` client from `../services/api` using GET/POST with URL paths like `/claims`, `/claims/{id}`, and multipart form-data for uploads.
+- Status and severity values are mapped to Tailwind color classes via local `Record<string, string>` lookup tables defined at the top of each component.
+- Loading states are handled with dedicated boolean state flags that render a centered spinner before the main content.
+- User-facing errors from API calls are surfaced via `alert()` or inline error banners rather than global error handling.
+- Navigation between pages uses `react-router-dom` primitives (`Link`, `useNavigate`, `useParams`) instead of programmatic redirects.

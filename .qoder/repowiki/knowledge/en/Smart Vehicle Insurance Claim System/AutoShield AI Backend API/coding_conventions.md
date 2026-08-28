@@ -1,0 +1,4 @@
+- Each domain feature is split into a `routes/<feature>.ts` controller paired with one or more `services/<feature>Service.ts` modules, keeping HTTP handling separate from business logic.
+- Cross-cutting concerns (auth, uploads, errors) are implemented as Express middleware in `src/middleware/` and mounted centrally in `index.ts` rather than per-route.
+- Database access is funneled through a shared Prisma client in `utils/prisma.ts` instead of instantiating clients inside individual services.
+- AI capabilities are isolated behind dedicated service functions in `services/` that call `utils/gemini.ts`, so route handlers never invoke the Gemini SDK directly.

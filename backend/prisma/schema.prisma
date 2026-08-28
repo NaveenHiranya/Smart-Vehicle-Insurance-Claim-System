@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  address      String?
+  isAdmin      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vehicles        Vehicle[]
+  policies        InsurancePolicy[]
+  claims          Claim[]
+}
+
+model Vehicle {
+  id           String   @id @default(uuid())
+  userId       String
+  make         String
+  model        String
+  year         Int
+  vin          String?
+  licensePlate String
+  color        String
+  mileage      Int?
+  photos       String @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  claims Claim[]
+}
+
+model InsurancePolicy {
+  id           String    @id @default(uuid())
+  userId       String
+  providerName String
+  policyNumber String
+  coverageType String
+  deductible   Float
+  premiumAmount Float
+  startDate    DateTime
+  endDate      DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  claims Claim[]
+}
+
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model Claim {
+  id                  String      @id @default(uuid())
+  userId              String
+  vehicleId           String
+  policyId            String?
+  status              ClaimStatus @default(DRAFT)
+  incidentDate        DateTime
+  incidentLocation    String
+  incidentDescription String
+  weatherConditions   String?
+  hasPoliceReport     Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle           Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  policy            InsurancePolicy?   @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  images            ClaimImage[]
+  damageAssessment  DamageAssessment?
+  repairEstimate    RepairEstimate?
+  insurancePayout   InsurancePayout?
+  documents         Document[]
+  chatMessages      ChatMessage[]
+}
+
+enum ImageType {
+  FULL_VEHICLE
+  DAMAGE_CLOSEUP
+}
+
+model ClaimImage {
+  id           String    @id @default(uuid())
+  claimId      String
+  type         ImageType
+  filePath     String
+  label        String?
+  aiAnnotation Json?
+  uploadedAt   DateTime  @default(now())
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}
+
+enum SeverityLevel {
+  MINOR
+  MODERATE
+  SEVERE
+}
+
+model DamageAssessment {
+  id                   String        @id @default(uuid())
+  claimId              String        @unique
+  damages              Json
+  drivabilityAssessment String
+  overallSeverity      SeverityLevel
+  aiRawResponse        Json?
+  assessedAt           DateTime      @default(now())
+
+  claim          Claim           @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  repairEstimate RepairEstimate?
+}
+
+model RepairEstimate {
+  id                 String   @id @default(uuid())
+  claimId            String   @unique
+  damageAssessmentId String   @unique
+  items              Json
+  totalPartsCost     Float
+  totalLaborCost     Float
+  totalCost          Float
+  estimatedDays      Int
+  createdAt          DateTime @default(now())
+
+  claim             Claim             @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  damageAssessment  DamageAssessment  @relation(fields: [damageAssessmentId], references: [id], onDelete: Cascade)
+  insurancePayout   InsurancePayout?
+}
+
+model InsurancePayout {
+  id              String   @id @default(uuid())
+  claimId         String   @unique
+  repairEstimateId String  @unique
+  deductible      Float
+  coveredAmount   Float
+  estimatedPayout Float
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  claim          Claim          @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  repairEstimate RepairEstimate @relation(fields: [repairEstimateId], references: [id], onDelete: Cascade)
+}
+
+enum DocumentType {
+  LICENSE
+  REGISTRATION
+  ACCIDENT_REPORT
+  REPAIR_ESTIMATE
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  ISSUES_FOUND
+  UNREADABLE
+}
+
+model Document {
+  id                 String             @id @default(uuid())
+  claimId            String
+  type               DocumentType
+  filePath           String
+  verificationStatus VerificationStatus @default(PENDING)
+  verificationResult Json?
+  uploadedAt         DateTime           @default(now())
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  claimId   String
+  role      ChatRole
+  content   String
+  createdAt DateTime @default(now())
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}

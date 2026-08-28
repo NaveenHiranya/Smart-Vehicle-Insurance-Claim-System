@@ -1,0 +1,6 @@
+- Each page component manages its own data fetching with `useState` for entities and a `loading` flag, then calls the `api` client in a `useEffect` on mount.
+- Form state is held as a plain object in `useState` and updated via a local `update(field)` helper that returns a change handler using bracket notation on the field name.
+- Error messages are displayed inline via an `error` state variable rendered inside a red-bordered alert div above the submit button.
+- Async mutations catch errors and surface them either through the `error` state or a browser `alert`/`confirm` prompt before re-fetching or navigating.
+- Empty-state screens show a centered card with a large muted icon, a heading, and a call-to-action link to create the first record.
+- Loading states are uniformly rendered as a centered spinner div with `animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600`.

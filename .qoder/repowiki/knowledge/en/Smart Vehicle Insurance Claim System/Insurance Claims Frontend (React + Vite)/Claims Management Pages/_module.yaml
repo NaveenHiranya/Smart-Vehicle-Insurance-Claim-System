@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: frontend/claims_feature
+title: Claims Management Pages
+scope:
+    - frontend/src/pages/ClaimsPage.tsx
+    - frontend/src/pages/ClaimDetailPage.tsx
+    - frontend/src/pages/NewClaimPage.tsx
+source_files: []
+depends_on: []
+related_to:
+    - path: backend/claims_domain

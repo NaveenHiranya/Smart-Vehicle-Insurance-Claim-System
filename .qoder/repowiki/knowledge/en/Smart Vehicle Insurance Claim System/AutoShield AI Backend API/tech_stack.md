@@ -1,0 +1,1 @@
+Express + TypeScript on Node.js, Prisma for database schema (`prisma/schema.prisma`) and client, Google Gemini SDK for AI-assisted claim/damage features, multer-style uploads served statically from `./uploads`, dotenv for configuration.

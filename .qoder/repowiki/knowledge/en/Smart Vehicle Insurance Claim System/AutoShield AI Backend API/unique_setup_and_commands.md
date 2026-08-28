@@ -1,0 +1,1 @@
+Server starts via `npm start` (or equivalent) from `backend/`; environment variables are loaded from `.env` (see `.env.example`) covering `PORT`, `CORS_ORIGIN`, `UPLOAD_DIR`, and service credentials.

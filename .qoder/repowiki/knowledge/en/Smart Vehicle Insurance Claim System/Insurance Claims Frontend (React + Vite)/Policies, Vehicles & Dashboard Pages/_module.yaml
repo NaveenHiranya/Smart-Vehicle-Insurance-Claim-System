@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: frontend/policies_vehicles_dashboard
+title: Policies, Vehicles & Dashboard Pages
+scope:
+    - frontend/src/pages/PoliciesPage.tsx
+    - frontend/src/pages/VehiclesPage.tsx
+    - frontend/src/pages/DashboardPage.tsx
+source_files: []
+depends_on: []
+related_to:
+    - path: backend

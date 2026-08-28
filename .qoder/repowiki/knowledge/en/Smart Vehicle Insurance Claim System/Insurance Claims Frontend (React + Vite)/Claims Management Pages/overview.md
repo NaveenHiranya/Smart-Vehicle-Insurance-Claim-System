@@ -1,0 +1,1 @@
+React page components for listing, creating, and viewing insurance claims, including AI-driven damage analysis, document upload/verification, and an in-page chat assistant.

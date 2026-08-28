@@ -1,0 +1,1 @@
+Top-level workspace that co-locates the Express backend API and React/Vite frontend SPA for an end-to-end vehicle insurance claim management application.

@@ -1,0 +1,6 @@
+- Every route handler first resolves the claim by `id` together with `req.userId`, returning 404 when not found — enforcing per-tenant ownership at the edge.
+- Route parameter extraction uses a local `param(req, name)` helper that casts Express 5's `string | string[]` params to `string` before passing to Prisma.
+- External AI capabilities are invoked by importing or calling functions in sibling `services/*` modules rather than embedding LLM calls inside route handlers.
+- Gemini interactions are driven by a module-level system prompt constant (e.g. `SYSTEM_PROMPT`, `DAMAGE_ANALYSIS_PROMPT`) that defines role, output schema, and severity taxonomy.
+- All async route handlers wrap their body in try/catch and return a uniform `{ error: string }` JSON payload with appropriate HTTP status codes.
+- Optional/conditional updates use spread-with-guarded-keys syntax like `...(field && { field })` to avoid writing undefined values to Prisma.

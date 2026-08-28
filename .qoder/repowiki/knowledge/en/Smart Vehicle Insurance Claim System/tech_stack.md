@@ -1,0 +1,1 @@
+Node.js ecosystem used by both children: TypeScript/JavaScript runtime, npm/yarn/pnpm package management, and Express on the backend consumed by a Vite + React frontend.

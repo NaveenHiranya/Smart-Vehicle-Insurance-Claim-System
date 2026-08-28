@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: frontend
+title: Insurance Claims Frontend (React + Vite)
+scope:
+    - frontend/
+source_files: []
+depends_on: []
+related_to: []

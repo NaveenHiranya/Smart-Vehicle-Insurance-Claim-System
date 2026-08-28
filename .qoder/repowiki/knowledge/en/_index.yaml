@@ -1,0 +1,76 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: Q0DeR-MaG1C-BrAnCh-Fo2-NoN-GiT-Or-No-C0MmIt
+nodes_managed: true
+exported_at: "2026-08-28T06:02:02Z"
+modules:
+    "":
+        dir_name: Smart Vehicle Insurance Claim System
+        title: Smart Vehicle Insurance Claim System
+        scope:
+            - .gitignore
+        source_files: []
+        children:
+            - backend
+            - frontend
+        depends_on: []
+        related_to: []
+    backend:
+        dir_name: AutoShield AI Backend API
+        title: AutoShield AI Backend API
+        scope:
+            - backend/
+        source_files: []
+        children:
+            - backend/claims_domain
+        depends_on: []
+        related_to:
+            - path: frontend/policies_vehicles_dashboard
+    backend/claims_domain:
+        dir_name: Claims API & AI-Assisted Damage Assessment
+        title: Claims API & AI-Assisted Damage Assessment
+        scope:
+            - backend/src/routes/claims.ts
+            - backend/src/services/claimAssistantService.ts
+            - backend/src/services/damageAnalysisService.ts
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: frontend/claims_feature
+    frontend:
+        dir_name: Insurance Claims Frontend (React + Vite)
+        title: Insurance Claims Frontend (React + Vite)
+        scope:
+            - frontend/
+        source_files: []
+        children:
+            - frontend/claims_feature
+            - frontend/policies_vehicles_dashboard
+        depends_on: []
+        related_to: []
+    frontend/claims_feature:
+        dir_name: Claims Management Pages
+        title: Claims Management Pages
+        scope:
+            - frontend/src/pages/ClaimsPage.tsx
+            - frontend/src/pages/ClaimDetailPage.tsx
+            - frontend/src/pages/NewClaimPage.tsx
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend/claims_domain
+    frontend/policies_vehicles_dashboard:
+        dir_name: Policies, Vehicles & Dashboard Pages
+        title: Policies, Vehicles & Dashboard Pages
+        scope:
+            - frontend/src/pages/PoliciesPage.tsx
+            - frontend/src/pages/VehiclesPage.tsx
+            - frontend/src/pages/DashboardPage.tsx
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend

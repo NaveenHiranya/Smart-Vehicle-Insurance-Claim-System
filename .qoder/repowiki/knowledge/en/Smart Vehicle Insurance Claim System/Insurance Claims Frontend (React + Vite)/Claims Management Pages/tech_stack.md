@@ -1,0 +1,1 @@
+React functional components with hooks; `react-router-dom` for routing; `react-dropzone` for drag-and-drop image uploads; Tailwind CSS for styling; Lucide React icons; Axios-based `api` client wrapping the backend REST endpoints.

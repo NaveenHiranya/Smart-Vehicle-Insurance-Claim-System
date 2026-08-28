@@ -1,0 +1,3 @@
+- Pages are implemented as React components under `src/pages/` and import shared types from `src/types/index.ts` rather than defining local interfaces.
+- All backend communication goes through the centralized `api.ts` service instead of direct fetch/axios calls inside pages.
+- Authentication state is read via the `AuthContext` provider rather than per-page login logic, and routes are guarded with `ProtectedRoute`.
