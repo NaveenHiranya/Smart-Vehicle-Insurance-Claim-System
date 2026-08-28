@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: Smart Vehicle Insurance Claim System
+title: Vehicle Insurance Claims Monorepo
 scope:
     - .gitignore
 source_files: []

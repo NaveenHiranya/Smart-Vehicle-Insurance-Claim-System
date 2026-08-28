@@ -1,1 +1,0 @@
-Express-based backend that wires authentication, vehicle/policy/claim routes, admin endpoints, and AI-driven document verification services around a shared Prisma data layer.

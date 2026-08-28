@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-08-28T09:23:43Z"
+exported_at: "2026-08-28T10:24:29Z"
 modules:
     "":
-        dir_name: Smart Vehicle Insurance Claim System
-        title: Smart Vehicle Insurance Claim System
+        dir_name: Vehicle Insurance Claims Monorepo
+        title: Vehicle Insurance Claims Monorepo
         scope:
             - .gitignore
         source_files: []
@@ -17,8 +17,8 @@ modules:
         depends_on: []
         related_to: []
     backend:
-        dir_name: AutoShield AI Backend API
-        title: AutoShield AI Backend API
+        dir_name: Insurance Claims Backend API
+        title: Insurance Claims Backend API
         scope:
             - backend/
         source_files: []
@@ -40,12 +40,10 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: backend/shared_infrastructure
-            - path: frontend
+        related_to: []
     backend/claims_management:
-        dir_name: Claims Management API & AI-Assisted Processing
-        title: Claims Management API & AI-Assisted Processing
+        dir_name: Claims Management Routes & AI Services
+        title: Claims Management Routes & AI Services
         scope:
             - backend/src/routes/claims.ts
             - backend/src/services/claimAssistantService.ts
@@ -53,9 +51,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: backend/shared_infrastructure
-            - path: frontend
+        related_to: []
     backend/document_verification:
         dir_name: Document Verification & Repair Estimate Services
         title: Document Verification & Repair Estimate Services
@@ -78,9 +74,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: backend/admin_auth
-            - path: backend/claims_management
+        related_to: []
     frontend:
         dir_name: Vehicle Insurance Claim Frontend (React + Vite)
         title: Vehicle Insurance Claim Frontend (React + Vite)
@@ -89,6 +83,4 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: backend/admin_auth
-            - path: backend/claims_management
+        related_to: []

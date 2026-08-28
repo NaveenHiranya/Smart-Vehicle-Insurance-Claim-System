@@ -1,1 +1,0 @@
-Node.js + Express with TypeScript, Prisma ORM against SQLite (`prisma/dev.db`), Google Gemini Vision API for image/document analysis, JWT for authentication, and multer-style file uploads served via `express.static`.

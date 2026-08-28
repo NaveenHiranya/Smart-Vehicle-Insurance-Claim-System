@@ -1,5 +1,5 @@
 - Services are exported as async functions taking a single ID argument and returning typed result objects defined in `../types/index.js`.
 - External API clients (Prisma, Gemini) are imported from centralized `../utils/*` modules rather than instantiated inline, keeping service logic focused on domain operations.
-- Gemini prompts are declared as module-level string constants and combined with runtime context before being sent to `model.generateContent`.
+- Gemini prompts are declared as module-level string constants and concatenated with runtime context before being sent to `model.generateContent`.
 - LLM text responses are parsed by first stripping optional markdown code fences (` ```json ... ``` `) and then `JSON.parse`-ing, with a fallback default result returned on parse failure.
 - Database writes follow an upsert pattern: query for an existing record by `claimId`/`documentId` and branch to either `update` or `create` based on existence.

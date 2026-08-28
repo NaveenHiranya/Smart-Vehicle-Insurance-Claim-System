@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
 import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock } from 'lucide-react';
+import { uploadUrl } from '../../utils/uploadUrl';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
@@ -211,7 +212,7 @@ export function AdminClaimDetailPage() {
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             {claim.images.map((img: any) => (
               <div key={img.id} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
-                <img src={img.filePath} alt="" className="w-full h-full object-cover" />
+                <img src={uploadUrl(img.filePath)} alt="" className="w-full h-full object-cover" />
                 <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded">{img.type === 'FULL_VEHICLE' ? 'Full' : 'Dmg'}</span>
               </div>
             ))}
@@ -230,7 +231,7 @@ export function AdminClaimDetailPage() {
                 const da = docAction[doc.id] || { loading: false, rejectInput: false, reason: '' };
                 return (
                   <div key={doc.id} className="flex flex-wrap items-center gap-4 p-3 border border-gray-200 rounded-lg">
-                    <img src={doc.filePath} alt="" className="h-14 w-20 object-cover rounded border border-gray-200 flex-shrink-0" />
+                    <img src={uploadUrl(doc.filePath)} alt="" className="h-14 w-20 object-cover rounded border border-gray-200 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-700">{doc.type.replace(/_/g, ' ')}</p>
                       <p className="text-xs text-gray-400">{new Date(doc.uploadedAt).toLocaleString()}</p>

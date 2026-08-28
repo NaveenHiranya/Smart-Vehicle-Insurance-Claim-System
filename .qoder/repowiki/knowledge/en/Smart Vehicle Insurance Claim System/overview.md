@@ -1,1 +1,0 @@
-Monorepo pairing a React/Vite frontend SPA with an Express/Prisma backend API to manage vehicle insurance claims, policies, and AI-assisted document verification.

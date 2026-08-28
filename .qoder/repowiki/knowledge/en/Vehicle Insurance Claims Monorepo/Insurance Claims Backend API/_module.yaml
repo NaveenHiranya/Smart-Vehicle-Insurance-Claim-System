@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: backend
-title: AutoShield AI Backend API
+title: Insurance Claims Backend API
 scope:
     - backend/
 source_files: []

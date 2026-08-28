@@ -11,6 +11,13 @@
 - [VehiclesPage.tsx](file://frontend/src/pages/VehiclesPage.tsx)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated Vehicle Detection Service section to reflect improved file path resolution logic
+- Enhanced documentation for path handling between development and production environments
+- Added detailed explanation of UPLOAD_DIR environment variable usage
+- Updated architecture diagrams to show enhanced path resolution flow
+
 ## Table of Contents
 1. Introduction
 2. Project Structure
@@ -24,7 +31,7 @@
 10. Appendices
 
 ## Introduction
-This document explains the Vehicle Detection Service that identifies and validates vehicles from uploaded images, extracts vehicle make, model, year, color, and license plate information, and integrates with the application’s data layer to persist vehicle records. The service uses a multimodal AI model to analyze images and return structured results, which are then stored in the database and exposed via REST endpoints. It also outlines confidence scoring, error handling, and guidance for expanding capabilities such as VIN extraction, anti-fraud checks, and integration with external databases.
+This document explains the Vehicle Detection Service that identifies and validates vehicles from uploaded images, extracts vehicle make, model, year, color, and license plate information, and integrates with the application's data layer to persist vehicle records. The service uses a multimodal AI model to analyze images and return structured results, which are then stored in the database and exposed via REST endpoints. It also outlines confidence scoring, error handling, and guidance for expanding capabilities such as VIN extraction, anti-fraud checks, and integration with external databases.
 
 ## Project Structure
 The vehicle detection feature spans backend services, routes, middleware, utilities, database schema, and frontend UI:
@@ -54,7 +61,7 @@ API --> DB["Prisma Client (SQLite)"]
 **Section sources**
 - [vehicles.ts:1-169](file://backend/src/routes/vehicles.ts#L1-L169)
 - [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
-- [vehicleDetectionService.ts:1-96](file://backend/src/services/vehicleDetectionService.ts#L1-L96)
+- [vehicleDetectionService.ts:1-98](file://backend/src/services/vehicleDetectionService.ts#L1-L98)
 - [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
 - [schema.prisma:1-202](file://backend/prisma/schema.prisma#L1-L202)
 - [VehiclesPage.tsx:1-369](file://frontend/src/pages/VehiclesPage.tsx#L1-L369)
@@ -97,6 +104,7 @@ FE->>RT : POST /api/vehicles/detect (image)
 RT->>UL : Multer upload
 UL-->>RT : File saved at /uploads/images/{uuid}
 RT->>SVC : detectVehicleFromImage(imagePath)
+SVC->>SVC : Resolve path with UPLOAD_DIR
 SVC->>AI : generateContent(prompt + image)
 AI-->>SVC : Text response (JSON)
 SVC->>SVC : Parse JSON to typed result
@@ -115,24 +123,28 @@ Note over FE,RT : Optional : Create vehicle record via POST /api/vehicles
 
 ### Vehicle Detection Service
 Responsibilities:
-- Resolve and validate image file paths.
+- Resolve and validate image file paths with enhanced cross-environment compatibility.
 - Determine MIME type based on extension.
 - Invoke the multimodal AI model with a strict JSON prompt to extract make, model, year, color, license plate, and confidence.
 - Parse the response robustly, supporting fenced JSON blocks.
 - Provide fallback values when parsing fails.
 
+**Updated** Enhanced file path resolution logic with improved comments explaining the conversion from absolute paths to filesystem paths. The service now properly handles both development (`./uploads`) and production (`/data/uploads`) environments through configurable UPLOAD_DIR environment variable.
+
 Key behaviors:
 - Confidence levels: HIGH, MEDIUM, LOW based on clarity and recognizability.
 - License plate text is extracted if visible.
 - Additional info can include trim level, generation, body style observations.
+- **Enhanced**: Robust path resolution that strips `/uploads/` prefix and resolves against configurable upload directory.
 
 Error handling:
-- Throws if image file not found.
+- Throws if image file not found after path resolution.
 - Catches JSON parse errors and returns a safe default with LOW confidence and instructions to fill manually.
 
 Performance considerations:
 - Single-image processing per request.
 - Base64 encoding and network call to AI model dominate latency.
+- **Enhanced**: Efficient path resolution minimizes filesystem overhead.
 
 ```mermaid
 flowchart TD
@@ -161,7 +173,7 @@ ThrowErr --> End
 Endpoints:
 - POST /api/vehicles/detect: Accepts image upload, runs detection, returns results with image path.
 - POST /api/vehicles: Creates a vehicle record with required fields (make, model, year, licensePlate, color), optional VIN and mileage, and serialized photos array.
-- GET /api/vehicles: Lists user’s vehicles with claim counts.
+- GET /api/vehicles: Lists user's vehicles with claim counts.
 - GET /api/vehicles/:id: Retrieves a specific vehicle with recent claims.
 - PUT /api/vehicles/:id: Updates vehicle fields selectively.
 - DELETE /api/vehicles/:id: Deletes a vehicle.
@@ -195,6 +207,7 @@ Capabilities:
 Security and reliability:
 - Type filtering prevents non-image uploads.
 - Size limits protect server resources.
+- **Enhanced**: Consistent use of UPLOAD_DIR environment variable for cross-environment compatibility.
 
 **Section sources**
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
@@ -255,6 +268,7 @@ Component relationships:
 Potential coupling points:
 - Prompt structure in service tightly couples AI behavior to expected JSON schema.
 - Upload middleware constraints affect supported formats and sizes.
+- **Enhanced**: Path resolution logic creates dependency on consistent UPLOAD_DIR configuration across components.
 
 External dependencies:
 - Google Generative AI SDK for multimodal processing.
@@ -272,13 +286,13 @@ FE["VehiclesPage.tsx"] --> RT
 **Diagram sources**
 - [vehicles.ts:1-169](file://backend/src/routes/vehicles.ts#L1-L169)
 - [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
-- [vehicleDetectionService.ts:1-96](file://backend/src/services/vehicleDetectionService.ts#L1-L96)
+- [vehicleDetectionService.ts:1-98](file://backend/src/services/vehicleDetectionService.ts#L1-L98)
 - [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
 - [VehiclesPage.tsx:1-369](file://frontend/src/pages/VehiclesPage.tsx#L1-L369)
 
 **Section sources**
 - [vehicles.ts:1-169](file://backend/src/routes/vehicles.ts#L1-L169)
-- [vehicleDetectionService.ts:1-96](file://backend/src/services/vehicleDetectionService.ts#L1-L96)
+- [vehicleDetectionService.ts:1-98](file://backend/src/services/vehicleDetectionService.ts#L1-L98)
 - [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
 - [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
 - [VehiclesPage.tsx:1-369](file://frontend/src/pages/VehiclesPage.tsx#L1-L369)
@@ -288,13 +302,13 @@ FE["VehiclesPage.tsx"] --> RT
 - AI model latency: Multimodal calls are network-bound; consider caching repeated requests or batching where feasible.
 - Parsing overhead: Robust JSON extraction avoids retries due to malformed responses.
 - Database writes: Minimal writes during detection; vehicle creation is separate and atomic.
+- **Enhanced**: Optimized path resolution reduces filesystem overhead and improves cross-platform compatibility.
 
 Optimization opportunities:
 - Implement request-level caching for identical images to reduce redundant AI calls.
 - Add retry logic with exponential backoff for transient AI service failures.
 - Preprocess images (resize/compress) before sending to AI to reduce payload size.
-
-[No sources needed since this section provides general guidance]
+- **Enhanced**: Consider implementing path caching for frequently accessed files.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -302,13 +316,15 @@ Common issues and resolutions:
 - Unsupported file type: Only JPEG, PNG, and WebP are accepted; convert or re-export accordingly.
 - File too large: Keep uploads under 10MB; compress images if necessary.
 - Image file not found: Verify upload directory permissions and that the file was persisted correctly.
+- **Enhanced**: Path resolution issues: Ensure UPLOAD_DIR environment variable is set consistently across all components and matches actual file system structure.
 - AI response parsing failure: The service falls back to a safe default with LOW confidence; review logs and consider re-uploading a clearer image.
 - Missing required fields for vehicle creation: Provide make, model, year, licensePlate, and color; optional fields include VIN and mileage.
 
 Operational tips:
 - Inspect server logs for detailed error messages.
-- Validate environment variables for database URL and AI API key.
+- Validate environment variables for database URL, AI API key, and UPLOAD_DIR.
 - Confirm upload directories exist and are writable.
+- **Enhanced**: Test path resolution in both development and production environments to ensure compatibility.
 
 **Section sources**
 - [vehicles.ts:16-32](file://backend/src/routes/vehicles.ts#L16-L32)
@@ -316,9 +332,7 @@ Operational tips:
 - [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
 
 ## Conclusion
-The Vehicle Detection Service leverages a multimodal AI model to extract vehicle attributes from images and integrates seamlessly with the application’s routing, upload, and persistence layers. It provides confidence scoring, robust error handling, and a user-friendly frontend workflow. While current implementation focuses on image-based detection and basic persistence, future enhancements can introduce VIN extraction, anti-fraud checks, and integrations with external vehicle databases to further improve accuracy and security.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The Vehicle Detection Service leverages a multimodal AI model to extract vehicle attributes from images and integrates seamlessly with the application's routing, upload, and persistence layers. With enhanced file path resolution logic, the service now provides improved cross-environment compatibility, making it easier to deploy in both development and production settings. It provides confidence scoring, robust error handling, and a user-friendly frontend workflow. While current implementation focuses on image-based detection and basic persistence, future enhancements can introduce VIN extraction, anti-fraud checks, and integrations with external vehicle databases to further improve accuracy and security.
 
 ## Appendices
 
@@ -328,5 +342,17 @@ The Vehicle Detection Service leverages a multimodal AI model to extract vehicle
 - Manufacturer specifications: Integrate with manufacturer APIs to validate make/model/year combinations and enrich additionalInfo with trim and generation details.
 - Batch processing: Implement a queue-based processor to handle multiple images asynchronously, improving throughput and enabling background jobs.
 - Accuracy optimization: Tune prompts, preprocess images (enhance contrast, normalize lighting), and implement confidence thresholds to trigger human verification when needed.
+- **Enhanced**: Environment configuration: Standardize UPLOAD_DIR configuration across all services and implement proper environment variable validation.
+
+### Environment Configuration
+The vehicle detection service uses the following environment variables:
+- `UPLOAD_DIR`: Base directory for uploaded files (defaults to `./uploads` for development)
+- `GOOGLE_API_KEY`: API key for Google Generative AI service
+- `DATABASE_URL`: Database connection string for Prisma
+
+**Deployment Notes**:
+- Development: Uses relative path `./uploads` for easy local testing
+- Production: Configure absolute path like `/data/uploads` for persistent storage
+- Containerized deployments: Ensure volume mounts align with configured UPLOAD_DIR
 
 [No sources needed since this section provides general guidance]

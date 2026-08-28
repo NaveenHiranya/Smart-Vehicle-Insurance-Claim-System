@@ -1,0 +1,1 @@
+Start the server with `npm run dev` after copying `.env.example` to `.env`; seed the initial admin user via `npx ts-node src/scripts/seedAdmin.ts` before first use.

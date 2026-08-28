@@ -1,12 +1,10 @@
 schema_version: 1
 module_path: backend/claims_management
-title: Claims Management API & AI-Assisted Processing
+title: Claims Management Routes & AI Services
 scope:
     - backend/src/routes/claims.ts
     - backend/src/services/claimAssistantService.ts
     - backend/src/services/damageAnalysisService.ts
 source_files: []
 depends_on: []
-related_to:
-    - path: backend/shared_infrastructure
-    - path: frontend
+related_to: []

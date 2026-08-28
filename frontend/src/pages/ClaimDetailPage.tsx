@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import type { Claim, DamageItem } from '../types';
 import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Send, Shield, MessageSquare, ListTodo, Lightbulb, CheckCircle2, Circle, Clock, XCircle, BadgeCheck } from 'lucide-react';
+import { uploadUrl } from '../utils/uploadUrl';
 
 export function ClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -176,7 +177,7 @@ export function ClaimDetailPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {claim.images.map((img) => (
                   <div key={img.id} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
-                    <img src={img.filePath} alt="" className="w-full h-full object-cover" />
+                    <img src={uploadUrl(img.filePath)} alt="" className="w-full h-full object-cover" />
                     <span className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white text-[10px] rounded-full">{img.type === 'FULL_VEHICLE' ? 'Full' : 'Damage'}</span>
                   </div>
                 ))}
@@ -289,7 +290,7 @@ export function ClaimDetailPage() {
                       </label>
                     ) : (
                       <div className="flex items-center justify-between">
-                        <img src={doc.filePath} alt="" className="h-8 w-8 object-cover rounded" />
+                        <img src={uploadUrl(doc.filePath)} alt="" className="h-8 w-8 object-cover rounded" />
                         {doc.verificationStatus === 'PENDING' && (
                           <button onClick={() => handleVerify(doc.id)} className="text-xs text-primary-600 hover:text-primary-700 font-medium">Verify</button>
                         )}

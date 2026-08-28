@@ -1,0 +1,1 @@
+Backend services that verify uploaded insurance claim documents via Google Gemini vision and compute itemized repair cost estimates from damage assessments, persisting results through Prisma.

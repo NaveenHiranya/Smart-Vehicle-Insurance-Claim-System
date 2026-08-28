@@ -8,6 +8,4 @@ scope:
     - backend/src/index.ts
 source_files: []
 depends_on: []
-related_to:
-    - path: backend/admin_auth
-    - path: backend/claims_management
+related_to: []

@@ -1,0 +1,1 @@
+Express/TypeScript backend that serves user and admin APIs for vehicle insurance claims, wiring routes to domain services backed by Prisma and Google Gemini vision.

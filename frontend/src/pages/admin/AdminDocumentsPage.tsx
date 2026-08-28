@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
 import { FileText, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
+import { uploadUrl } from '../../utils/uploadUrl';
 
 const verifColors: Record<string, string> = {
   VERIFIED: 'bg-green-100 text-green-700',
@@ -112,7 +113,7 @@ export function AdminDocumentsPage() {
               >
                 {/* Thumbnail */}
                 <img
-                  src={doc.filePath}
+                  src={uploadUrl(doc.filePath)}
                   alt=""
                   className="h-16 w-24 object-cover rounded-lg border border-gray-200 flex-shrink-0"
                 />

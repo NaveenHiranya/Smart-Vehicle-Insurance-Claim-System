@@ -8,6 +8,4 @@ scope:
     - backend/src/middleware/auth.ts
 source_files: []
 depends_on: []
-related_to:
-    - path: backend/shared_infrastructure
-    - path: frontend
+related_to: []

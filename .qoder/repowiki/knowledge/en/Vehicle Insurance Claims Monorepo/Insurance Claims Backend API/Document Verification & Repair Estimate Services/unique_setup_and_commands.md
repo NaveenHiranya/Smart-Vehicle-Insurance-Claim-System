@@ -1,0 +1,1 @@
+Requires a `GEMINI_API_KEY` environment variable (loaded via `dotenv.config()` in `utils/gemini.ts`) to instantiate the GoogleGenerativeAI client; document images must be present on disk under the `uploads/` directory relative to the process working directory (configurable via `UPLOAD_DIR`).
