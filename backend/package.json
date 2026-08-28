@@ -1,7 +1,7 @@
 {
   "name": "fastclaim-backend",
   "version": "1.0.0",
-  "description": "FastClaim - Vehicle Insurance Claim & Damage Assessment Backend",
+  "description": "Flash Claim - Vehicle Insurance Claim & Damage Assessment Backend",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

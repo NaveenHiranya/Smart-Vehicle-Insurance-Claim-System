@@ -30,7 +30,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Link to="/dashboard" className="flex items-center gap-2">
             <Shield className="h-8 w-8 text-primary-600" />
             <div>
-              <h1 className="text-lg font-bold text-gray-900">FastClaim</h1>
+              <h1 className="text-lg font-bold text-gray-900">Flash Claim</h1>
               <p className="text-xs text-gray-500">Smart Claims</p>
             </div>
           </Link>
@@ -84,7 +84,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-2">
             <Shield className="h-7 w-7 text-primary-600" />
-            <span className="text-lg font-bold text-gray-900">FastClaim</span>
+            <span className="text-lg font-bold text-gray-900">Flash Claim</span>
           </Link>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-gray-100">
             {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -101,7 +101,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center justify-between">
                 <Link to="/dashboard" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
                   <Shield className="h-8 w-8 text-primary-600" />
-                  <span className="text-lg font-bold text-gray-900">FastClaim</span>
+                  <span className="text-lg font-bold text-gray-900">Flash Claim</span>
                 </Link>
                 <button onClick={() => setSidebarOpen(false)} className="p-2">
                   <X className="h-5 w-5" />

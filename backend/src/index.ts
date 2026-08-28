@@ -48,9 +48,9 @@ app.use('/api/admin', adminRoutes);
 app.get('/api/health', async (_req, res) => {
   try {
     await prisma.user.count();
-    res.json({ status: 'ok', service: 'FastClaim API', db: 'connected' });
+    res.json({ status: 'ok', service: 'Flash Claim API', db: 'connected' });
   } catch {
-    res.status(503).json({ status: 'error', service: 'FastClaim API', db: 'unreachable' });
+    res.status(503).json({ status: 'error', service: 'Flash Claim API', db: 'unreachable' });
   }
 });
 
@@ -58,7 +58,7 @@ app.get('/api/health', async (_req, res) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`FastClaim server running on port ${PORT}`);
+  console.log(`Flash Claim server running on port ${PORT}`);
 });
 
 export default app;
