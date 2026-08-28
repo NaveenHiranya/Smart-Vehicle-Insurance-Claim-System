@@ -9,6 +9,13 @@
 - [package.json](file://backend/package.json)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated filename generation implementation to use Node.js built-in crypto.randomUUID() function
+- Removed dependency on external uuid npm package
+- Enhanced performance by eliminating unnecessary third-party dependencies
+- Maintained identical functionality for generating unique filenames
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -23,6 +30,8 @@
 
 ## Introduction
 This document explains the file upload middleware implementation using Multer in the backend. It covers configuration for size limits, file type validation, storage destination setup, and how uploads are integrated into the claims routes. It also outlines security measures against malicious uploads, guidance for handling multiple files, image optimization, temporary file cleanup, cloud storage integration, progress tracking, and graceful failure handling.
+
+**Updated** The filename generation now uses Node.js built-in `crypto.randomUUID()` function instead of an external uuid package, providing better performance and reduced dependencies while maintaining identical functionality.
 
 ## Project Structure
 The upload functionality is implemented as a reusable middleware module and consumed by specific routes:
@@ -48,9 +57,9 @@ UploadMW --> FS["Filesystem<br/>./uploads/images<br/>./uploads/documents"]
 
 **Section sources**
 - [index.ts:36-38](file://backend/src/index.ts#L36-L38)
-- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
-- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
-- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
+- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-54)
+- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-233)
+- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-353)
 
 ## Core Components
 - Storage strategy: Disk storage with per-file naming and subdirectories based on field name.
@@ -61,15 +70,17 @@ UploadMW --> FS["Filesystem<br/>./uploads/images<br/>./uploads/documents"]
 
 Key behaviors:
 - Destination selection: If the incoming field is named "document", files go to the documents folder; otherwise, they go to images.
-- Filename generation: Uses UUIDs with original extensions to avoid collisions and preserve format.
+- Filename generation: Uses Node.js built-in `crypto.randomUUID()` with original extensions to avoid collisions and preserve format.
 - Allowed types: Only JPEG, PNG, WebP, and JPG are accepted.
 - Limits: Each file is limited to 10 MB.
 
+**Updated** The filename generation now leverages Node.js native crypto module for improved performance and reduced external dependencies.
+
 **Section sources**
-- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
-- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
-- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
-- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-47)
+- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-233)
+- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-353)
+- [index.ts:36-38](file://backend/src/index.ts#L36-38)
 
 ## Architecture Overview
 The upload flow integrates Multer middleware before route logic. Requests pass through authentication, then the appropriate upload handler (single or array), which persists files to disk and records metadata in the database. Uploaded assets are later served statically.
@@ -91,8 +102,8 @@ R-->>C : 201 Created with image metadata
 ```
 
 **Diagram sources**
-- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
-- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
+- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-233)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-47)
 
 ```mermaid
 sequenceDiagram
@@ -111,15 +122,15 @@ R-->>C : 201 Created with document metadata
 ```
 
 **Diagram sources**
-- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
-- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
+- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-353)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-47)
 
 ## Detailed Component Analysis
 
 ### Upload Middleware Configuration
 - Storage:
   - Destination routing: Determines whether to save under images or documents based on the form field name.
-  - Filename: Generates a unique filename using UUID while preserving the original extension.
+  - Filename: Generates a unique filename using Node.js built-in `crypto.randomUUID()` while preserving the original extension.
 - File filter:
   - Allows only specific image MIME types.
 - Limits:
@@ -136,15 +147,17 @@ Operational notes:
 - The upload directory can be configured via an environment variable; defaults to a local uploads folder.
 - Static serving exposes files under a consistent URL prefix.
 
+**Updated** The filename generation now uses Node.js native crypto.randomUUID() function, eliminating the need for external uuid package dependencies while maintaining identical UUID generation functionality.
+
 **Section sources**
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
-- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
-- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-47)
+- [index.ts:36-38](file://backend/src/index.ts#L36-38)
 
 ### Image Upload Endpoint
 - Accepts multiple images via a named field with a maximum count.
 - Validates that at least one image is provided.
-- Persists each image’s metadata (claim association, type, label, and file path).
+- Persists each image's metadata (claim association, type, label, and file path).
 - Returns created records upon success.
 
 Error handling:
@@ -152,7 +165,7 @@ Error handling:
 - Database failures return server errors.
 
 **Section sources**
-- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
+- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-233)
 
 ### Document Upload Endpoint
 - Accepts a single document via a named field.
@@ -167,14 +180,14 @@ Error handling:
 - Database failures return server errors.
 
 **Section sources**
-- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
+- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-353)
 
 ### Static File Serving
 - Exposes the uploads directory under a public path so clients can retrieve files directly.
 - Uses a configurable base directory from environment variables.
 
 **Section sources**
-- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
+- [index.ts:36-38](file://backend/src/index.ts#L36-38)
 
 ### Error Handling Integration
 - Global error handler centralizes error responses.
@@ -185,15 +198,17 @@ Error handling:
 
 ## Dependency Analysis
 - Multer dependency is declared in the project manifest.
-- The upload middleware depends on filesystem utilities and UUID generation.
+- The upload middleware depends on filesystem utilities and Node.js built-in crypto module for UUID generation.
 - Routes depend on the upload middleware and Prisma for persistence.
 - The application exposes static files for uploaded content.
+
+**Updated** The external uuid npm package dependency has been removed, reducing bundle size and improving startup time by using Node.js native crypto.randomUUID() function instead.
 
 ```mermaid
 graph LR
 Pkg["package.json"] --> M["multer"]
 U["upload.ts"] --> FS["fs/path"]
-U --> UUID["uuid"]
+U --> Crypto["Node.js crypto<br/>randomUUID()"]
 R["claims.ts"] --> U
 R --> PR["prisma"]
 A["index.ts"] --> S["express.static"]
@@ -216,6 +231,9 @@ A["index.ts"] --> S["express.static"]
 - Concurrency: Multiple images are processed concurrently when persisted to the database.
 - I/O: Disk writes occur during upload; ensure adequate disk space and permissions.
 - Static serving: Directly serves files from disk; consider caching headers or CDN usage for high traffic.
+- **Performance Optimization**: Using Node.js built-in crypto.randomUUID() eliminates external package overhead and improves startup performance.
+
+**Updated** The removal of the external uuid package reduces memory footprint and improves application startup time by leveraging Node.js native crypto functions.
 
 [No sources needed since this section provides general guidance]
 
@@ -235,7 +253,9 @@ Error propagation:
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
 
 ## Conclusion
-The upload system uses Multer with strict type and size controls, organized storage, and clear route integrations. It supports multiple image uploads and single document uploads, persists metadata to the database, and serves files statically. Security is addressed via whitelisted types, randomized filenames, and size limits. For production, consider adding image processing, cloud storage, progress tracking, and robust cleanup strategies.
+The upload system uses Multer with strict type and size controls, organized storage, and clear route integrations. It supports multiple image uploads and single document uploads, persists metadata to the database, and serves files statically. Security is addressed via whitelisted types, randomized filenames, and size limits. 
+
+**Updated** The recent optimization replaces the external uuid npm package with Node.js built-in crypto.randomUUID() function, improving performance and reducing dependencies while maintaining identical functionality for generating unique filenames. For production, consider adding image processing, cloud storage, progress tracking, and robust cleanup strategies.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -254,20 +274,20 @@ Save --> Done(["Response Sent"])
 ```
 
 **Diagram sources**
-- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
-- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
-- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
+- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-233)
+- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-353)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-47)
 
 ### B. Examples and Guidance
 
 - Multiple file uploads:
   - Use the endpoint that accepts an array of images with a maximum count.
   - Include a type and optional label per image.
-  - Reference: [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
+  - Reference: [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-233)
 
 - Single document upload:
   - Use the endpoint that accepts a single document with a validated type.
-  - Reference: [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
+  - Reference: [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-353)
 
 - Image optimization:
   - Not currently implemented. Add a post-upload step to resize/compress images before saving or after saving to optimize storage and delivery.
@@ -283,5 +303,9 @@ Save --> Done(["Response Sent"])
 
 - Graceful failure handling:
   - Validate inputs early, handle Multer errors centrally, and return meaningful messages. Ensure database failures do not leave partial state.
+
+- **Filename Generation Optimization**:
+  - The system now uses Node.js built-in crypto.randomUUID() for generating unique filenames, eliminating external dependencies while maintaining identical UUID functionality.
+  - This optimization improves performance and reduces bundle size without affecting functionality.
 
 [No sources needed since this section provides general guidance]

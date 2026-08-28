@@ -44,9 +44,11 @@ Guidelines:
 Respond ONLY with the JSON object, no additional text.`;
 
 export async function detectVehicleFromImage(imagePath: string): Promise<VehicleDetectionResult> {
-  // Resolve relative to cwd (backend/ when started via npm run dev)
-  const relativePart = imagePath.replace(/^\/uploads\//, 'uploads/');
-  const fullPath = path.resolve(process.cwd(), relativePart);
+  // imagePath comes in as e.g. /uploads/images/uuid.jpeg
+  // Resolve against UPLOAD_DIR so it works in both dev (./uploads) and prod (/data/uploads)
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  const relativePart = imagePath.replace(/^\/uploads\//, '');
+  const fullPath = path.resolve(uploadDir, relativePart);
 
   if (!fs.existsSync(fullPath)) {
     throw new Error(`Image file not found at path: ${fullPath}`);

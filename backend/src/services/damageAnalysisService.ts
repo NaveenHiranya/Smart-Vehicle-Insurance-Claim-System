@@ -64,8 +64,9 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
   const model = getGeminiModel();
 
   // Prepare image data for Gemini
-  const imageParts = claim.images.map((img) => {
-    const filePath = path.resolve('.', img.filePath.replace('/uploads/', 'uploads/'));
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  const imageParts = claim.images.map((img: { filePath: string }) => {
+    const filePath = path.resolve(uploadDir, img.filePath.replace(/^\/uploads\//, ''));
     const imageData = fs.readFileSync(filePath);
     const mimeType = path.extname(filePath).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg';
     return {

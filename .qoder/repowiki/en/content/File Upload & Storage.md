@@ -10,6 +10,12 @@
 - [api.ts](file://frontend/src/services/api.ts)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated filename generation implementation from uuid package to Node.js crypto.randomUUID()
+- Maintained identical functional behavior with UUID-based unique filenames
+- Enhanced security notes regarding built-in cryptographic random number generation
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -38,21 +44,21 @@ API --> Static["Static File Serving /uploads"]
 ```
 
 **Diagram sources**
-- [index.ts:17-27](file://backend/src/index.ts#L17-L27)
+- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
 - [upload.ts:17-28](file://backend/src/middleware/upload.ts#L17-L28)
 - [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
 - [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
 
 **Section sources**
-- [index.ts:17-27](file://backend/src/index.ts#L17-L27)
+- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
 - [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
 - [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
 - [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
 - [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
-- [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
+- [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 
 ## Core Components
-- Multer configuration: disk storage with destination routing based on field name, filename generation using UUIDs, and a file filter restricting allowed MIME types.
+- Multer configuration: disk storage with destination routing based on field name, filename generation using Node.js crypto.randomUUID(), and a file filter restricting allowed MIME types.
 - Size limits: 10 MB per file for both image and document uploads.
 - Routes:
   - Image upload endpoint for claims (multiple images).
@@ -63,16 +69,18 @@ API --> Static["Static File Serving /uploads"]
 
 Key behaviors:
 - Destination selection: if the field name is "document", files go to documents; otherwise to images.
-- Filename: original extension preserved, prefixed with a UUID to avoid collisions.
+- Filename: original extension preserved, prefixed with a cryptographically secure UUID generated via Node.js crypto.randomUUID() to avoid collisions.
 - Allowed types: JPEG, PNG, WebP, JPG.
 - Database records: filePath stored as absolute-like paths under /uploads/images or /uploads/documents.
+
+**Updated** The underlying implementation now uses Node.js's built-in crypto.randomUUID() function instead of an external uuid package, providing cryptographically secure random identifiers without additional dependencies.
 
 **Section sources**
 - [upload.ts:17-54](file://backend/src/middleware/upload.ts#L17-L54)
 - [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
 - [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
 - [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
-- [index.ts:25-27](file://backend/src/index.ts#L25-L27)
+- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
 
 ## Architecture Overview
 End-to-end flow for uploading claim images and documents:
@@ -110,7 +118,7 @@ API-->>FE : 201 Created + document metadata
 ### Multer Middleware Configuration
 - Storage:
   - Destination: chooses subdirectory based on field name ("document" -> documents, else images).
-  - Filename: preserves original extension and prepends a UUID to prevent collisions.
+  - Filename: preserves original extension and prepends a cryptographically secure UUID generated via Node.js crypto.randomUUID() to prevent collisions.
 - File filter:
   - Allows only specific image MIME types: JPEG, PNG, WebP, JPG.
 - Limits:
@@ -120,7 +128,10 @@ API-->>FE : 201 Created + document metadata
 
 Security notes:
 - Type validation via MIME whitelist prevents non-image uploads.
-- Path traversal protection: filenames are generated with UUIDs and extensions derived from originalname; no user-controlled directory segments are used.
+- Path traversal protection: filenames are generated with cryptographically secure UUIDs and extensions derived from originalname; no user-controlled directory segments are used.
+- **Enhanced Security**: The use of Node.js crypto.randomUUID() provides cryptographically secure random identifiers, eliminating the need for external dependencies while ensuring high-quality randomness.
+
+**Updated** The filename generation now leverages Node.js's built-in crypto module for generating UUIDs, improving security and reducing dependency overhead.
 
 **Section sources**
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
@@ -133,7 +144,7 @@ Security notes:
 - Behavior:
   - Validates claim ownership.
   - Accepts multiple images via Multer array.
-  - Persists each image’s metadata (claimId, type, filePath, optional label) to the database.
+  - Persists each image's metadata (claimId, type, filePath, optional label) to the database.
   - Returns created image records.
 
 Error handling:
@@ -182,7 +193,7 @@ Security note:
 - No directory listing is implied; ensure server configuration does not enable directory browsing.
 
 **Section sources**
-- [index.ts:25-27](file://backend/src/index.ts#L25-L27)
+- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
 
 ### Frontend Upload Handling
 - Axios instance automatically sets Content-Type for JSON but removes it for FormData to let the browser set the multipart boundary.
@@ -192,7 +203,7 @@ Usage pattern:
 - Construct FormData with fields (e.g., images[] or document) and send via axios.post('/api/...').
 
 **Section sources**
-- [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
+- [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 
 ## Dependency Analysis
 High-level dependencies between components involved in uploads:
@@ -212,14 +223,14 @@ VehiclesRoutes --> Services["Vehicle Detection Service"]
 - [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
 - [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
 - [upload.ts:17-54](file://backend/src/middleware/upload.ts#L17-L54)
-- [index.ts:25-27](file://backend/src/index.ts#L25-L27)
+- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
 
 **Section sources**
 - [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
 - [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
 - [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
 - [upload.ts:17-54](file://backend/src/middleware/upload.ts#L17-L54)
-- [index.ts:25-27](file://backend/src/index.ts#L25-L27)
+- [index.ts:36-38](file://backend/src/index.ts#L36-L38)
 
 ## Performance Considerations
 - Concurrency: The image upload handler processes multiple images concurrently using Promise.all for database writes.
@@ -227,6 +238,7 @@ VehiclesRoutes --> Services["Vehicle Detection Service"]
 - Limits: Current limit is 10 MB per file; adjust based on business needs and infrastructure capacity.
 - Caching: Serve static files via CDN or reverse proxy caching to reduce origin load.
 - Compression: Not currently applied; see guidelines below for adding compression.
+- **Optimization**: Using Node.js crypto.randomUUID() eliminates external dependency overhead and provides efficient UUID generation without performance impact.
 
 [No sources needed since this section provides general guidance]
 
@@ -245,9 +257,11 @@ Common issues and resolutions:
   - Symptom: Write failures or ENOSPC errors.
   - Resolution: Monitor disk usage, implement cleanup policies, and scale storage.
 - Path traversal attempts:
-  - Mitigation: Filenames use UUIDs and extensions; avoid trusting user-provided paths.
+  - Mitigation: Filenames use cryptographically secure UUIDs and extensions; avoid trusting user-provided paths.
 - Errors not surfaced:
   - Global error handler returns standardized JSON; ensure clients parse and display error messages.
+
+**Updated** The enhanced security of UUID generation reduces potential collision risks and improves overall system reliability.
 
 **Section sources**
 - [upload.ts:30-41](file://backend/src/middleware/upload.ts#L30-L41)
@@ -255,7 +269,9 @@ Common issues and resolutions:
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
 
 ## Conclusion
-The upload system uses Multer with strict type filtering and size limits, organizes files into dedicated directories, and persists references in the database. Static serving exposes files under /uploads. Security is enforced via MIME whitelisting and safe filename generation. For future enhancements, consider adding compression, broader file type support, robust error reporting, and monitoring for storage capacity.
+The upload system uses Multer with strict type filtering and size limits, organizes files into dedicated directories, and persists references in the database. Static serving exposes files under /uploads. Security is enforced via MIME whitelisting and safe filename generation using cryptographically secure UUIDs. For future enhancements, consider adding compression, broader file type support, robust error reporting, and monitoring for storage capacity.
+
+**Updated** The migration to Node.js crypto.randomUUID() enhances security posture while maintaining identical functionality and improving dependency management.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -303,4 +319,4 @@ References:
 - Axios configuration for FormData and auth handling.
 
 **Section sources**
-- [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
+- [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)

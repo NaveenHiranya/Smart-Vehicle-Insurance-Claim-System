@@ -48,7 +48,8 @@ export async function verifyDocument(documentId: string): Promise<DocumentVerifi
     throw new Error('Document not found');
   }
 
-  const filePath = path.resolve('.', document.filePath.replace('/uploads/', 'uploads/'));
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  const filePath = path.resolve(uploadDir, document.filePath.replace(/^\/uploads\//, ''));
 
   if (!fs.existsSync(filePath)) {
     throw new Error('Document file not found on disk');

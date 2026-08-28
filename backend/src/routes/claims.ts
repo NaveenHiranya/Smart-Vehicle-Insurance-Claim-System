@@ -254,7 +254,8 @@ router.delete('/:id/images/:imageId', async (req: AuthRequest, res: Response) =>
     }
 
     // Delete file from disk
-    const filePath = path.resolve('.', image.filePath.replace('/uploads/', 'uploads/'));
+    const uploadDir = process.env.UPLOAD_DIR || './uploads';
+    const filePath = path.resolve(uploadDir, image.filePath.replace(/^\/uploads\//, ''));
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }

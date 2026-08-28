@@ -14,6 +14,13 @@
 - [types/index.ts](file://backend/src/types/index.ts)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated File Upload Middleware section to reflect the migration from uuid package to Node.js crypto module
+- Enhanced filename generation implementation details
+- Updated dependency analysis to show optimized dependency structure
+- Added performance benefits of using built-in crypto module
+
 ## Table of Contents
 1. Introduction
 2. Project Structure
@@ -63,7 +70,7 @@ App --> ErrHdlr["Global Error Handler"]
 ## Core Components
 - Authentication middleware validates JWTs and attaches user identity to the request.
 - Authorization middleware enforces admin-only access by checking user roles.
-- File upload middleware configures Multer storage, filename generation, allowed MIME types, and size limits.
+- File upload middleware configures Multer storage, filename generation using Node.js crypto module, allowed MIME types, and size limits.
 - Global error handler centralizes error responses using a custom error class.
 
 Key responsibilities:
@@ -169,14 +176,14 @@ end
 ### File Upload Middleware (Multer)
 - Creates upload directories on startup if missing.
 - Routes files to subdirectories based on field name (images vs documents).
-- Generates unique filenames using UUIDs while preserving original extensions.
+- **Updated**: Generates unique filenames using Node.js crypto module's `randomUUID()` function instead of external uuid package, improving performance and reducing dependencies.
 - Filters allowed image MIME types and enforces size limits.
 - Exposes two configured instances: one for arrays of images and one for single documents.
 
 ```mermaid
 flowchart TD
 S(["Upload Entry"]) --> Dest["Select destination folder<br/>images or documents"]
-Dest --> Name["Generate unique filename<br/>UUID + ext"]
+Dest --> Name["Generate unique filename<br/>Node.js crypto randomUUID() + ext"]
 Name --> Filter{"Allowed MIME type?"}
 Filter -- No --> Reject["Reject with error"]
 Filter -- Yes --> Save["Write to disk"]
@@ -292,7 +299,7 @@ Patterns used in this codebase:
 
 Guidelines:
 - Keep middleware focused on one concern (auth, uploads, logging).
-- Avoid side effects other than what’s necessary (e.g., attaching data to req).
+- Avoid side effects other than what's necessary (e.g., attaching data to req).
 - Use async functions when I/O is required and handle errors consistently.
 
 **Section sources**
@@ -313,6 +320,7 @@ Guidelines:
 - index.ts registers global middleware and mounts routers.
 - Routers depend on middleware modules for auth, authorization, and uploads.
 - Types module defines shared interfaces used by middleware and routes.
+- **Updated**: File upload middleware now uses Node.js built-in crypto module instead of external uuid package, reducing dependencies and improving performance.
 
 ```mermaid
 graph LR
@@ -328,6 +336,7 @@ Policies["routes/policies.ts"] --> AuthMW
 Admin["routes/admin.ts"] --> AdminMW
 Types["types/index.ts"] --> AuthMW
 Types --> AdminMW
+UploadMW --> Crypto["Node.js crypto module"]
 ```
 
 **Diagram sources**
@@ -337,6 +346,7 @@ Types --> AdminMW
 - [policies.ts:8-8](file://backend/src/routes/policies.ts#L8-L8)
 - [admin.ts:7-7](file://backend/src/routes/admin.ts#L7-L7)
 - [types/index.ts:3-10](file://backend/src/types/index.ts#L3-L10)
+- [upload.ts:4](file://backend/src/middleware/upload.ts#L4)
 
 **Section sources**
 - [index.ts:24-52](file://backend/src/index.ts#L24-L52)
@@ -352,6 +362,7 @@ Types --> AdminMW
 - Use background tasks for long-running operations (e.g., AI analysis) to keep response times low.
 - Cache frequently accessed read data where appropriate.
 - Profile hot paths and add request timing/logging to identify bottlenecks.
+- **Updated**: Using Node.js built-in crypto module for UUID generation eliminates external dependency overhead and improves performance compared to third-party uuid packages.
 
 [No sources needed since this section provides general guidance]
 
@@ -374,4 +385,4 @@ Debugging tips:
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
 
 ## Conclusion
-The middleware layer cleanly separates cross-cutting concerns from business logic. Authentication and authorization are enforced at both global and route levels, while Multer handles secure and validated file uploads. A centralized error handler ensures consistent error responses. To further improve observability and performance, consider adding structured logging, metrics, and caching strategies tailored to your workload.
+The middleware layer cleanly separates cross-cutting concerns from business logic. Authentication and authorization are enforced at both global and route levels, while Multer handles secure and validated file uploads using Node.js crypto module for optimal performance. A centralized error handler ensures consistent error responses. To further improve observability and performance, consider adding structured logging, metrics, and caching strategies tailored to your workload.
