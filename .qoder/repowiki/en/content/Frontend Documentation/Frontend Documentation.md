@@ -18,19 +18,23 @@
 - [uploadUrl.ts](file://frontend/src/utils/uploadUrl.ts)
 - [types/index.ts](file://frontend/src/types/index.ts)
 - [LoginPage.tsx](file://frontend/src/pages/LoginPage.tsx)
+- [RegisterPage.tsx](file://frontend/src/pages/RegisterPage.tsx)
 - [DashboardPage.tsx](file://frontend/src/pages/DashboardPage.tsx)
 - [ClaimDetailPage.tsx](file://frontend/src/pages/ClaimDetailPage.tsx)
+- [AdminLoginPage.tsx](file://frontend/src/pages/admin/AdminLoginPage.tsx)
 - [AdminClaimDetailPage.tsx](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx)
 - [AdminDocumentsPage.tsx](file://frontend/src/pages/admin/AdminDocumentsPage.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for the new uploadUrl utility function
-- Updated file structure section to include the utils directory
-- Enhanced API integration patterns section with file upload handling
-- Added new section on centralized URL resolution utilities
-- Updated component usage examples to demonstrate uploadUrl integration
+- Updated all references from "Smart Vehicle Insurance Claim System" to "Flash Claim" branding
+- Updated application title in index.html from "Smart Vehicle Insurance Claim System" to "Flash Claim"
+- Updated layout components to reflect new "Flash Claim" branding with "Smart Claims" tagline
+- Updated login and registration pages with new branding
+- Updated admin login page with new branding
+- Updated backend package description to reflect "FastClaim" naming
+- Enhanced documentation to reflect current branding throughout the application
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -39,24 +43,24 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
+7. [Performance Considerations](#performance-considering)
 8. [Troubleshooting Guide](#troubleshooting-guide)
 9. [Conclusion](#conclusion)
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive frontend documentation for the React-based user interface of the Smart Vehicle Insurance Claim System. It covers component hierarchy, routing with React Router, state management via Context API, API integration using Axios, styling with Tailwind CSS, responsive design, accessibility considerations, composition patterns, prop interfaces, event handling, error boundaries, build configuration with Vite, and centralized URL resolution utilities for file uploads.
+This document provides comprehensive frontend documentation for the React-based user interface of Flash Claim, a modern vehicle insurance claim management system. The application has been rebranded from "Smart Vehicle Insurance Claim System" to "Flash Claim" with a focus on fast, intelligent claims processing. It covers component hierarchy, routing with React Router, state management via Context API, API integration using Axios, styling with Tailwind CSS, responsive design, accessibility considerations, composition patterns, prop interfaces, event handling, error boundaries, build configuration with Vite, and centralized URL resolution utilities for file uploads.
 
 ## Project Structure
-The frontend is a Vite + React application using TypeScript, Tailwind CSS, and React Router. The entry point renders the root App inside StrictMode, which configures routing, authentication context, and protected routes. Layouts wrap page components to provide consistent navigation and branding. Services encapsulate HTTP calls with Axios interceptors for token injection and error handling. Types define shared data models used across pages and services. A centralized utility handles URL resolution for uploaded files across different environments.
+The frontend is a Vite + React application using TypeScript, Tailwind CSS, and React Router. The entry point renders the root App inside StrictMode, which configures routing, authentication context, and protected routes. Layouts wrap page components to provide consistent navigation and Flash Claim branding. Services encapsulate HTTP calls with Axios interceptors for token injection and error handling. Types define shared data models used across pages and services. A centralized utility handles URL resolution for uploaded files across different environments.
 
 ```mermaid
 graph TB
-HTML["index.html"] --> MAIN["main.tsx"]
+HTML["index.html<br/>Title: Flash Claim"] --> MAIN["main.tsx"]
 MAIN --> APP["App.tsx"]
 APP --> ROUTER["React Router Routes"]
 APP --> AUTH["AuthProvider (AuthContext)"]
-ROUTER --> LAYOUTS["Layout / AdminLayout"]
+ROUTER --> LAYOUTS["Layout / AdminLayout<br/>Branding: Flash Claim"]
 ROUTER --> PAGES["Pages (Dashboard, Login, etc.)"]
 PAGES --> SERVICES["API Services (api.ts, adminApi.ts)"]
 PAGES --> UTILS["Utilities (uploadUrl.ts)"]
@@ -65,11 +69,11 @@ UTILS --> TYPES
 ```
 
 **Diagram sources**
-- [index.html:1-14](file://frontend/index.html#L1-L14)
+- [index.html:7](file://frontend/index.html#L7)
 - [main.tsx:1-11](file://frontend/src/main.tsx#L1-L11)
 - [App.tsx:1-56](file://frontend/src/App.tsx#L1-L56)
-- [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
-- [AdminLayout.tsx:1-74](file://frontend/src/components/AdminLayout.tsx#L1-L74)
+- [Layout.tsx:33-34](file://frontend/src/components/Layout.tsx#L33-L34)
+- [AdminLayout.tsx:36-37](file://frontend/src/components/AdminLayout.tsx#L36-L37)
 - [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 - [adminApi.ts:1-26](file://frontend/src/services/adminApi.ts#L1-L26)
 - [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
@@ -83,7 +87,7 @@ UTILS --> TYPES
 ## Core Components
 - Authentication Context: Centralized state for user session, token persistence, login/register/logout/profile updates.
 - Protected Routes: Guarded routes that enforce authentication for regular users and admins.
-- Layouts: Shared chrome for user and admin areas, including navigation and responsive behavior.
+- Layouts: Shared chrome for user and admin areas, including navigation and Flash Claim branding with responsive behavior.
 - API Services: Axios instances with interceptors for authorization headers and unified error handling.
 - Utilities: Centralized functions for common operations like URL resolution for uploaded files.
 - Types: Shared TypeScript interfaces for domain entities and responses.
@@ -91,7 +95,7 @@ UTILS --> TYPES
 Key responsibilities:
 - AuthContext manages lifecycle of auth state and persists tokens locally.
 - ProtectedRoute and AdminProtectedRoute ensure only authenticated users access sensitive routes.
-- Layout and AdminLayout provide consistent UI shells and navigation.
+- Layout and AdminLayout provide consistent UI shells with Flash Claim branding and navigation.
 - api.ts and adminApi.ts centralize HTTP concerns and redirect on unauthorized errors.
 - uploadUrl.ts provides centralized URL resolution for uploaded files across environments.
 - types/index.ts defines contracts for requests/responses across the app.
@@ -109,7 +113,7 @@ Key responsibilities:
 
 ## Architecture Overview
 The application uses a layered architecture:
-- Presentation Layer: Pages and reusable layouts render UI and handle user interactions.
+- Presentation Layer: Pages and reusable layouts render UI with Flash Claim branding and handle user interactions.
 - State Layer: Context API holds global auth state; local component state handles UI specifics.
 - Service Layer: Axios services abstract backend communication with centralized interceptors.
 - Utility Layer: Centralized functions provide common operations like URL resolution.
@@ -165,8 +169,8 @@ UserProtected --> GuardU["ProtectedRoute checks user"]
 AdminProtected --> GuardA["AdminProtectedRoute checks adminToken"]
 GuardU --> |Not Auth| ToLogin["Redirect to /login"]
 GuardA --> |Not Auth| ToAdminLogin["Redirect to /admin/login"]
-GuardU --> |Auth| RenderUser["Render Layout + Page"]
-GuardA --> |Auth| RenderAdmin["Render AdminLayout + Page"]
+GuardU --> |Auth| RenderUser["Render Layout + Page<br/>Flash Claim Branding"]
+GuardA --> |Auth| RenderAdmin["Render AdminLayout + Page<br/>Flash Claim Admin Branding"]
 ```
 
 **Diagram sources**
@@ -213,17 +217,17 @@ useAuth --> AuthContextType : "consumes"
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
 
 ### Layouts and UI Shell
-- User Layout: Desktop sidebar with navigation, mobile header with hamburger menu, bottom nav for quick actions, and main content area. Uses active route detection and responsive breakpoints.
-- Admin Layout: Fixed dark sidebar with admin navigation and logout flow clearing admin token.
+- User Layout: Desktop sidebar with navigation, mobile header with hamburger menu, bottom nav for quick actions, and main content area. Uses active route detection and responsive breakpoints. Features Flash Claim branding with "Smart Claims" tagline.
+- Admin Layout: Fixed dark sidebar with admin navigation and logout flow clearing admin token. Features Flash Claim branding with "Admin Panel" subtitle.
 
 ```mermaid
 graph LR
-subgraph "User Area"
-UL["Layout.tsx"]
+subgraph "User Area - Flash Claim"
+UL["Layout.tsx<br/>Brand: Flash Claim<br/>Tagline: Smart Claims"]
 LP["Pages (Dashboard, Vehicles, Claims, Policies, Profile)"]
 end
-subgraph "Admin Area"
-AL["AdminLayout.tsx"]
+subgraph "Admin Area - Flash Claim Admin"
+AL["AdminLayout.tsx<br/>Brand: Flash Claim<br/>Subtitle: Admin Panel"]
 AP["Admin Pages (Dashboard, Users, Claims, Documents)"]
 end
 UL --> LP
@@ -231,8 +235,8 @@ AL --> AP
 ```
 
 **Diagram sources**
-- [Layout.tsx:14-176](file://frontend/src/components/Layout.tsx#L14-L176)
-- [AdminLayout.tsx:11-74](file://frontend/src/components/AdminLayout.tsx#L11-L74)
+- [Layout.tsx:33-34](file://frontend/src/components/Layout.tsx#L33-L34)
+- [AdminLayout.tsx:36-37](file://frontend/src/components/AdminLayout.tsx#L36-L37)
 
 **Section sources**
 - [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
@@ -347,6 +351,7 @@ Browser->>Browser : Load image from resolved URL
 - Custom theme colors defined in index.css for primary, danger, success, warning palettes.
 - Responsive utilities used throughout layouts (hidden lg:flex, sm:p-6, etc.).
 - Consistent spacing, typography, and color usage across components.
+- Flash Claim branding consistently applied across all user-facing components.
 
 **Section sources**
 - [vite.config.ts:1-21](file://frontend/vite.config.ts#L1-L21)
@@ -381,6 +386,7 @@ Browser->>Browser : Load image from resolved URL
 - Plugins: React and Tailwind CSS integrated via Vite plugins.
 - Entry: index.html loads main.tsx which mounts React app into #root.
 - Environment variables: VITE_API_URL configured for different deployment targets.
+- Application title set to "Flash Claim" in index.html.
 
 **Section sources**
 - [vite.config.ts:1-21](file://frontend/vite.config.ts#L1-L21)
@@ -396,8 +402,8 @@ graph TB
 App["App.tsx"] --> Auth["AuthContext.tsx"]
 App --> PR["ProtectedRoute.tsx"]
 App --> APR["AdminProtectedRoute.tsx"]
-App --> L["Layout.tsx"]
-App --> AL["AdminLayout.tsx"]
+App --> L["Layout.tsx<br/>Flash Claim Branding"]
+App --> AL["AdminLayout.tsx<br/>Flash Claim Admin Branding"]
 Pages["Pages"] --> Auth
 Pages --> API["api.ts"]
 Pages --> AAPI["adminApi.ts"]
@@ -444,6 +450,7 @@ Common issues and resolutions:
 - Form submission errors: Check try/catch blocks and error messages displayed in UI. Validate input fields and required attributes.
 - Mobile sidebar not closing: Ensure overlay click handlers are bound and state toggles correctly.
 - Image loading issues: Verify uploadUrl is properly imported and filePath values are correct. Check environment variable configuration for production deployments.
+- Branding inconsistencies: Ensure all user-facing components display "Flash Claim" branding consistently.
 
 **Section sources**
 - [api.ts:22-33](file://frontend/src/services/api.ts#L22-L33)
@@ -453,7 +460,7 @@ Common issues and resolutions:
 - [uploadUrl.ts:11-15](file://frontend/src/utils/uploadUrl.ts#L11-L15)
 
 ## Conclusion
-The frontend is structured around a clear separation of concerns: routing and layout orchestration, centralized authentication state, robust API integration with interceptors, centralized URL resolution utilities for file uploads, and consistent styling with Tailwind CSS. The modular design supports scalability and maintainability. Adding error boundaries and further performance optimizations will enhance resilience and user experience.
+The frontend is structured around a clear separation of concerns: routing and layout orchestration with Flash Claim branding, centralized authentication state, robust API integration with interceptors, centralized URL resolution utilities for file uploads, and consistent styling with Tailwind CSS. The modular design supports scalability and maintainability. Adding error boundaries and further performance optimizations will enhance resilience and user experience. The recent branding update to "Flash Claim" provides a more focused and memorable identity for the vehicle insurance claim management system.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -518,3 +525,23 @@ Component->>Component : Render <img src={resolvedUrl}>
 - [ClaimDetailPage.tsx:180](file://frontend/src/pages/ClaimDetailPage.tsx#L180)
 - [AdminClaimDetailPage.tsx:215](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L215)
 - [AdminDocumentsPage.tsx:116](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L116)
+
+### Branding Implementation Details
+
+#### Flash Claim Branding Locations
+The Flash Claim branding has been consistently applied across all user-facing components:
+
+- **Application Title**: "Flash Claim" in index.html
+- **User Layout**: "Flash Claim" with "Smart Claims" tagline in desktop and mobile views
+- **Admin Layout**: "Flash Claim" with "Admin Panel" subtitle
+- **Login Page**: "Flash Claim" with shield icon branding
+- **Registration Page**: "Flash Claim" with shield icon branding  
+- **Admin Login**: "Flash Claim" with "Admin Portal" subtitle
+
+**Section sources**
+- [index.html:7](file://frontend/index.html#L7)
+- [Layout.tsx:33-34](file://frontend/src/components/Layout.tsx#L33-L34)
+- [AdminLayout.tsx:36-37](file://frontend/src/components/AdminLayout.tsx#L36-L37)
+- [LoginPage.tsx:35](file://frontend/src/pages/LoginPage.tsx#L35)
+- [RegisterPage.tsx:37](file://frontend/src/pages/RegisterPage.tsx#L37)
+- [AdminLoginPage.tsx:43](file://frontend/src/pages/admin/AdminLoginPage.tsx#L43)

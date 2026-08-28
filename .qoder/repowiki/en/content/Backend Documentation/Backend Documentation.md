@@ -18,6 +18,12 @@
 - [index.ts](file://backend/src/types/index.ts)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated package name references from 'autoshield-ai-backend' to 'fastclaim-backend'
+- Updated server identification from generic names to 'Flash Claim API' in health checks and console logging
+- Updated project description to reflect Flash Claim branding
+
 ## Table of Contents
 1. Introduction
 2. Project Structure
@@ -31,7 +37,7 @@
 10. Appendices
 
 ## Introduction
-This document provides comprehensive backend documentation for the Express.js server architecture of the Smart Vehicle Insurance Claim System. It covers server setup, middleware chain (CORS, JSON parsing, authentication, error handling), route organization by feature modules, controller patterns within routes, service layer abstraction for business logic, JWT-based authentication with role-based authorization, file upload handling with Multer, input validation, error response patterns, logging strategies, database connection and query patterns via Prisma, and guidance for extending the API with new endpoints and business logic.
+This document provides comprehensive backend documentation for the Express.js server architecture of the Flash Claim Vehicle Insurance Claim System. It covers server setup, middleware chain (CORS, JSON parsing, authentication, error handling), route organization by feature modules, controller patterns within routes, service layer abstraction for business logic, JWT-based authentication with role-based authorization, file upload handling with Multer, input validation, error response patterns, logging strategies, database connection and query patterns via Prisma, and guidance for extending the API with new endpoints and business logic.
 
 ## Project Structure
 The backend is organized into clear layers:
@@ -67,7 +73,7 @@ DB --> Schema["Database Schema<br/>prisma/schema.prisma"]
 ```
 
 **Diagram sources**
-- [index.ts:1-49](file://backend/src/index.ts#L1-L49)
+- [index.ts:1-65](file://backend/src/index.ts#L1-L65)
 - [auth.ts:1-23](file://backend/src/middleware/auth.ts#L1-L23)
 - [adminAuth.ts:1-27](file://backend/src/middleware/adminAuth.ts#L1-L27)
 - [auth.ts:1-168](file://backend/src/routes/auth.ts#L1-L168)
@@ -79,8 +85,8 @@ DB --> Schema["Database Schema<br/>prisma/schema.prisma"]
 - [schema.prisma:1-202](file://backend/prisma/schema.prisma#L1-L202)
 
 **Section sources**
-- [index.ts:1-49](file://backend/src/index.ts#L1-L49)
-- [package.json:1-43](file://backend/package.json#L1-L43)
+- [index.ts:1-65](file://backend/src/index.ts#L1-L65)
+- [package.json:1-44](file://backend/package.json#L1-L44)
 
 ## Core Components
 - Server bootstrap and global middleware: CORS, JSON body parsing, URL-encoded parsing, static uploads directory serving, health check endpoint, and centralized error handler.
@@ -93,7 +99,7 @@ DB --> Schema["Database Schema<br/>prisma/schema.prisma"]
 - Data access: Prisma client singleton for type-safe queries and relationships.
 
 **Section sources**
-- [index.ts:17-42](file://backend/src/index.ts#L17-L42)
+- [index.ts:15-62](file://backend/src/index.ts#L15-L62)
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
@@ -126,7 +132,7 @@ Router-->>Client : JSON Response
 ```
 
 **Diagram sources**
-- [index.ts:17-42](file://backend/src/index.ts#L17-L42)
+- [index.ts:15-62](file://backend/src/index.ts#L15-L62)
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [claims.ts:15-16](file://backend/src/routes/claims.ts#L15-L16)
@@ -137,9 +143,10 @@ Router-->>Client : JSON Response
 ### Server Setup and Global Middleware
 - Initializes Express app, loads environment variables, configures CORS with credentials, parses JSON and URL-encoded bodies, serves uploaded files statically, mounts API routes, defines a health endpoint, and registers the global error handler.
 - Port is configurable via environment variable; default is 5000.
+- **Updated**: Health check endpoint now returns "Flash Claim API" as the service identifier and console logging displays "Flash Claim server running" message.
 
 **Section sources**
-- [index.ts:12-46](file://backend/src/index.ts#L12-L46)
+- [index.ts:15-62](file://backend/src/index.ts#L15-L62)
 
 ### Authentication Middleware (JWT)
 - Extracts Bearer token from Authorization header.
@@ -163,7 +170,7 @@ Attach --> Next["Call next middleware/route"]
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [index.ts:17-23](file://backend/src/index.ts#L17-L23)
+- [index.ts:15-35](file://backend/src/index.ts#L15-L35)
 
 ### Admin Authorization Middleware
 - Ensures the authenticated user exists and has admin privileges by querying the User model.
@@ -217,11 +224,13 @@ Save --> Next["Pass to route handler"]
 ### Logging Strategies
 - Errors are logged to console.error in the central error handler and in route-level try/catch blocks for better observability during development.
 - For production, consider structured logging (e.g., Winston/Pino) and log levels.
+- **Updated**: Console logging now displays "Flash Claim server running" message on startup.
 
 **Section sources**
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
 - [claims.ts:53-56](file://backend/src/routes/claims.ts#L53-L56)
 - [vehicles.ts:27-31](file://backend/src/routes/vehicles.ts#L27-L31)
+- [index.ts:60-62](file://backend/src/index.ts#L60-L62)
 
 ### Database Connection and Query Patterns
 - Prisma client is instantiated once and exported for reuse across routes and services.
@@ -329,7 +338,7 @@ R --> AD["Admin<br/>/api/admin"]
 ```
 
 **Diagram sources**
-- [index.ts:29-34](file://backend/src/index.ts#L29-L34)
+- [index.ts:40-45](file://backend/src/index.ts#L40-L45)
 - [auth.ts:1-168](file://backend/src/routes/auth.ts#L1-L168)
 - [vehicles.ts:1-169](file://backend/src/routes/vehicles.ts#L1-L169)
 - [policies.ts:1-131](file://backend/src/routes/policies.ts#L1-L131)
@@ -337,7 +346,7 @@ R --> AD["Admin<br/>/api/admin"]
 - [admin.ts:1-187](file://backend/src/routes/admin.ts#L1-L187)
 
 **Section sources**
-- [index.ts:29-34](file://backend/src/index.ts#L29-L34)
+- [index.ts:40-45](file://backend/src/index.ts#L40-L45)
 - [auth.ts:10-168](file://backend/src/routes/auth.ts#L10-L168)
 - [vehicles.ts:10-169](file://backend/src/routes/vehicles.ts#L10-L169)
 - [policies.ts:8-131](file://backend/src/routes/policies.ts#L8-L131)
@@ -428,13 +437,13 @@ App --> G["@google/generative-ai"]
 ```
 
 **Diagram sources**
-- [package.json:18-30](file://backend/package.json#L18-L30)
+- [package.json:20-30](file://backend/package.json#L20-L30)
 
 **Section sources**
-- [package.json:1-43](file://backend/package.json#L1-L43)
+- [package.json:1-44](file://backend/package.json#L1-L44)
 
 ## Performance Considerations
-- Use Prisma’s select/include judiciously to minimize payload sizes and reduce over-fetching.
+- Use Prisma's select/include judiciously to minimize payload sizes and reduce over-fetching.
 - Leverage background tasks for long-running operations like AI analysis to keep request latency low.
 - Configure appropriate rate limiting and request size limits for production.
 - Consider caching frequently accessed read-only data (e.g., admin stats) where appropriate.
@@ -447,11 +456,13 @@ App --> G["@google/generative-ai"]
 - Upload failures: Verify file MIME types and size limits; ensure upload directories exist and are writable.
 - Not found errors: Confirm resource ownership by checking userId filters and IDs.
 - Centralized errors: Use AppError for expected errors with specific status codes; unexpected errors fall through to the global handler.
+- **Updated**: Health check endpoint now identifies the service as "Flash Claim API" for easier monitoring and debugging.
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [upload.ts:30-47](file://backend/src/middleware/upload.ts#L30-L47)
 - [errorHandler.ts:3-27](file://backend/src/middleware/errorHandler.ts#L3-L27)
+- [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 
 ## Conclusion
 The backend implements a clean, modular Express architecture with robust authentication, role-based authorization, and well-structured routes. Services encapsulate business logic, while Prisma provides type-safe data access. File uploads are handled securely with Multer, and errors are consistently managed. This design facilitates easy extension with new endpoints and features.
@@ -467,7 +478,7 @@ The backend implements a clean, modular Express architecture with robust authent
 - Define any new models in prisma/schema.prisma and run migrations.
 
 **Section sources**
-- [index.ts:29-34](file://backend/src/index.ts#L29-L34)
+- [index.ts:40-45](file://backend/src/index.ts#L40-L45)
 - [schema.prisma:1-202](file://backend/prisma/schema.prisma#L1-L202)
 
 ### Implementing Additional Business Logic

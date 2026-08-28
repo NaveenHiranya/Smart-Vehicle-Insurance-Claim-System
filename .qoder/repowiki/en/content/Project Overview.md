@@ -15,7 +15,22 @@
 - [frontend/src/context/AuthContext.tsx](file://frontend/src/context/AuthContext.tsx)
 - [frontend/src/services/api.ts](file://frontend/src/services/api.ts)
 - [backend/src/types/index.ts](file://backend/src/types/index.ts)
+- [frontend/index.html](file://frontend/index.html)
+- [backend/src/services/claimAssistantService.ts](file://backend/src/services/claimAssistantService.ts)
+- [frontend/src/components/Layout.tsx](file://frontend/src/components/Layout.tsx)
+- [frontend/src/components/AdminLayout.tsx](file://frontend/src/components/AdminLayout.tsx)
+- [frontend/src/pages/LoginPage.tsx](file://frontend/src/pages/LoginPage.tsx)
+- [frontend/src/pages/RegisterPage.tsx](file://frontend/src/pages/RegisterPage.tsx)
+- [frontend/src/pages/admin/AdminLoginPage.tsx](file://frontend/src/pages/admin/AdminLoginPage.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated all references from 'AutoShield AI' to 'Flash Claim' throughout the documentation
+- Updated package names and descriptions to reflect the rebranding
+- Updated UI elements and branding references in frontend components
+- Updated backend service responses and system prompts to use 'Flash Claim' branding
+- Maintained all technical architecture and functionality descriptions while updating brand terminology
 
 ## Table of Contents
 1. Introduction
@@ -29,7 +44,7 @@
 9. Conclusion
 
 ## Introduction
-Smart Vehicle Insurance Claim System is an AI-powered platform that streamlines vehicle insurance claims from submission to resolution. It combines a modern React frontend with an Express.js backend, leveraging Google Gemini for automated damage assessment and document verification, Prisma ORM for data modeling, and JWT-based authentication for secure access. The system supports two primary user roles:
+Flash Claim is an AI-powered platform that streamlines vehicle insurance claims from submission to resolution. It combines a modern React frontend with an Express.js backend, leveraging Google Gemini for automated damage assessment and document verification, Prisma ORM for data modeling, and JWT-based authentication for secure access. The system supports two primary user roles:
 - Policyholders: submit claims, upload images and documents, chat with an AI assistant, and track claim progress.
 - Administrators: review claims, verify documents, manage users, and oversee the end-to-end workflow.
 
@@ -91,6 +106,7 @@ BE_Utils --> BE_Prisma
 - AI Services
   - Damage analysis reads claim images, sends them to Google Gemini, parses structured JSON results, persists assessments, and auto-generates repair estimates.
   - Document verification analyzes uploaded documents via Gemini, extracts key information, flags issues, and updates verification status.
+  - Flash Claim Assistant provides conversational support for policyholders with claim-related questions and guidance.
 - Data Layer
   - Prisma models define Users, Vehicles, Policies, Claims, Images, Assessments, Estimates, Payouts, Documents, and Chat Messages with relationships and enums.
 - API Endpoints
@@ -100,6 +116,8 @@ Key technology stack highlights:
 - Backend: Express, TypeScript, Prisma ORM, JWT, Multer, Zod, Google Generative AI SDK.
 - Frontend: React, TypeScript, Vite, Axios, React Router, Tailwind CSS.
 
+**Updated** All branding references have been updated from 'AutoShield AI' to 'Flash Claim' across all components including package names, UI elements, and service prompts.
+
 **Section sources**
 - [backend/src/middleware/auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [frontend/src/context/AuthContext.tsx:17-82](file://frontend/src/context/AuthContext.tsx#L17-L82)
@@ -107,6 +125,7 @@ Key technology stack highlights:
 - [backend/src/routes/claims.ts:20-449](file://backend/src/routes/claims.ts#L20-L449)
 - [backend/src/services/damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
 - [backend/src/services/documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [backend/src/services/claimAssistantService.ts:4-17](file://backend/src/services/claimAssistantService.ts#L4-L17)
 - [backend/prisma/schema.prisma:10-202](file://backend/prisma/schema.prisma#L10-L202)
 - [backend/package.json:18-29](file://backend/package.json#L18-L29)
 - [frontend/package.json:12-28](file://frontend/package.json#L12-L28)
@@ -196,6 +215,7 @@ API-->>FE : User profile
 - Creation and submission enforce ownership checks and status transitions; submission triggers background AI damage analysis.
 - Damage analysis reads images, sends to Gemini, parses JSON, persists assessment, and auto-generates repair estimates.
 - Document upload and verification integrate Gemini to validate authenticity and completeness.
+- Flash Claim Assistant provides conversational support integrated with claim data and history.
 
 ```mermaid
 flowchart TD
@@ -221,6 +241,7 @@ Fallback --> Done
 - [backend/src/routes/claims.ts:20-449](file://backend/src/routes/claims.ts#L20-L449)
 - [backend/src/services/damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
 - [backend/src/services/documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [backend/src/services/claimAssistantService.ts:19-129](file://backend/src/services/claimAssistantService.ts#L19-L129)
 
 ### Data Model Overview
 Core entities and relationships:
@@ -252,6 +273,8 @@ REPAIR_ESTIMATE ||--|| INSURANCE_PAYOUT : "calculates"
 ### Technology Stack Summary
 - Backend dependencies include Express, TypeScript, Prisma, JWT, Multer, Zod, and Google Generative AI SDK.
 - Frontend uses React, TypeScript, Vite, Axios, React Router, and Tailwind CSS.
+
+**Updated** Package names and descriptions now reflect the 'Flash Claim' branding throughout the project structure.
 
 **Section sources**
 - [backend/package.json:18-29](file://backend/package.json#L18-L29)
@@ -307,8 +330,10 @@ Common issues and resolutions:
 - CORS issues: Configure CORS_ORIGIN to allow frontend origin.
 
 Operational tips:
-- Health endpoint at /api/health indicates service status.
+- Health endpoint at /api/health indicates service status with Flash Claim API branding.
 - Use Prisma Studio for data inspection during development.
+
+**Updated** Health check responses now display 'Flash Claim API' instead of the previous branding.
 
 **Section sources**
 - [backend/src/middleware/auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
@@ -317,6 +342,8 @@ Operational tips:
 - [backend/src/services/documentVerificationService.ts:78-94](file://backend/src/services/documentVerificationService.ts#L78-L94)
 
 ## Conclusion
-Smart Vehicle Insurance Claim System delivers an end-to-end, AI-enhanced claims experience. Its modular architecture separates concerns across frontend UI, backend APIs, AI services, and data layer. Automated damage assessment, document verification, and intelligent assistance streamline workflows for both policyholders and administrators while maintaining security and scalability.
+Flash Claim delivers an end-to-end, AI-enhanced claims experience. Its modular architecture separates concerns across frontend UI, backend APIs, AI services, and data layer. Automated damage assessment, document verification, and intelligent assistance streamline workflows for both policyholders and administrators while maintaining security and scalability.
+
+**Updated** The platform has been successfully rebranded from 'AutoShield AI' to 'Flash Claim' across all application components, maintaining full functionality while establishing a new brand identity.
 
 [No sources needed since this section summarizes without analyzing specific files]

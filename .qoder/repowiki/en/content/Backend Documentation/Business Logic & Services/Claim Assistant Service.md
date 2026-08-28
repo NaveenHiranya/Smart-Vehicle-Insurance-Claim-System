@@ -10,6 +10,12 @@
 - [ClaimDetailPage.tsx](file://frontend/src/pages/ClaimDetailPage.tsx)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated system prompt branding from 'AutoShield AI Claim Assistant' to 'Flash Claim Assistant' for consistent branding
+- Enhanced documentation to reflect current assistant identity and branding
+- Updated examples and references to align with Flash Claim branding throughout the system
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -23,7 +29,7 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the AI-powered Claim Assistant Service that provides intelligent, context-aware assistance for vehicle insurance claims. It covers how the chatbot answers claim-related queries, provides status updates and guidance, maintains conversation history, and integrates with claim data, policy information, and user history to deliver personalized responses. It also includes examples of common query patterns, response templates, escalation procedures, and guidance on customizing assistant behavior and adding domain-specific knowledge.
+This document explains the AI-powered Claim Assistant Service that provides intelligent, context-aware assistance for vehicle insurance claims. The service features the **Flash Claim Assistant**, a helpful and knowledgeable AI that assists policyholders with their vehicle insurance claims. It covers how the chatbot answers claim-related queries, provides status updates and guidance, maintains conversation history, and integrates with claim data, policy information, and user history to deliver personalized responses. It also includes examples of common query patterns, response templates, escalation procedures, and guidance on customizing assistant behavior and adding domain-specific knowledge.
 
 ## Project Structure
 The Claim Assistant Service is implemented as a backend service integrated into the Express routes and persisted via Prisma. The frontend exposes an interactive chat interface within the claim detail page.
@@ -127,7 +133,7 @@ PersistAssistant --> Return(["Return messages to client"])
 - [claimAssistantService.ts:19-129](file://backend/src/services/claimAssistantService.ts#L19-L129)
 
 ### Data Models and Relationships
-Key models involved in the assistant’s context:
+Key models involved in the assistant's context:
 - Claim: central entity with status, incident details, and relationships to vehicle, policy, images, assessments, estimates, payouts, documents, and chat messages.
 - Vehicle: make/model/year/color used to personalize responses.
 - InsurancePolicy: provider, coverage type, deductible used for payout explanations.
@@ -183,10 +189,10 @@ Error handling:
 
 ### Common Query Patterns and Response Templates
 Examples of typical user queries and expected assistant behaviors:
-- “What’s my claim status?”: Summarizes current status and next steps based on claim status and document verification.
-- “Explain the estimate”: Breaks down parts vs labor, mentions deductible impact, and estimated repair time.
-- “What documents do I need?”: Lists required documents and their verification status, guiding uploads if missing.
-- “Is my car safe to drive?”: References drivability assessment and safety warnings when severe damage is detected.
+- "What's my claim status?": Summarizes current status and next steps based on claim status and document verification.
+- "Explain the estimate": Breaks down parts vs labor, mentions deductible impact, and estimated repair time.
+- "What documents do I need?": Lists required documents and their verification status, guiding uploads if missing.
+- "Is my car safe to drive?": References drivability assessment and safety warnings when severe damage is detected.
 
 These are generated dynamically using the constructed context and system prompt.
 
@@ -255,7 +261,7 @@ Common issues and resolutions:
 - [claimAssistantService.ts:36-38](file://backend/src/services/claimAssistantService.ts#L36-L38)
 
 ## Conclusion
-The Claim Assistant Service delivers personalized, context-aware support throughout the claims lifecycle. By combining rich claim data, policy details, and conversation history with a configurable AI model, it provides clear guidance, status updates, and actionable recommendations. Extensibility points allow customization of assistant behavior, addition of domain-specific knowledge, and adaptation to different claim types.
+The Claim Assistant Service delivers personalized, context-aware support throughout the claims lifecycle through the **Flash Claim Assistant**. By combining rich claim data, policy details, and conversation history with a configurable AI model, it provides clear guidance, status updates, and actionable recommendations. The consistent branding ensures users receive responses from a unified assistant identity. Extensibility points allow customization of assistant behavior, addition of domain-specific knowledge, and adaptation to different claim types.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -290,3 +296,27 @@ API-->>FE : Updated chat
 - Test with representative queries to ensure accurate and safe responses.
 
 [No sources needed since this section provides conceptual guidance]
+
+### System Prompt Configuration
+The Flash Claim Assistant uses a comprehensive system prompt that defines its identity and responsibilities:
+
+**Current System Prompt:**
+```
+You are the Flash Claim Assistant, a helpful and knowledgeable AI that assists policyholders with their vehicle insurance claims.
+
+Your responsibilities:
+1. Answer questions about the claim status and next steps
+2. Explain damage assessment results in plain language
+3. Break down repair cost estimates and explain charges
+4. Identify missing or incomplete documents
+5. Guide users through the claim process step by step
+6. Provide safety advice related to vehicle damage
+7. Answer general insurance-related questions
+
+Be concise, professional, and empathetic. Use simple language.
+If you're unsure about something, say so and suggest the user contact their insurance provider directly.
+Format your responses clearly with bullet points or numbered lists when appropriate.
+```
+
+**Section sources**
+- [claimAssistantService.ts:4-17](file://backend/src/services/claimAssistantService.ts#L4-L17)

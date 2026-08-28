@@ -2,8 +2,10 @@
 
 <cite>
 **Referenced Files in This Document**
+- [package.json](file://package.json)
 - [backend/package.json](file://backend/package.json)
 - [frontend/package.json](file://frontend/package.json)
+- [railway.toml](file://railway.toml)
 - [backend/src/index.ts](file://backend/src/index.ts)
 - [backend/prisma/schema.prisma](file://backend/prisma/schema.prisma)
 - [backend/src/utils/prisma.ts](file://backend/src/utils/prisma.ts)
@@ -13,7 +15,15 @@
 - [backend/src/routes/auth.ts](file://backend/src/routes/auth.ts)
 - [frontend/vite.config.ts](file://frontend/vite.config.ts)
 - [frontend/src/services/api.ts](file://frontend/src/services/api.ts)
+- [frontend/src/pages/admin/AdminLoginPage.tsx](file://frontend/src/pages/admin/AdminLoginPage.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated project references from 'autoshield-ai' to 'fastclaim' throughout the documentation
+- Updated package names and project identification references
+- Maintained all existing functionality and setup instructions
+- Updated example email addresses to reflect new project branding
 
 ## Table of Contents
 1. Introduction
@@ -30,7 +40,7 @@
 12. Conclusion
 
 ## Introduction
-This guide helps you set up and run the Smart Vehicle Insurance Claim System locally. It covers prerequisites, environment configuration, database setup with Prisma, seed data creation (including an admin user), and how to start both frontend and backend servers for development. You will also find quick-start examples for registering a user and registering a vehicle, along with tips for hot reloading and common troubleshooting.
+This guide helps you set up and run the FastClaim Vehicle Insurance Claim System locally. It covers prerequisites, environment configuration, database setup with Prisma, seed data creation (including an admin user), and how to start both frontend and backend servers for development. You will also find quick-start examples for registering a user and registering a vehicle, along with tips for hot reloading and common troubleshooting.
 
 ## Project Structure
 The project is split into two main parts:
@@ -82,7 +92,7 @@ Notes:
 - The frontend dev server runs on port 5173 by default and proxies API requests to the backend.
 
 **Section sources**
-- [backend/package.json:1-43](file://backend/package.json#L1-L43)
+- [backend/package.json:1-44](file://backend/package.json#L1-L44)
 - [frontend/package.json:1-32](file://frontend/package.json#L1-L32)
 - [backend/src/index.ts:14-22](file://backend/src/index.ts#L14-L22)
 - [frontend/vite.config.ts:8-18](file://frontend/vite.config.ts#L8-L18)
@@ -114,25 +124,30 @@ Important:
 ## Installation and Database Initialization
 Follow these steps to install dependencies and initialize the database.
 
-1. Install backend dependencies:
-   - In the backend folder, run the dependency installer.
-   - Generate Prisma client: prisma generate.
-   - Apply migrations to create tables: prisma migrate dev.
-     - Alternatively, push schema directly without migration history: prisma db push.
+1. Install root dependencies:
+   - In the root folder, run `npm install` to set up workspace scripts.
 
-2. Seed the database with an admin user:
+2. Install backend dependencies:
+   - In the backend folder, run `npm install`.
+   - Generate Prisma client: `npx prisma generate`.
+   - Apply migrations to create tables: `npx prisma migrate dev`.
+     - Alternatively, push schema directly without migration history: `npx prisma db push`.
+
+3. Seed the database with an admin user:
    - Run the seed script to create an initial admin account.
    - The script ensures an admin user exists and sets the admin flag if necessary.
+   - Default admin email: admin@fastclaim.com
 
-3. Install frontend dependencies:
-   - In the frontend folder, run the dependency installer.
+4. Install frontend dependencies:
+   - In the frontend folder, run `npm install`.
 
 Verification:
 - Start the backend and call the health endpoint to confirm it is running.
 - Start the frontend and open the app in your browser.
 
 **Section sources**
-- [backend/package.json:6-13](file://backend/package.json#L6-L13)
+- [backend/package.json:6-16](file://backend/package.json#L6-L16)
+- [package.json:5-14](file://package.json#L5-L14)
 - [backend/prisma/schema.prisma:5-8](file://backend/prisma/schema.prisma#L5-L8)
 - [backend/src/scripts/seedAdmin.ts:9-34](file://backend/src/scripts/seedAdmin.ts#L9-L34)
 - [frontend/package.json:6-10](file://frontend/package.json#L6-L10)
@@ -153,7 +168,8 @@ Hot Reloading:
 - Frontend: Vite provides hot module replacement out of the box.
 
 **Section sources**
-- [backend/package.json:6-13](file://backend/package.json#L6-L13)
+- [backend/package.json:6-16](file://backend/package.json#L6-L16)
+- [package.json:5-14](file://package.json#L5-L14)
 - [backend/src/index.ts:44-46](file://backend/src/index.ts#L44-L46)
 - [frontend/package.json:6-10](file://frontend/package.json#L6-L10)
 - [frontend/vite.config.ts:8-18](file://frontend/vite.config.ts#L8-L18)
@@ -179,12 +195,14 @@ After installation and seeding:
 Notes:
 - Protected routes require a valid Bearer token in the Authorization header.
 - The frontend handles 401 responses by clearing session data and redirecting to login.
+- Admin login uses email format: admin@fastclaim.com
 
 **Section sources**
 - [backend/src/routes/auth.ts:10-59](file://backend/src/routes/auth.ts#L10-L59)
 - [backend/src/routes/auth.ts:61-105](file://backend/src/routes/auth.ts#L61-L105)
 - [backend/src/middleware/auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [frontend/src/services/api.ts:7-33](file://frontend/src/services/api.ts#L7-L33)
+- [frontend/src/pages/admin/AdminLoginPage.tsx:57](file://frontend/src/pages/admin/AdminLoginPage.tsx#L57)
 
 ## Development Workflow
 Recommended workflow:
@@ -200,7 +218,8 @@ Tips:
 - If you change the schema, regenerate the client and apply migrations before restarting.
 
 **Section sources**
-- [backend/package.json:6-13](file://backend/package.json#L6-L13)
+- [backend/package.json:6-16](file://backend/package.json#L6-L16)
+- [package.json:5-14](file://package.json#L5-L14)
 - [backend/src/index.ts:36-39](file://backend/src/index.ts#L36-L39)
 - [frontend/vite.config.ts:8-18](file://frontend/vite.config.ts#L8-L18)
 
@@ -251,7 +270,7 @@ Common issues and resolutions:
   - Check that protected endpoints receive a proper Authorization header with a Bearer token.
 
 - CORS errors:
-  - Confirm CORS_ORIGIN includes the frontend’s origin (e.g., http://localhost:5173).
+  - Confirm CORS_ORIGIN includes the frontend's origin (e.g., http://localhost:5173).
   - Ensure the frontend is served from the expected origin during development.
 
 - Database connection issues:
@@ -270,6 +289,10 @@ Common issues and resolutions:
   - Change PORT in the backend environment if 5000 is already in use.
   - Adjust frontend proxy target if the backend runs on a different port.
 
+- Package dependency issues:
+  - Clear node_modules and reinstall dependencies if experiencing conflicts.
+  - Ensure all packages are compatible with your Node.js version.
+
 **Section sources**
 - [backend/src/middleware/auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [backend/src/index.ts:17-27](file://backend/src/index.ts#L17-L27)
@@ -278,4 +301,4 @@ Common issues and resolutions:
 - [frontend/src/services/api.ts:7-33](file://frontend/src/services/api.ts#L7-L33)
 
 ## Conclusion
-You now have everything needed to set up, configure, and run the Smart Vehicle Insurance Claim System locally. Follow the steps to install dependencies, initialize the database, seed the admin user, and start both servers. Use the quick-start examples to register users and vehicles, and refer to the troubleshooting guide if you encounter common issues. For further customization, review the environment variables and Prisma schema to tailor the system to your needs.
+You now have everything needed to set up, configure, and run the FastClaim Vehicle Insurance Claim System locally. Follow the steps to install dependencies, initialize the database, seed the admin user, and start both servers. Use the quick-start examples to register users and vehicles, and refer to the troubleshooting guide if you encounter common issues. For further customization, review the environment variables and Prisma schema to tailor the system to your needs.
