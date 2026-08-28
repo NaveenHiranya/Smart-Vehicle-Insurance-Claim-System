@@ -4,14 +4,15 @@
 **Referenced Files in This Document**
 - [claims.ts](file://backend/src/routes/claims.ts)
 - [damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
-- [documentVerificationService.ts](file://backend/src/services/documentVerificationService.ts)
 - [repairEstimateService.ts](file://backend/src/services/repairEstimateService.ts)
+- [documentVerificationService.ts](file://backend/src/services/documentVerificationService.ts)
 - [claimAssistantService.ts](file://backend/src/services/claimAssistantService.ts)
-- [auth.ts](file://backend/src/middleware/auth.ts)
 - [upload.ts](file://backend/src/middleware/upload.ts)
-- [index.ts (types)](file://backend/src/types/index.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
+- [index.ts (types)](file://backend/src/types/index.ts)
 - [gemini.ts](file://backend/src/utils/gemini.ts)
+- [api.ts](file://frontend/src/services/api.ts)
+- [NewClaimPage.tsx](file://frontend/src/pages/NewClaimPage.tsx)
 </cite>
 
 ## Table of Contents
@@ -27,493 +28,709 @@
 10. Appendices
 
 ## Introduction
-This document provides comprehensive API documentation for claim management endpoints in the Smart Vehicle Insurance Claim System. It covers the complete claim lifecycle: creation, submission, image upload and AI damage analysis, document verification, repair estimate generation, status tracking, and chat assistance. It details HTTP methods for claims CRUD operations, multi-file uploads for incident photos and supporting documents, integration points with AI services for automated assessment, schemas for data models, real-time features like claim status updates and AI chat assistance, request/response examples, error handling patterns, authentication requirements, and integration guidelines.
+This document provides comprehensive API documentation for the claims processing endpoints of the Smart Vehicle Insurance Claim System. It covers the complete claim lifecycle from creation to resolution, including:
+- Creating and updating claims
+- Uploading images and documents with validation
+- AI-powered damage assessment using Gemini
+- Automated repair estimates and insurance payout calculations
+- Document verification via AI
+- Interactive chat assistance per claim
+- Error handling and status tracking
+
+The API is protected by authentication middleware and integrates with a database via Prisma and an external AI service through Google Generative AI.
 
 ## Project Structure
-The backend exposes a single router for claims that orchestrates database operations via Prisma, file uploads via Multer, and AI-powered services for damage analysis, document verification, repair estimates, and chat assistance. Authentication is enforced at the route level using a JWT middleware.
+The backend exposes RESTful endpoints under /api/claims. The routes handle request validation, file uploads, database operations, and orchestrate AI services for analysis and estimation. Supporting modules include:
+- Routes: Express router defining all claim-related endpoints
+- Services: Damage analysis, repair estimate generation, document verification, and assistant chat
+- Middleware: File upload handling with type and size constraints
+- Data models: Prisma schema defining entities like Claim, ClaimImage, Document, DamageAssessment, RepairEstimate, InsurancePayout, ChatMessage
+- Types: Shared TypeScript interfaces for requests/responses
+- Utilities: Gemini client configuration
 
 ```mermaid
 graph TB
 Client["Client App"] --> Router["Claims Router<br/>/api/claims/*"]
-Router --> Auth["Auth Middleware<br/>JWT Bearer"]
+Router --> UploadMW["Upload Middleware<br/>multer"]
 Router --> DB["Prisma Client<br/>SQLite"]
-Router --> Upload["Multer Uploads<br/>images/documents"]
-Router --> DamageSvc["Damage Analysis Service"]
-Router --> DocSvc["Document Verification Service"]
-Router --> EstimateSvc["Repair Estimate Service"]
-Router --> ChatSvc["Claim Assistant Service"]
-DamageSvc --> Gemini["Gemini Model"]
-DocSvc --> Gemini
-ChatSvc --> Gemini
+Router --> DA["Damage Analysis Service"]
+Router --> RE["Repair Estimate Service"]
+Router --> DV["Document Verification Service"]
+Router --> CA["Claim Assistant Service"]
+DA --> Gemini["Gemini Model"]
+DV --> Gemini
+CA --> Gemini
+DB --- Models["Schema Models"]
 ```
 
 **Diagram sources**
-- [claims.ts:1-450](file://backend/src/routes/claims.ts#L1-L450)
-- [auth.ts:1-23](file://backend/src/middleware/auth.ts#L1-L23)
+- [claims.ts:20-449](file://backend/src/routes/claims.ts#L20-L449)
 - [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
-- [damageAnalysisService.ts:1-154](file://backend/src/services/damageAnalysisService.ts#L1-L154)
-- [documentVerificationService.ts:1-107](file://backend/src/services/documentVerificationService.ts#L1-L107)
-- [repairEstimateService.ts:1-199](file://backend/src/services/repairEstimateService.ts#L1-L199)
-- [claimAssistantService.ts:1-130](file://backend/src/services/claimAssistantService.ts#L1-L130)
-- [gemini.ts:1-13](file://backend/src/utils/gemini.ts#L1-L13)
+- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
+- [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
+- [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
+- [schema.prisma:62-202](file://backend/prisma/schema.prisma#L62-L202)
 
 **Section sources**
-- [claims.ts:1-450](file://backend/src/routes/claims.ts#L1-L450)
-- [schema.prisma:1-201](file://backend/prisma/schema.prisma#L1-L201)
+- [claims.ts:20-449](file://backend/src/routes/claims.ts#L20-L449)
+- [schema.prisma:62-202](file://backend/prisma/schema.prisma#L62-L202)
 
 ## Core Components
-- Claims Router: Defines all HTTP endpoints for claims, images, documents, analysis, estimates, and chat.
-- Authentication Middleware: Validates JWT tokens and attaches user context to requests.
-- File Upload Middleware: Handles multipart uploads for images and documents with size/type constraints.
-- AI Services:
-  - Damage Analysis: Analyzes uploaded images to detect damages and severity.
-  - Document Verification: Verifies authenticity and completeness of uploaded documents.
-  - Repair Estimate: Generates itemized repair cost estimates based on damage assessments.
-  - Claim Assistant: Provides conversational AI support with full claim context.
-- Data Models: Defined in Prisma schema for claims, images, documents, assessments, estimates, payouts, and chat messages.
+- Claims Router: Defines endpoints for CRUD on claims, image/document uploads, submission, analysis, estimates, verification, and chat.
+- Upload Middleware: Validates file types (JPEG, PNG, WebP), enforces 10MB limit, stores files under uploads/images or uploads/documents.
+- Damage Analysis Service: Reads uploaded images, sends them to Gemini with a structured prompt, parses JSON output, persists assessment, updates image annotations, and auto-generates repair estimates.
+- Repair Estimate Service: Computes itemized costs based on damage severity and parts/labor ranges, calculates totals, estimated days, and optional insurance payout.
+- Document Verification Service: Analyzes uploaded documents via Gemini, extracts key info, determines verification status, and persists results.
+- Claim Assistant Service: Builds context from claim data and conversation history, interacts with Gemini to provide guidance, and persists chat messages.
 
 **Section sources**
-- [claims.ts:1-450](file://backend/src/routes/claims.ts#L1-L450)
-- [auth.ts:1-23](file://backend/src/middleware/auth.ts#L1-L23)
+- [claims.ts:20-449](file://backend/src/routes/claims.ts#L20-L449)
 - [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
-- [damageAnalysisService.ts:1-154](file://backend/src/services/damageAnalysisService.ts#L1-L154)
-- [documentVerificationService.ts:1-107](file://backend/src/services/documentVerificationService.ts#L1-L107)
-- [repairEstimateService.ts:1-199](file://backend/src/services/repairEstimateService.ts#L1-L199)
-- [claimAssistantService.ts:1-130](file://backend/src/services/claimAssistantService.ts#L1-L130)
-- [schema.prisma:1-201](file://backend/prisma/schema.prisma#L1-L201)
+- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
+- [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
 
 ## Architecture Overview
 The claims API follows a layered architecture:
 - Presentation Layer: Express routes handle HTTP requests and responses.
-- Business Logic Layer: Services encapsulate domain logic and integrate with external AI APIs.
-- Data Access Layer: Prisma ORM interacts with SQLite for persistence.
-- External Integrations: Google Generative AI (Gemini) for vision and chat capabilities.
+- Business Logic Layer: Services encapsulate domain logic (AI integration, cost calculation).
+- Data Access Layer: Prisma ORM abstracts SQLite interactions.
+- External Integration: Google Generative AI model processes images and text to produce assessments, verifications, and chat responses.
 
 ```mermaid
 sequenceDiagram
 participant C as "Client"
 participant R as "Claims Router"
-participant A as "Auth Middleware"
+participant U as "Upload Middleware"
 participant S as "Services"
 participant G as "Gemini"
 participant D as "Database"
-C->>R : POST /api/claims
-R->>A : Validate JWT
-A-->>R : userId attached
+C->>R : POST /api/claims (create)
 R->>D : Create Claim
-D-->>R : Claim created
+D-->>R : Claim object
 R-->>C : 201 Created
 C->>R : POST /api/claims/ : id/images (multipart)
-R->>D : Save images
-D-->>R : Images saved
+R->>U : Validate & store files
+U-->>R : File metadata
+R->>D : Persist ClaimImage(s)
 R-->>C : 201 Created
 C->>R : POST /api/claims/ : id/submit
 R->>D : Update status to SUBMITTED
 R->>S : analyzeDamage(claimId)
 S->>G : Send images + prompt
-G-->>S : JSON damage assessment
-S->>D : Save assessment + update images
+G-->>S : JSON damages
+S->>D : Save DamageAssessment
 S->>S : generateRepairEstimate(claimId)
-S->>D : Save estimate + payout
+S->>D : Save RepairEstimate & InsurancePayout
 R-->>C : Updated claim
+C->>R : POST /api/claims/ : id/documents (multipart)
+R->>U : Validate & store document
+R->>D : Persist Document
+R-->>C : 201 Created
+C->>R : POST /api/claims/ : id/documents/ : docId/verify
+R->>S : verifyDocument(docId)
+S->>G : Analyze document
+G-->>S : Verification result
+S->>D : Update Document verificationStatus
+R-->>C : Result
 C->>R : GET /api/claims/ : id/chat
-R->>D : Load messages
-D-->>R : Messages
+R->>D : Fetch chat messages
 R-->>C : Messages
 C->>R : POST /api/claims/ : id/chat
 R->>S : getChatResponse(claimId, message)
-S->>G : Chat with history + context
-G-->>S : Assistant reply
-S->>D : Persist messages
-R-->>C : {userMessage, assistantMessage}
+S->>G : Generate assistant reply
+S->>D : Persist USER/ASSISTANT messages
+R-->>C : Response
 ```
 
 **Diagram sources**
-- [claims.ts:20-447](file://backend/src/routes/claims.ts#L20-L447)
+- [claims.ts:20-449](file://backend/src/routes/claims.ts#L20-L449)
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
 - [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
 - [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
-- [schema.prisma:70-201](file://backend/prisma/schema.prisma#L70-L201)
+- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
 
 ## Detailed Component Analysis
 
-### Authentication Requirements
-- All claims endpoints require a valid JWT token in the Authorization header using Bearer scheme.
-- On missing or invalid token, the server returns 401 Unauthorized with an error message.
-
-**Section sources**
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [claims.ts:15-15](file://backend/src/routes/claims.ts#L15-L15)
-
-### Claims CRUD Operations
+### Endpoints Reference
 
 #### Create Claim
 - Method: POST
 - Path: /api/claims
+- Auth: Required
 - Request Body:
   - vehicleId: string (required)
-  - policyId: string (optional)
+  - policyId: string? (optional)
   - incidentDate: string (ISO date, required)
   - incidentLocation: string (required)
   - incidentDescription: string (required)
-  - weatherConditions: string (optional)
-  - hasPoliceReport: boolean (optional)
-- Response:
-  - 201 Created: Claim object including id, userId, vehicleId, policyId, status, incident fields, timestamps
-  - 400 Bad Request: Validation error if required fields are missing
-  - 404 Not Found: If vehicle not found for the authenticated user
-  - 500 Internal Server Error: Database or unexpected errors
+  - weatherConditions: string? (optional)
+  - hasPoliceReport: boolean? (optional)
+- Success Response: 201 Created with Claim object
+- Errors:
+  - 400 Bad Request if required fields missing
+  - 404 Not Found if vehicle not found
+  - 500 Internal Server Error on failure
 
 **Section sources**
 - [claims.ts:20-57](file://backend/src/routes/claims.ts#L20-L57)
-- [schema.prisma:70-93](file://backend/prisma/schema.prisma#L70-L93)
+- [schema.prisma:71-94](file://backend/prisma/schema.prisma#L71-L94)
 
 #### List Claims
 - Method: GET
 - Path: /api/claims
-- Query Parameters:
-  - status: string (optional filter by ClaimStatus)
-- Response:
-  - 200 OK: Array of claims with included vehicle summary, damage assessment severity, and counts of images/documents
-  - 500 Internal Server Error: Database or unexpected errors
+- Query Params:
+  - status: string? (filter by ClaimStatus)
+- Success Response: Array of claims with vehicle summary, damage assessment severity, and counts of images/documents
+- Errors: 500 on failure
 
 **Section sources**
 - [claims.ts:59-83](file://backend/src/routes/claims.ts#L59-L83)
-- [schema.prisma:70-93](file://backend/prisma/schema.prisma#L70-L93)
+- [schema.prisma:62-94](file://backend/prisma/schema.prisma#L62-L94)
 
 #### Get Claim Detail
 - Method: GET
 - Path: /api/claims/:id
-- Response:
-  - 200 OK: Full claim object including vehicle, policy, images, damageAssessment, repairEstimate, insurancePayout, documents, and chatMessages ordered by createdAt
-  - 404 Not Found: If claim not found for the authenticated user
-  - 500 Internal Server Error: Database or unexpected errors
+- Success Response: Full claim with related vehicle, policy, images, damageAssessment, repairEstimate, insurancePayout, documents, and chatMessages
+- Errors:
+  - 404 Not Found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:85-112](file://backend/src/routes/claims.ts#L85-L112)
-- [schema.prisma:70-93](file://backend/prisma/schema.prisma#L70-L93)
+- [schema.prisma:71-202](file://backend/prisma/schema.prisma#L71-L202)
 
 #### Update Claim
 - Method: PUT
 - Path: /api/claims/:id
-- Request Body:
-  - incidentDate: string (optional)
-  - incidentLocation: string (optional)
-  - incidentDescription: string (optional)
-  - weatherConditions: string (optional)
-  - hasPoliceReport: boolean (optional)
-  - policyId: string (optional)
-- Response:
-  - 200 OK: Updated claim object
-  - 400 Bad Request: If claim is not in DRAFT status
-  - 404 Not Found: If claim not found for the authenticated user
-  - 500 Internal Server Error: Database or unexpected errors
+- Constraints: Only allowed when status is DRAFT
+- Request Body: Partial fields (incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport, policyId)
+- Success Response: Updated Claim
+- Errors:
+  - 400 if not in DRAFT
+  - 404 if not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:114-150](file://backend/src/routes/claims.ts#L114-L150)
-- [schema.prisma:70-93](file://backend/prisma/schema.prisma#L70-L93)
+- [schema.prisma:62-94](file://backend/prisma/schema.prisma#L62-L94)
 
 #### Submit Claim
 - Method: POST
 - Path: /api/claims/:id/submit
-- Behavior:
-  - Validates claim exists and belongs to the authenticated user
-  - Ensures claim is in DRAFT status
-  - Requires at least one image uploaded before submission
-  - Updates status to SUBMITTED
-  - Triggers background AI damage analysis
-- Response:
-  - 200 OK: Updated claim with status SUBMITTED
-  - 400 Bad Request: If claim already submitted or no images uploaded
-  - 404 Not Found: If claim not found
-  - 500 Internal Server Error: Unexpected errors
+- Constraints: Must be in DRAFT; at least one image must be uploaded
+- Behavior: Updates status to SUBMITTED and triggers background AI damage analysis
+- Success Response: Updated claim
+- Errors:
+  - 400 if already submitted or no images
+  - 404 if not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:152-193](file://backend/src/routes/claims.ts#L152-L193)
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
 
-### Image Upload and Management
-
-#### Upload Images (Multi-file)
+#### Upload Images
 - Method: POST
 - Path: /api/claims/:id/images
 - Content-Type: multipart/form-data
 - Fields:
-  - images: array of files (JPEG, PNG, WebP; max 10MB each; up to 10 files)
-  - imageType: string (optional; FULL_VEHICLE or DAMAGE_CLOSEUP; defaults to FULL_VEHICLE)
-  - label: string (optional per image)
-- Response:
-  - 201 Created: Array of created ClaimImage records with filePath and type
-  - 400 Bad Request: If no images uploaded
-  - 404 Not Found: If claim not found for the authenticated user
-  - 500 Internal Server Error: Upload or database errors
+  - images: File[] (up to 10)
+  - imageType: FULL_VEHICLE | DAMAGE_CLOSEUP (default FULL_VEHICLE)
+- Validation: JPEG, PNG, WebP; max 10MB each
+- Success Response: 201 Created with array of ClaimImage objects
+- Errors:
+  - 400 if no images uploaded
+  - 404 if claim not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
-- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
-- [schema.prisma:95-110](file://backend/prisma/schema.prisma#L95-L110)
+- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
+- [schema.prisma:96-111](file://backend/prisma/schema.prisma#L96-L111)
 
 #### Delete Image
 - Method: DELETE
 - Path: /api/claims/:id/images/:imageId
-- Response:
-  - 200 OK: Success message
-  - 404 Not Found: If claim or image not found
-  - 500 Internal Server Error: File system or database errors
+- Behavior: Deletes file from disk and removes record
+- Success Response: { message }
+- Errors:
+  - 404 if claim or image not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:235-268](file://backend/src/routes/claims.ts#L235-L268)
 
-### AI Damage Analysis
-
 #### Trigger Damage Analysis
 - Method: POST
 - Path: /api/claims/:id/analyze
-- Behavior:
-  - Validates claim exists and belongs to the authenticated user
-  - Calls damage analysis service to process images via Gemini
-  - Saves or updates DamageAssessment and updates AI annotations on images
-  - Auto-generates repair estimate after successful analysis
-- Response:
-  - 200 OK: DamageAnalysisResult with damages, drivabilityAssessment, overallSeverity
-  - 404 Not Found: If claim not found
-  - 500 Internal Server Error: Analysis or service errors
+- Behavior: Calls AI to analyze images and returns assessment
+- Success Response: DamageAnalysisResult
+- Errors:
+  - 404 if claim not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:270-288](file://backend/src/routes/claims.ts#L270-L288)
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
 
-### Document Upload and Verification
+#### Generate Repair Estimate
+- Method: POST
+- Path: /api/claims/:id/estimate
+- Constraints: Requires prior damage assessment
+- Success Response: RepairEstimateResult
+- Errors:
+  - 400 if no damage assessment
+  - 404 if claim not found
+  - 500 on failure
+
+**Section sources**
+- [claims.ts:290-314](file://backend/src/routes/claims.ts#L290-L314)
+- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
 
 #### Upload Document
 - Method: POST
 - Path: /api/claims/:id/documents
 - Content-Type: multipart/form-data
 - Fields:
-  - document: file (JPEG, PNG, WebP; max 10MB)
-  - documentType: string (LICENSE, REGISTRATION, ACCIDENT_REPORT, REPAIR_ESTIMATE)
-- Response:
-  - 201 Created: Document record with filePath and type
-  - 400 Bad Request: If no document uploaded or invalid documentType
-  - 404 Not Found: If claim not found
-  - 500 Internal Server Error: Upload or database errors
+  - document: File
+  - documentType: LICENSE | REGISTRATION | ACCIDENT_REPORT | REPAIR_ESTIMATE (default LICENSE)
+- Validation: JPEG, PNG, WebP; max 10MB
+- Success Response: 201 Created with Document object
+- Errors:
+  - 400 if invalid documentType or no file
+  - 404 if claim not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
-- [upload.ts:49-53](file://backend/src/middleware/upload.ts#L49-L53)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
+- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
+- [schema.prisma:162-186](file://backend/prisma/schema.prisma#L162-L186)
 
 #### List Documents
 - Method: GET
 - Path: /api/claims/:id/documents
-- Response:
-  - 200 OK: Array of documents for the claim, ordered by uploadedAt descending
-  - 404 Not Found: If claim not found
-  - 500 Internal Server Error: Database or unexpected errors
+- Success Response: Array of documents sorted by uploadedAt desc
+- Errors:
+  - 404 if claim not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:355-377](file://backend/src/routes/claims.ts#L355-L377)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
+- [schema.prisma:162-186](file://backend/prisma/schema.prisma#L162-L186)
 
 #### Verify Document
 - Method: POST
 - Path: /api/claims/:id/documents/:docId/verify
-- Behavior:
-  - Validates document exists and belongs to the claim
-  - Calls document verification service to assess authenticity and completeness via Gemini
-  - Updates verificationStatus and verificationResult on the document
-- Response:
-  - 200 OK: DocumentVerificationResult with status, issues, extractedInfo, recommendations
-  - 404 Not Found: If document not found
-  - 500 Internal Server Error: Verification or service errors
+- Behavior: Calls AI to verify document authenticity/completeness and updates verificationStatus
+- Success Response: DocumentVerificationResult
+- Errors:
+  - 404 if document not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:379-397](file://backend/src/routes/claims.ts#L379-L397)
-- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
 
-### Repair Estimate Generation
-
-#### Generate Repair Estimate
-- Method: POST
-- Path: /api/claims/:id/estimate
-- Behavior:
-  - Validates claim exists and belongs to the authenticated user
-  - Requires prior damage assessment
-  - Generates itemized repair costs based on damage types and severities
-  - Saves or updates RepairEstimate and calculates InsurancePayout if policy linked
-- Response:
-  - 200 OK: RepairEstimateResult with items, totals, estimatedDays
-  - 400 Bad Request: If damage analysis not completed
-  - 404 Not Found: If claim not found
-  - 500 Internal Server Error: Estimate generation or service errors
-
-**Section sources**
-- [claims.ts:290-314](file://backend/src/routes/claims.ts#L290-L314)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
-- [schema.prisma:131-159](file://backend/prisma/schema.prisma#L131-L159)
-
-### Chat Assistance
-
-#### Get Chat History
+#### Get Chat Messages
 - Method: GET
 - Path: /api/claims/:id/chat
-- Response:
-  - 200 OK: Array of ChatMessage objects for the claim, ordered by createdAt ascending
-  - 404 Not Found: If claim not found
-  - 500 Internal Server Error: Database or unexpected errors
+- Success Response: Array of chat messages ordered by createdAt asc
+- Errors:
+  - 404 if claim not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:399-421](file://backend/src/routes/claims.ts#L399-L421)
-- [schema.prisma:187-201](file://backend/prisma/schema.prisma#L187-L201)
+- [schema.prisma:188-202](file://backend/prisma/schema.prisma#L188-L202)
 
 #### Send Chat Message
 - Method: POST
 - Path: /api/claims/:id/chat
 - Request Body:
   - message: string (required)
-- Behavior:
-  - Validates claim exists and belongs to the authenticated user
-  - Builds rich context from claim data, policy, damage assessment, repair estimate, payout, and documents
-  - Uses Gemini chat with conversation history to generate assistant response
-  - Persists both user and assistant messages
-- Response:
-  - 200 OK: Object containing userMessage and assistantMessage with id and createdAt
-  - 400 Bad Request: If message is missing
-  - 404 Not Found: If claim not found
-  - 500 Internal Server Error: Chat service or database errors
+- Behavior: Generates assistant response using Gemini and persists both user and assistant messages
+- Success Response: { userMessage, assistantMessage }
+- Errors:
+  - 400 if message missing
+  - 404 if claim not found
+  - 500 on failure
 
 **Section sources**
 - [claims.ts:423-447](file://backend/src/routes/claims.ts#L423-L447)
 - [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
-- [schema.prisma:187-201](file://backend/prisma/schema.prisma#L187-L201)
 
-## Dependency Analysis
-- Claims Router depends on:
-  - Prisma client for data access
-  - Multer for file uploads
-  - JWT middleware for authentication
-  - AI services for damage analysis, document verification, repair estimates, and chat
-- AI services depend on:
-  - Google Generative AI (Gemini) model configured via environment variables
-  - Prisma client for reading/writing related entities
-- Data models define relationships between User, Vehicle, InsurancePolicy, Claim, ClaimImage, DamageAssessment, RepairEstimate, InsurancePayout, Document, and ChatMessage.
-
+### Data Models and Relationships
 ```mermaid
-graph LR
-Router["Claims Router"] --> Prisma["Prisma Client"]
-Router --> Multer["Multer Uploads"]
-Router --> Auth["JWT Auth"]
-Router --> DamageSvc["Damage Analysis"]
-Router --> DocSvc["Document Verification"]
-Router --> EstimateSvc["Repair Estimate"]
-Router --> ChatSvc["Claim Assistant"]
-DamageSvc --> Gemini["Gemini Model"]
-DocSvc --> Gemini
-ChatSvc --> Gemini
-Prisma --> DB["SQLite"]
+erDiagram
+CLAIM {
+uuid id PK
+uuid userId FK
+uuid vehicleId FK
+uuid policyId FK
+enum status
+datetime incidentDate
+string incidentLocation
+text incidentDescription
+string weatherConditions
+boolean hasPoliceReport
+datetime createdAt
+datetime updatedAt
+}
+VEHICLE {
+uuid id PK
+uuid userId FK
+string make
+string model
+int year
+string vin
+string licensePlate
+string color
+int mileage
+string photos
+datetime createdAt
+datetime updatedAt
+}
+INSURANCE_POLICY {
+uuid id PK
+uuid userId FK
+string providerName
+string policyNumber
+string coverageType
+float deductible
+float premiumAmount
+datetime startDate
+datetime endDate
+datetime createdAt
+datetime updatedAt
+}
+CLAIM_IMAGE {
+uuid id PK
+uuid claimId FK
+enum type
+string filePath
+string label
+json aiAnnotation
+datetime uploadedAt
+}
+DAMAGE_ASSESSMENT {
+uuid id PK
+uuid claimId FK
+json damages
+string drivabilityAssessment
+enum overallSeverity
+json aiRawResponse
+datetime assessedAt
+}
+REPAIR_ESTIMATE {
+uuid id PK
+uuid claimId FK
+uuid damageAssessmentId FK
+json items
+float totalPartsCost
+float totalLaborCost
+float totalCost
+int estimatedDays
+datetime createdAt
+}
+INSURANCE_PAYOUT {
+uuid id PK
+uuid claimId FK
+uuid repairEstimateId FK
+float deductible
+float coveredAmount
+float estimatedPayout
+string notes
+datetime createdAt
+}
+DOCUMENT {
+uuid id PK
+uuid claimId FK
+enum type
+string filePath
+enum verificationStatus
+json verificationResult
+datetime uploadedAt
+}
+CHAT_MESSAGE {
+uuid id PK
+uuid claimId FK
+enum role
+string content
+datetime createdAt
+}
+CLAIM ||--o{ CLAIM_IMAGE : "has"
+CLAIM ||--|| VEHICLE : "belongs to"
+CLAIM ||--|| INSURANCE_POLICY : "linked to"
+CLAIM ||--|| DAMAGE_ASSESSMENT : "has"
+CLAIM ||--|| REPAIR_ESTIMATE : "has"
+REPAIR_ESTIMATE ||--|| INSURANCE_PAYOUT : "generates"
+CLAIM ||--o{ DOCUMENT : "has"
+CLAIM ||--o{ CHAT_MESSAGE : "has"
 ```
 
 **Diagram sources**
-- [claims.ts:1-450](file://backend/src/routes/claims.ts#L1-L450)
-- [damageAnalysisService.ts:1-154](file://backend/src/services/damageAnalysisService.ts#L1-L154)
-- [documentVerificationService.ts:1-107](file://backend/src/services/documentVerificationService.ts#L1-L107)
-- [repairEstimateService.ts:1-199](file://backend/src/services/repairEstimateService.ts#L1-L199)
-- [claimAssistantService.ts:1-130](file://backend/src/services/claimAssistantService.ts#L1-L130)
-- [gemini.ts:1-13](file://backend/src/utils/gemini.ts#L1-L13)
-- [schema.prisma:1-201](file://backend/prisma/schema.prisma#L1-L201)
+- [schema.prisma:10-202](file://backend/prisma/schema.prisma#L10-L202)
 
 **Section sources**
-- [claims.ts:1-450](file://backend/src/routes/claims.ts#L1-L450)
-- [schema.prisma:1-201](file://backend/prisma/schema.prisma#L1-L201)
+- [schema.prisma:10-202](file://backend/prisma/schema.prisma#L10-L202)
+
+### AI Integration Details
+
+#### Damage Analysis Flow
+```mermaid
+flowchart TD
+Start(["Start"]) --> LoadClaim["Load Claim + Images"]
+LoadClaim --> CheckImages{"Images present?"}
+CheckImages -- No --> ErrNoImages["Error: No images to analyze"]
+CheckImages -- Yes --> ReadFiles["Read image files"]
+ReadFiles --> BuildPrompt["Build prompt + vehicle context"]
+BuildPrompt --> CallGemini["Call Gemini.generateContent"]
+CallGemini --> ParseJSON{"Parse JSON?"}
+ParseJSON -- No --> Fallback["Fallback: MINOR severity, manual review"]
+ParseJSON -- Yes --> SaveAssessment["Save DamageAssessment"]
+SaveAssessment --> UpdateAnnotations["Update ClaimImage.aiAnnotation"]
+UpdateAnnotations --> AutoEstimate["Auto-generate RepairEstimate"]
+AutoEstimate --> End(["End"])
+Fallback --> End
+ErrNoImages --> End
+```
+
+**Diagram sources**
+- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+
+**Section sources**
+- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+
+#### Repair Estimate Calculation
+```mermaid
+flowchart TD
+Start(["Start"]) --> LoadClaim["Load Claim + Assessment + Policy"]
+LoadClaim --> HasAssessment{"Assessment exists?"}
+HasAssessment -- No --> ErrNoAssessment["Error: No assessment"]
+HasAssessment -- Yes --> MapDamages["Map damages to cost items"]
+MapDamages --> CalcTotals["Sum parts, labor, paint materials"]
+CalcTotals --> EstDays["Estimate days from labor hours"]
+EstDays --> SaveEstimate["Save RepairEstimate"]
+SaveEstimate --> PayoutCalc{"Policy linked?"}
+PayoutCalc -- Yes --> CalcPayout["Compute deductible, covered amount, estimated payout"]
+PayoutCalc -- No --> End(["End"])
+CalcPayout --> SavePayout["Save InsurancePayout"]
+SavePayout --> End
+ErrNoAssessment --> End
+```
+
+**Diagram sources**
+- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+
+**Section sources**
+- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+
+#### Document Verification Flow
+```mermaid
+flowchart TD
+Start(["Start"]) --> LoadDoc["Load Document + Context"]
+LoadDoc --> ReadFile["Read file from disk"]
+ReadFile --> CallGemini["Call Gemini with verification prompt"]
+CallGemini --> ParseJSON{"Parse JSON?"}
+ParseJSON -- No --> Fallback["Fallback: UNREADABLE, manual review"]
+ParseJSON -- Yes --> UpdateDoc["Update verificationStatus + result"]
+UpdateDoc --> End(["End"])
+Fallback --> End
+```
+
+**Diagram sources**
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
+
+**Section sources**
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
+
+### Request and Response Schemas
+
+#### Create Claim Request
+- vehicleId: string (required)
+- policyId: string? (optional)
+- incidentDate: string ISO date (required)
+- incidentLocation: string (required)
+- incidentDescription: string (required)
+- weatherConditions: string? (optional)
+- hasPoliceReport: boolean? (optional)
+
+**Section sources**
+- [claims.ts:20-57](file://backend/src/routes/claims.ts#L20-L57)
+- [schema.prisma:71-94](file://backend/prisma/schema.prisma#L71-L94)
+
+#### Damage Analysis Result
+- damages: array of items with type, severity, location, description, affectedParts
+- drivabilityAssessment: string
+- overallSeverity: MINOR | MODERATE | SEVERE
+
+**Section sources**
+- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+- [index.ts:12-24](file://backend/src/types/index.ts#L12-L24)
+
+#### Repair Estimate Result
+- items: array of RepairEstimateItem (damageType, partName, partCost, laborHours, laborRate, laborCost, paintMaterials, subtotal)
+- totalPartsCost: number
+- totalLaborCost: number
+- totalCost: number
+- estimatedDays: number
+
+**Section sources**
+- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [index.ts:26-43](file://backend/src/types/index.ts#L26-L43)
+
+#### Document Verification Result
+- status: VERIFIED | ISSUES_FOUND | UNREADABLE
+- issues: string[]
+- extractedInfo: Record<string, string>
+- recommendations: string[]
+
+**Section sources**
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
+- [index.ts:45-50](file://backend/src/types/index.ts#L45-L50)
+
+### File Upload Handling
+- Supported formats: image/jpeg, image/png, image/webp, image/jpg
+- Max file size: 10 MB per file
+- Storage:
+  - Images: uploads/images/<uuid>.ext
+  - Documents: uploads/documents/<uuid>.ext
+- Field names:
+  - Images: images (array), imageType (FULL_VEHICLE | DAMAGE_CLOSEUP)
+  - Documents: document (single), documentType (LICENSE | REGISTRATION | ACCIDENT_REPORT | REPAIR_ESTIMATE)
+
+**Section sources**
+- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
+- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
+- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
+
+### Examples
+
+#### Submit a New Claim
+- Steps:
+  1. POST /api/claims with claim details
+  2. POST /api/claims/:id/images with full vehicle and damage close-up photos
+  3. POST /api/claims/:id/submit to finalize and trigger analysis
+- Frontend flow demonstrates this sequence and navigation to claim detail page
+
+**Section sources**
+- [NewClaimPage.tsx:72-94](file://frontend/src/pages/NewClaimPage.tsx#L72-L94)
+- [claims.ts:20-193](file://backend/src/routes/claims.ts#L20-L193)
+
+#### Upload Evidence
+- Use POST /api/claims/:id/images with multipart form data containing images and imageType
+- Use POST /api/claims/:id/documents with multipart form data containing document and documentType
+
+**Section sources**
+- [claims.ts:195-233](file://backend/src/routes/claims.ts#L195-L233)
+- [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
+- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
+
+#### Track Claim Status
+- GET /api/claims to list claims with optional status filter
+- GET /api/claims/:id to retrieve full claim details including status, images, documents, assessments, estimates, payouts, and chat
+
+**Section sources**
+- [claims.ts:59-112](file://backend/src/routes/claims.ts#L59-L112)
+
+#### Retrieve Assessment Results
+- POST /api/claims/:id/analyze to trigger analysis and return DamageAnalysisResult
+- Or rely on automatic analysis triggered upon submit
+
+**Section sources**
+- [claims.ts:270-288](file://backend/src/routes/claims.ts#L270-L288)
+- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+
+## Dependency Analysis
+- Route dependencies:
+  - Uses authMiddleware for authentication
+  - Uses upload middleware for file handling
+  - Calls services for AI tasks and business logic
+- Service dependencies:
+  - DamageAnalysisService depends on Gemini client and Prisma
+  - RepairEstimateService depends on Prisma and cost tables
+  - DocumentVerificationService depends on Gemini client and Prisma
+  - ClaimAssistantService depends on Gemini client and Prisma
+- External dependencies:
+  - Google Generative AI for image/text processing
+  - Multer for file uploads
+  - Prisma for database access
+
+```mermaid
+graph LR
+ClaimsRouter["Claims Router"] --> UploadMW["Upload Middleware"]
+ClaimsRouter --> DAS["Damage Analysis Service"]
+ClaimsRouter --> RES["Repair Estimate Service"]
+ClaimsRouter --> DVS["Document Verification Service"]
+ClaimsRouter --> CAS["Claim Assistant Service"]
+DAS --> Gemini["Gemini Client"]
+DVS --> Gemini
+CAS --> Gemini
+All["All Services"] --> Prisma["Prisma Client"]
+```
+
+**Diagram sources**
+- [claims.ts:20-449](file://backend/src/routes/claims.ts#L20-L449)
+- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
+- [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
+- [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
+
+**Section sources**
+- [claims.ts:20-449](file://backend/src/routes/claims.ts#L20-L449)
+- [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
 
 ## Performance Considerations
-- Background processing: Claim submission triggers asynchronous damage analysis to avoid blocking the response.
-- Batch uploads: Multi-image upload supports up to 10 images per request with parallel database writes.
-- File size limits: Enforced at 10MB per file to prevent large payloads.
-- Database queries: Include only necessary relations to reduce payload size and improve performance.
-- AI calls: Gemini model usage should be rate-limited and cached where appropriate to minimize latency and cost.
+- Background processing: Damage analysis is initiated asynchronously after claim submission to avoid blocking the response.
+- Batch uploads: Image endpoint supports multiple files up to 10 per request to reduce round trips.
+- File size limits: Enforced at 10MB to prevent large payloads impacting performance.
+- Database queries: Include selective fields to minimize payload size and improve load times.
+- AI calls: Gemini requests can be latency-sensitive; consider retry logic and caching strategies for repeated analyses if needed.
 
 [No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
-Common errors and their causes:
-- 401 Unauthorized: Missing or invalid JWT token in Authorization header.
-- 400 Bad Request:
-  - Missing required fields in create/update/submit endpoints.
-  - Invalid document type during upload.
-  - No images uploaded when submitting a claim.
-  - Attempting to edit non-DRAFT claims.
-- 404 Not Found:
-  - Claim, vehicle, image, or document not found for the authenticated user.
-- 500 Internal Server Error:
-  - Database errors or unexpected exceptions in services.
-  - AI service failures with fallback behavior returning minimal results.
-
-Error handling patterns:
-- Centralized try/catch blocks in routes return consistent JSON error objects.
-- Services throw descriptive errors for missing resources or invalid states.
-- AI parsing failures fall back to safe default responses to maintain system stability.
+Common errors and resolutions:
+- Invalid claim creation: Ensure required fields (vehicleId, incidentDate, incidentLocation, incidentDescription) are provided.
+- Missing images on submit: At least one image must be uploaded before submitting a claim.
+- Document upload failures: Verify file format (JPEG, PNG, WebP) and size (≤10MB); ensure documentType is valid.
+- AI service failures: If Gemini parsing fails, fallback results are used; check logs and retry verification or analysis.
+- Unauthorized access: Ensure valid token is attached; frontend interceptor handles 401 by clearing session and redirecting to login.
 
 **Section sources**
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [claims.ts:20-447](file://backend/src/routes/claims.ts#L20-L447)
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [claims.ts:20-193](file://backend/src/routes/claims.ts#L20-L193)
+- [upload.ts:30-41](file://backend/src/middleware/upload.ts#L30-L41)
+- [damageAnalysisService.ts:85-103](file://backend/src/services/damageAnalysisService.ts#L85-L103)
+- [documentVerificationService.ts:78-94](file://backend/src/services/documentVerificationService.ts#L78-L94)
+- [api.ts:11-36](file://frontend/src/services/api.ts#L11-L36)
 
 ## Conclusion
-The Claims API provides a robust, AI-enhanced workflow for managing vehicle insurance claims end-to-end. It supports secure authentication, comprehensive CRUD operations, multi-file uploads, automated damage analysis, document verification, repair estimate generation, and interactive chat assistance. The modular service layer and clear data models enable scalability and maintainability while integrating seamlessly with external AI capabilities.
+The Claims API provides a robust, end-to-end workflow for vehicle insurance claims, integrating AI-driven damage assessment, automated repair estimates, document verification, and interactive assistance. With clear request/response schemas, strict validation, and comprehensive error handling, it supports efficient claim processing from submission to resolution.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
 ## Appendices
 
-### Data Models and Schemas
-- Claim: Represents an insurance claim with status transitions and associated entities.
-- ClaimImage: Stores uploaded images with type and optional AI annotations.
-- DamageAssessment: Captures AI-detected damages, severity, and drivability assessment.
-- RepairEstimate: Itemized costs derived from damage assessment with totals and estimated days.
-- InsurancePayout: Estimated payout based on policy deductible and total repair cost.
-- Document: Uploaded supporting documents with verification status and results.
-- ChatMessage: Conversation history between user and assistant for each claim.
+### Authentication and Security
+- All endpoints require authentication via Bearer token; middleware attaches userId to requests.
+- Frontend automatically includes Authorization header and handles 401 by clearing session.
 
 **Section sources**
-- [schema.prisma:70-201](file://backend/prisma/schema.prisma#L70-L201)
+- [claims.ts:15-18](file://backend/src/routes/claims.ts#L15-L18)
+- [api.ts:11-36](file://frontend/src/services/api.ts#L11-L36)
 
-### Request/Response Examples
-- Create Claim:
-  - Request: POST /api/claims with body containing vehicleId, incidentDate, incidentLocation, incidentDescription
-  - Response: 201 Created with Claim object
-- Submit Claim:
-  - Request: POST /api/claims/:id/submit
-  - Response: 200 OK with updated claim status SUBMITTED
-- Upload Images:
-  - Request: POST /api/claims/:id/images with multipart form data (images, imageType, label)
-  - Response: 201 Created with array of ClaimImage objects
-- Verify Document:
-  - Request: POST /api/claims/:id/documents/:docId/verify
-  - Response: 200 OK with DocumentVerificationResult
-- Generate Repair Estimate:
-  - Request: POST /api/claims/:id/estimate
-  - Response: 200 OK with RepairEstimateResult
-- Chat Interaction:
-  - Request: POST /api/claims/:id/chat with message
-  - Response: 200 OK with userMessage and assistantMessage
+### Environment Configuration
+- Gemini API key: GEMINI_API_KEY
+- Upload directory: UPLOAD_DIR (defaults to ./uploads)
+- Database URL: DATABASE_URL (SQLite)
 
 **Section sources**
-- [claims.ts:20-447](file://backend/src/routes/claims.ts#L20-L447)
-- [types/index.ts:12-51](file://backend/src/types/index.ts#L12-L51)
-
-### Integration Guidelines
-- Authentication: Include Authorization: Bearer <token> header for all requests.
-- File Uploads: Use multipart/form-data with allowed MIME types and size limits.
-- AI Services: Ensure GEMINI_API_KEY is configured in environment variables.
-- Status Tracking: Monitor claim status transitions and use GET endpoints to retrieve latest state.
-- Real-time Features: Poll GET /api/claims/:id/chat for new messages or implement WebSocket if needed.
-
-**Section sources**
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [upload.ts:30-53](file://backend/src/middleware/upload.ts#L30-L53)
-- [gemini.ts:6-10](file://backend/src/utils/gemini.ts#L6-L10)
-- [claims.ts:59-447](file://backend/src/routes/claims.ts#L59-L447)
+- [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
+- [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
+- [schema.prisma:5-8](file://backend/prisma/schema.prisma#L5-L8)

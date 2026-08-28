@@ -1,1 +1,2 @@
-- Each service maintains its own dependency graph and build pipeline under its own directory, with no shared code between frontend and backend.
+- Domain entities are modeled once in Prisma and consumed by both the backend API and the frontend UI.
+- Each top-level service directory is self-contained with its own dependencies, scripts, and configuration.

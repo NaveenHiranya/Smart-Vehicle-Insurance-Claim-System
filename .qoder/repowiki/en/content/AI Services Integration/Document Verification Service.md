@@ -3,13 +3,12 @@
 <cite>
 **Referenced Files in This Document**
 - [documentVerificationService.ts](file://backend/src/services/documentVerificationService.ts)
-- [upload.ts](file://backend/src/middleware/upload.ts)
-- [claims.ts](file://backend/src/routes/claims.ts)
-- [index.ts](file://backend/src/index.ts)
 - [gemini.ts](file://backend/src/utils/gemini.ts)
-- [schema.prisma](file://backend/prisma/schema.prisma)
 - [index.ts (types)](file://backend/src/types/index.ts)
-- [api.ts](file://frontend/src/services/api.ts)
+- [upload.ts](file://backend/src/middleware/upload.ts)
+- [schema.prisma](file://backend/prisma/schema.prisma)
+- [claims.ts](file://backend/src/routes/claims.ts)
+- [admin.ts](file://backend/src/routes/admin.ts)
 </cite>
 
 ## Table of Contents
@@ -25,339 +24,362 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the Document Verification Service that validates uploaded insurance documents using AI-powered OCR and pattern recognition. It explains supported document types, the verification workflow, confidence scoring, error handling for unreadable or corrupted files, integration with claim processing, security considerations, data retention, and compliance aspects relevant to insurance contexts.
+This document explains the Document Verification Service that validates insurance claim documents using AI technology. It covers how the system identifies document types, extracts text and key information via multimodal AI, assesses authenticity and completeness, and returns structured verification results with actionable recommendations. It also details validation rules per document type, confidence handling, edge case management, and guidance for extending support to new document types and customizing verification criteria.
 
 ## Project Structure
-The backend exposes REST endpoints under /api/claims for creating claims, uploading images and documents, triggering analysis, and verifying documents. The Document Verification Service is implemented as a service module that reads stored documents, invokes an AI model for OCR and validation, parses structured results, and persists outcomes back to the database.
+The backend exposes REST endpoints for uploading documents, triggering verification, and managing verification outcomes. The core verification logic is encapsulated in a service that leverages a multimodal AI model to analyze uploaded images and return structured results.
 
 ```mermaid
 graph TB
-FE["Frontend<br/>React App"] --> API["Express Server<br/>/api/claims"]
-API --> UploadMW["Upload Middleware<br/>multer"]
-API --> DB["Prisma Client<br/>SQLite"]
-API --> DVS["Document Verification Service"]
-DVS --> FS["File System<br/>uploads/documents"]
-DVS --> AI["Gemini Model<br/>OCR + Validation"]
-DVS --> DB
+subgraph "API Layer"
+R1["Claims Routes<br/>POST /claims/:id/documents"]
+R2["Claims Routes<br/>POST /claims/:id/documents/:docId/verify"]
+R3["Admin Routes<br/>GET /admin/documents"]
+R4["Admin Routes<br/>PATCH /admin/documents/:id/approve|reject"]
+end
+subgraph "Services"
+S1["Document Verification Service"]
+end
+subgraph "Utilities"
+U1["Gemini Client"]
+U2["Prisma Client"]
+end
+subgraph "Storage"
+F1["Filesystem: uploads/documents"]
+D1["Database: Documents table"]
+end
+R1 --> U2
+R2 --> S1
+R3 --> U2
+R4 --> U2
+S1 --> U1
+S1 --> U2
+S1 --> F1
+S1 --> D1
 ```
 
 **Diagram sources**
-- [index.ts:16-32](file://backend/src/index.ts#L16-L32)
 - [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-- [upload.ts:17-53](file://backend/src/middleware/upload.ts#L17-L53)
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
-- [gemini.ts:6-10](file://backend/src/utils/gemini.ts#L6-L10)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
+- [admin.ts:125-184](file://backend/src/routes/admin.ts#L125-L184)
+- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [gemini.ts:6-9](file://backend/src/utils/gemini.ts#L6-L9)
+- [schema.prisma:162-186](file://backend/prisma/schema.prisma#L162-L186)
 
 **Section sources**
-- [index.ts:16-32](file://backend/src/index.ts#L16-L32)
 - [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-- [upload.ts:17-53](file://backend/src/middleware/upload.ts#L17-L53)
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
-- [gemini.ts:6-10](file://backend/src/utils/gemini.ts#L6-L10)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
+- [admin.ts:125-184](file://backend/src/routes/admin.ts#L125-L184)
+- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [gemini.ts:6-9](file://backend/src/utils/gemini.ts#L6-L9)
+- [schema.prisma:162-186](file://backend/prisma/schema.prisma#L162-L186)
 
 ## Core Components
-- Document Verification Service: Loads a document by ID, reads its file from disk, sends it to the Gemini model with a strict prompt, parses JSON output, updates the document record with verification status and result, and returns the result.
-- Upload Middleware: Validates allowed image MIME types, enforces size limits, and stores files under dedicated directories with unique filenames.
-- Claims Routes: Provide endpoints to upload documents, list them, and trigger verification for a specific document.
-- Data Models: Prisma schema defines Document, Claim, Vehicle, User, and related enums including DocumentType and VerificationStatus.
-- Types: Defines the DocumentVerificationResult shape used across the service.
-- Frontend API Client: Axios instance with auth token injection and 401 handling; used by UI to call backend endpoints.
+- Document Verification Service: Orchestrates retrieval of the uploaded document image, builds context from the associated claim, calls the multimodal AI model, parses structured output, and persists verification results.
+- Gemini Client: Provides access to the multimodal AI model used for document analysis and extraction.
+- Upload Middleware: Validates and stores uploaded document images to disk and ensures required directories exist.
+- Prisma Schema: Defines data models for Documents, Claims, Vehicles, Users, and related entities; includes enums for document types and verification statuses.
+- API Routes: Expose endpoints to upload documents, trigger verification, list documents, and approve/reject documents by admins.
 
-Supported document types:
-- Driver’s License (LICENSE)
-- Vehicle Registration (REGISTRATION)
-- Accident Report (ACCIDENT_REPORT)
-- Repair Estimate (REPAIR_ESTIMATE)
-
-Verification statuses:
-- PENDING (default on upload)
-- VERIFIED
-- ISSUES_FOUND
-- UNREADABLE
+Key responsibilities:
+- Type-safe request/response contracts via TypeScript interfaces.
+- Centralized error handling and fallback behavior when parsing fails.
+- Consistent storage paths and file filtering for supported image formats.
 
 **Section sources**
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
-- [upload.ts:30-53](file://backend/src/middleware/upload.ts#L30-L53)
-- [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
+- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [gemini.ts:6-9](file://backend/src/utils/gemini.ts#L6-L9)
+- [upload.ts:17-53](file://backend/src/middleware/upload.ts#L17-L53)
+- [schema.prisma:162-186](file://backend/prisma/schema.prisma#L162-L186)
 - [index.ts (types):45-50](file://backend/src/types/index.ts#L45-L50)
-- [api.ts:1-33](file://frontend/src/services/api.ts#L1-L33)
 
 ## Architecture Overview
-The end-to-end flow for document verification:
-1. Frontend uploads a document via POST /api/claims/:id/documents.
-2. Multer middleware validates and saves the file to uploads/documents.
-3. A Document record is created with type and filePath, status PENDING.
-4. Frontend calls POST /api/claims/:id/documents/:docId/verify.
-5. The route retrieves the document and calls verifyDocument.
-6. The service reads the file, constructs context from claim/vehicle/user, and sends the image to Gemini with a strict JSON prompt.
-7. The response is parsed into DocumentVerificationResult and persisted to the Document record.
-8. The client receives the verification result for display and downstream processing.
+The verification flow integrates user-facing routes, a service layer, an external AI model, and persistent storage.
 
 ```mermaid
 sequenceDiagram
-participant FE as "Frontend"
-participant API as "Claims Router"
-participant MW as "Upload Middleware"
-participant DB as "Database"
-participant Svc as "Document Verification Service"
-participant FS as "File System"
-participant AI as "Gemini Model"
-FE->>API : POST /claims/ : id/documents (multipart)
-API->>MW : Validate & store file
-MW-->>API : File saved to uploads/documents
-API->>DB : Create Document (PENDING)
-FE->>API : POST /claims/ : id/documents/ : docId/verify
-API->>Svc : verifyDocument(docId)
-Svc->>DB : Read Document + Claim context
-Svc->>FS : Read file bytes
-Svc->>AI : Send image + prompt with context
-AI-->>Svc : JSON {status, issues, extractedInfo, recommendations}
-Svc->>DB : Update Document (verificationStatus, verificationResult)
-Svc-->>API : Result
-API-->>FE : Verification result
+participant Client as "Client"
+participant ClaimsRoutes as "Claims Routes"
+participant AdminRoutes as "Admin Routes"
+participant DocSvc as "Document Verification Service"
+participant Gemini as "Gemini Model"
+participant FS as "Filesystem"
+participant DB as "Prisma/DB"
+Client->>ClaimsRoutes : POST /claims/ : id/documents (upload)
+ClaimsRoutes->>DB : Create Document record
+ClaimsRoutes-->>Client : 201 Created
+Client->>ClaimsRoutes : POST /claims/ : id/documents/ : docId/verify
+ClaimsRoutes->>DocSvc : verifyDocument(docId)
+DocSvc->>DB : Read Document + Claim context
+DocSvc->>FS : Read image bytes
+DocSvc->>Gemini : Send prompt + inline image
+Gemini-->>DocSvc : Structured JSON response
+DocSvc->>DB : Update verificationStatus & result
+DocSvc-->>ClaimsRoutes : VerificationResult
+ClaimsRoutes-->>Client : 200 OK
+AdminRoutes->>DB : Approve/Reject document
+AdminRoutes-->>Client : Updated document
 ```
 
 **Diagram sources**
 - [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-- [upload.ts:17-53](file://backend/src/middleware/upload.ts#L17-L53)
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
-- [gemini.ts:6-10](file://backend/src/utils/gemini.ts#L6-L10)
+- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [admin.ts:151-184](file://backend/src/routes/admin.ts#L151-L184)
+- [schema.prisma:162-186](file://backend/prisma/schema.prisma#L162-L186)
 
 ## Detailed Component Analysis
 
 ### Document Verification Service
 Responsibilities:
-- Retrieve document and associated claim context (vehicle and user).
-- Resolve file path and read binary content.
-- Determine MIME type based on extension.
-- Build a prompt with explicit instructions for readability checks, document type identification, key information extraction, and issue detection.
-- Call Gemini with inline image data and prompt.
-- Parse the returned text to extract a JSON object; if parsing fails, return a safe fallback indicating unreadable/manual review.
-- Persist verification status and result to the Document record.
+- Load document metadata and claim context from the database.
+- Resolve the on-disk path for the uploaded image and read its bytes.
+- Build a rich prompt including document type and claim context.
+- Call the multimodal AI model with the image and prompt.
+- Parse the returned JSON into a typed result; handle parse failures gracefully.
+- Persist verification status and result back to the database.
 
-Key behaviors:
+Validation and quality assessment:
+- The service instructs the AI to evaluate readability, identify document type, check presence of required fields per type, detect potential tampering or inconsistencies, and provide recommendations.
 - Status values: VERIFIED, ISSUES_FOUND, UNREADABLE.
-- Issues array captures detected problems such as blurriness, expiration, missing fields, tampering signs, inconsistencies.
-- Extracted info is a flexible key-value map for OCR-extracted fields.
-- Recommendations guide next steps when issues are found.
+
+Confidence and reliability:
+- No explicit numeric confidence score is returned by the current implementation. The status field acts as a categorical confidence indicator.
+- Recommendations are included to guide next steps when issues are found.
+
+Edge cases handled:
+- Missing document record or missing file on disk triggers errors before calling the AI.
+- If AI response cannot be parsed to JSON, the service defaults to UNREADABLE with a manual review recommendation.
+
+Extensibility:
+- To add new document types, extend the allowed types in routes and schema, and update the prompt’s type-specific checks accordingly.
 
 ```mermaid
 flowchart TD
-Start(["verifyDocument(docId)"]) --> LoadDoc["Load Document + Claim Context"]
-LoadDoc --> CheckExists{"Document exists?"}
-CheckExists -- No --> ErrNotFound["Throw 'Document not found'"]
-CheckExists -- Yes --> ReadFile["Resolve path and read file bytes"]
-ReadFile --> Exists{"File exists on disk?"}
-Exists -- No --> ErrMissing["Throw 'Document file not found on disk'"]
-Exists -- Yes --> GetModel["Get Gemini model"]
-GetModel --> BuildPrompt["Build prompt + context"]
-BuildPrompt --> SendAI["Send image + prompt to Gemini"]
-SendAI --> ParseJSON{"Parse JSON response"}
-ParseJSON -- Fail --> Fallback["Set status=UNREADABLE with manual review note"]
-ParseJSON -- Success --> UseResult["Use parsed result"]
-Fallback --> UpdateDB["Update Document with status/result"]
-UseResult --> UpdateDB
-UpdateDB --> Return(["Return verification result"])
+Start(["verifyDocument(documentId)"]) --> FetchDoc["Fetch Document + Claim context"]
+FetchDoc --> Exists{"Document exists?"}
+Exists -- "No" --> ErrDoc["Throw 'Document not found'"]
+Exists -- "Yes" --> ResolvePath["Resolve filesystem path"]
+ResolvePath --> FileExists{"File exists?"}
+FileExists -- "No" --> ErrFile["Throw 'Document file not found'"]
+FileExists -- "Yes" --> ReadImage["Read image bytes"]
+ReadImage --> BuildPrompt["Build prompt + context"]
+BuildPrompt --> CallAI["Call Gemini with image"]
+CallAI --> ParseJSON{"Parse JSON?"}
+ParseJSON -- "No" --> Fallback["Set UNREADABLE + manual review"]
+ParseJSON -- "Yes" --> UseResult["Use parsed result"]
+Fallback --> Save["Update DB with status/result"]
+UseResult --> Save
+Save --> End(["Return result"])
 ```
 
 **Diagram sources**
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
+- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
 
 **Section sources**
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
+- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
 
-### Upload Middleware
-Responsibilities:
-- Ensure upload directories exist.
-- Store files under uploads/images or uploads/documents depending on field name.
-- Generate unique filenames using UUIDs.
-- Filter allowed MIME types: JPEG, PNG, WebP, JPG.
-- Enforce maximum file size of 10MB.
+### API Integration: Upload and Verify
+Upload:
+- Endpoint: POST /api/claims/:id/documents
+- Validates claim ownership, accepts a single document file, enforces allowed image types and size limits, stores under uploads/documents, and creates a Document record with a chosen type.
 
-Security and integrity:
-- Only whitelisted image types accepted.
-- Size limit prevents large payloads.
-- Unique filenames avoid overwrites and path traversal risks.
+Verify:
+- Endpoint: POST /api/claims/:id/documents/:docId/verify
+- Ensures the document belongs to the specified claim, then invokes the verification service and returns the result.
 
-**Section sources**
-- [upload.ts:6-53](file://backend/src/middleware/upload.ts#L6-L53)
+Admin operations:
+- List documents with optional status filter.
+- Approve or reject documents, updating verification status and appending admin notes.
 
-### Claims Routes (Document Endpoints)
-Endpoints:
-- POST /api/claims/:id/documents: Upload a single document with multipart/form-data; validates document type against LICENSE, REGISTRATION, ACCIDENT_REPORT, REPAIR_ESTIMATE; creates a Document record with PENDING status.
-- GET /api/claims/:id/documents: List all documents for a claim.
-- POST /api/claims/:id/documents/:docId/verify: Trigger verification for a specific document; returns the latest verification result.
+```mermaid
+sequenceDiagram
+participant C as "Client"
+participant CR as "Claims Routes"
+participant AR as "Admin Routes"
+participant DB as "Prisma/DB"
+C->>CR : POST /claims/ : id/documents (multipart)
+CR->>DB : Create Document(type, filePath)
+CR-->>C : 201 Created
+C->>CR : POST /claims/ : id/documents/ : docId/verify
+CR->>CR : verifyDocument(docId)
+CR-->>C : VerificationResult
+AR->>DB : PATCH /documents/ : id/approve|reject
+AR-->>C : Updated Document
+```
 
-Error handling:
-- Returns 404 if claim or document not found.
-- Returns 400 for invalid document type or missing file.
-- Returns 500 on unexpected errors.
-
-Integration points:
-- Uses upload middleware for file handling.
-- Calls verifyDocument service for verification.
-- Persists results via Prisma.
+**Diagram sources**
+- [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
+- [admin.ts:125-184](file://backend/src/routes/admin.ts#L125-L184)
 
 **Section sources**
 - [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
+- [admin.ts:125-184](file://backend/src/routes/admin.ts#L125-L184)
 
 ### Data Models and Types
-- DocumentType enum: LICENSE, REGISTRATION, ACCIDENT_REPORT, REPAIR_ESTIMATE.
-- VerificationStatus enum: PENDING, VERIFIED, ISSUES_FOUND, UNREADABLE.
-- Document model includes claimId, type, filePath, verificationStatus, verificationResult (JSON), uploadedAt.
-- DocumentVerificationResult type defines status, issues, extractedInfo, recommendations.
+- Document: Stores claim association, document type, file path, verification status, and verification result payload.
+- VerificationStatus: PENDING, VERIFIED, ISSUES_FOUND, UNREADABLE.
+- DocumentType: LICENSE, REGISTRATION, ACCIDENT_REPORT, REPAIR_ESTIMATE.
+- DocumentVerificationResult: Typed interface defining status, issues, extractedInfo, and recommendations.
 
-These models ensure consistent storage and retrieval of verification outcomes and support downstream claim processing workflows.
+These models ensure consistent storage and predictable responses across the API.
 
 **Section sources**
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
+- [schema.prisma:162-186](file://backend/prisma/schema.prisma#L162-L186)
 - [index.ts (types):45-50](file://backend/src/types/index.ts#L45-L50)
 
-### Frontend Integration
-- The frontend uses an Axios client configured with base URL /api and automatic Bearer token injection.
-- While document upload and verification flows are primarily backend-driven, the UI can call the document endpoints to attach supporting documents and request verification.
+### OCR and Text Extraction
+- The service uses a multimodal AI model to ingest the document image and extract relevant text and fields. There is no separate OCR library; the AI model performs visual understanding and text extraction internally.
+- The prompt directs the model to focus on readability, document type identification, presence of required fields, and detection of tampering or inconsistencies.
 
 **Section sources**
-- [api.ts:1-33](file://frontend/src/services/api.ts#L1-L33)
+- [documentVerificationService.ts:6-39](file://backend/src/services/documentVerificationService.ts#L6-L39)
+- [gemini.ts:6-9](file://backend/src/utils/gemini.ts#L6-L9)
+
+### Authenticity Verification and Tampering Detection
+- The verification prompt explicitly asks the model to look for signs of tampering or alteration and inconsistencies in information.
+- Results are captured in the issues array and reflected in the status (e.g., ISSUES_FOUND).
+
+**Section sources**
+- [documentVerificationService.ts:17-22](file://backend/src/services/documentVerificationService.ts#L17-L22)
+
+### Quality Assessment Features
+- Readability evaluation is part of the prompt instructions, guiding the model to determine if the document is clear and legible.
+- Completeness is assessed by checking for required fields based on document type.
+- Recommendations are provided to guide users on corrective actions.
+
+**Section sources**
+- [documentVerificationService.ts:9-22](file://backend/src/services/documentVerificationService.ts#L9-L22)
+
+### Validation Rules by Document Type
+The service’s prompt defines expected fields and checks per type:
+- Driver’s License: name, date of birth, license number, expiration date, photo.
+- Vehicle Registration: make/model/year, VIN, owner name, registration date, expiration.
+- Accident Report: date, location, parties involved, incident description, officer name/badge number.
+- Repair Estimate: shop name, itemized parts/labor, total cost, vehicle info, date.
+
+These rules inform the model’s extraction and issue detection.
+
+**Section sources**
+- [documentVerificationService.ts:12-16](file://backend/src/services/documentVerificationService.ts#L12-L16)
+
+### Confidence Scoring
+- The current implementation does not include a numeric confidence score. Instead, it uses a categorical status:
+  - VERIFIED: Clear, complete, and valid.
+  - ISSUES_FOUND: Readable but has problems such as missing fields, expiry, or suspected tampering.
+  - UNREADABLE: Too blurry/damaged to assess or AI parsing failed.
+- Recommendations accompany ISSUES_FOUND or UNREADABLE states to guide next steps.
+
+**Section sources**
+- [documentVerificationService.ts:24-39](file://backend/src/services/documentVerificationService.ts#L24-L39)
+- [documentVerificationService.ts:78-94](file://backend/src/services/documentVerificationService.ts#L78-L94)
+
+### Handling Edge Cases
+- Missing document record: Throws an error before proceeding.
+- Missing file on disk: Throws an error to prevent undefined behavior.
+- AI response parsing failure: Defaults to UNREADABLE with a manual review recommendation.
+- Admin override: Admins can approve or reject documents, setting appropriate statuses and notes.
+
+**Section sources**
+- [documentVerificationService.ts:47-55](file://backend/src/services/documentVerificationService.ts#L47-L55)
+- [documentVerificationService.ts:78-94](file://backend/src/services/documentVerificationService.ts#L78-L94)
+- [admin.ts:151-184](file://backend/src/routes/admin.ts#L151-L184)
+
+### Adding Support for New Document Types
+Steps to extend:
+1. Add the new type to the DocumentType enum in the schema.
+2. Update route validation to accept the new type during upload.
+3. Extend the verification prompt to include type-specific checks and required fields.
+4. Optionally adjust UI/API to reflect the new type and any additional metadata.
+
+Example references:
+- Enum definition: [schema.prisma:162-167](file://backend/prisma/schema.prisma#L162-L167)
+- Route validation: [claims.ts:333-338](file://backend/src/routes/claims.ts#L333-L338)
+- Prompt customization: [documentVerificationService.ts:6-39](file://backend/src/services/documentVerificationService.ts#L6-L39)
+
+**Section sources**
+- [schema.prisma:162-167](file://backend/prisma/schema.prisma#L162-L167)
+- [claims.ts:333-338](file://backend/src/routes/claims.ts#L333-L338)
+- [documentVerificationService.ts:6-39](file://backend/src/services/documentVerificationService.ts#L6-L39)
+
+### Customizing Verification Criteria
+- Modify the verification prompt to emphasize specific checks (e.g., stricter tampering detection, additional required fields).
+- Adjust recommendations to reflect policy changes or regional requirements.
+- Leverage admin approval workflows to incorporate human-in-the-loop decisions for ambiguous cases.
+
+**Section sources**
+- [documentVerificationService.ts:6-39](file://backend/src/services/documentVerificationService.ts#L6-L39)
+- [admin.ts:151-184](file://backend/src/routes/admin.ts#L151-L184)
 
 ## Dependency Analysis
 High-level dependencies:
-- Express server mounts routes and static uploads directory.
-- Claims router depends on upload middleware and services.
-- Document Verification Service depends on Prisma, filesystem, and Gemini utility.
-- Gemini utility depends on environment configuration for API key.
+- Claims and Admin routes depend on Prisma for data access and on the Document Verification Service for AI-driven validation.
+- The service depends on the Gemini client for multimodal processing and on filesystem I/O for reading uploaded images.
+- Storage and persistence are handled via Prisma against a SQLite database.
 
 ```mermaid
 graph LR
-Index["Server index.ts"] --> Claims["Routes claims.ts"]
-Claims --> UploadMW["Middleware upload.ts"]
-Claims --> DVS["Service documentVerificationService.ts"]
-DVS --> Prisma["Prisma client"]
-DVS --> FS["File system"]
-DVS --> Gemini["Utils gemini.ts"]
+Claims["Claims Routes"] --> DocSvc["Document Verification Service"]
+Admin["Admin Routes"] --> DB["Prisma/DB"]
+DocSvc --> Gemini["Gemini Client"]
+DocSvc --> FS["Filesystem"]
+DocSvc --> DB
 ```
 
 **Diagram sources**
-- [index.ts:16-32](file://backend/src/index.ts#L16-L32)
 - [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
-- [gemini.ts:6-10](file://backend/src/utils/gemini.ts#L6-L10)
+- [admin.ts:125-184](file://backend/src/routes/admin.ts#L125-L184)
+- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [gemini.ts:6-9](file://backend/src/utils/gemini.ts#L6-L9)
 
 **Section sources**
-- [index.ts:16-32](file://backend/src/index.ts#L16-L32)
 - [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
-- [gemini.ts:6-10](file://backend/src/utils/gemini.ts#L6-L10)
+- [admin.ts:125-184](file://backend/src/routes/admin.ts#L125-L184)
+- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
+- [gemini.ts:6-9](file://backend/src/utils/gemini.ts#L6-L9)
 
 ## Performance Considerations
-- File I/O: Reading full image bytes per verification can be costly; consider caching verified results and reusing them for subsequent requests.
-- External API calls: Each verification triggers a Gemini call; implement rate limiting and retry logic with exponential backoff to handle transient failures.
-- Concurrency: Avoid blocking the event loop; run verification asynchronously where possible and provide polling or webhook mechanisms for long-running tasks.
-- Storage: Keep uploads within reasonable size limits (already enforced at 10MB); consider compression or resizing before sending to the model to reduce payload size.
-- Database writes: Batch updates if multiple documents are verified in sequence to minimize write overhead.
+- Image size limit: Upload middleware caps files at 10MB to balance quality and performance.
+- Asynchronous background tasks: Damage analysis runs asynchronously; similarly, verification could be offloaded to a queue for high throughput.
+- Database queries: Include only necessary relations to reduce payload size and query time.
+- External API latency: Calls to the AI model introduce network latency; consider caching repeated verifications or batching where feasible.
 
 [No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
 Common issues and resolutions:
-- Document not found: Occurs when attempting to verify a non-existent document ID. Ensure the correct docId is used and the document was successfully created.
-- Document file not found on disk: Indicates mismatch between stored filePath and actual file location. Verify upload paths and that the file exists under uploads/documents.
-- Unreadable or malformed AI response: If the model returns non-JSON or garbled output, the service falls back to UNREADABLE with a recommendation for manual review. Retry after ensuring the image is clear and well-lit.
-- Invalid document type: Uploading with unsupported type returns a validation error. Use one of LICENSE, REGISTRATION, ACCIDENT_REPORT, REPAIR_ESTIMATE.
-- Unauthorized access: If the frontend token expires, the client redirects to login. Re-authenticate and retry.
+- Document not found: Ensure the document ID exists and belongs to the specified claim.
+- Document file not found on disk: Confirm the file was successfully uploaded and stored under the expected directory.
+- AI response parsing failure: The service falls back to UNREADABLE; re-upload a clearer image or retry verification.
+- Invalid document type: Ensure the type matches one of the allowed values in the route validation.
+- Admin approval/rejection: Use admin endpoints to set final statuses and add reasons when needed.
 
-Operational checks:
-- Confirm UPLOAD_DIR exists and is writable.
-- Verify GEMINI_API_KEY is set in environment.
-- Ensure CORS settings allow the frontend origin.
+Operational tips:
+- Check logs for detailed error messages around file I/O and AI calls.
+- Validate environment variables for the AI API key and upload directory configuration.
 
 **Section sources**
-- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
-- [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-- [upload.ts:30-53](file://backend/src/middleware/upload.ts#L30-L53)
-- [index.ts:16-26](file://backend/src/index.ts#L16-L26)
+- [documentVerificationService.ts:47-55](file://backend/src/services/documentVerificationService.ts#L47-L55)
+- [documentVerificationService.ts:78-94](file://backend/src/services/documentVerificationService.ts#L78-L94)
+- [claims.ts:333-338](file://backend/src/routes/claims.ts#L333-L338)
+- [admin.ts:151-184](file://backend/src/routes/admin.ts#L151-L184)
 
 ## Conclusion
-The Document Verification Service integrates AI-powered OCR and rule-based checks to validate insurance documents, extract key information, and assess authenticity. It supports driver’s licenses, vehicle registrations, accident reports, and repair estimates. Results are persisted and exposed via REST endpoints for seamless integration with claim processing workflows. Security controls include file type filtering, size limits, and authenticated access. For production deployments, consider adding robust error handling, retries, rate limiting, secure storage, and compliance measures for sensitive document handling.
+The Document Verification Service integrates multimodal AI to validate insurance claim documents, providing robust checks for readability, completeness, and authenticity. It standardizes results through typed responses and supports administrative oversight for approvals and rejections. Extending the system to new document types and customizing verification criteria is straightforward by updating the schema, routes, and prompts.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
 ## Appendices
 
-### Supported Document Types and Key Fields
-- Driver’s License: Full name, date of birth, license number, expiration date, photo presence.
-- Vehicle Registration: Make/model/year, VIN, owner name, registration date, expiration.
-- Accident Report: Date, location, parties involved, incident description, officer name/badge number.
-- Repair Estimate: Shop name, itemized parts/labor, total cost, vehicle info, date.
-
-These fields are targeted by the verification prompt to ensure completeness and consistency.
-
-**Section sources**
-- [documentVerificationService.ts:8-23](file://backend/src/services/documentVerificationService.ts#L8-L23)
-- [schema.prisma:161-166](file://backend/prisma/schema.prisma#L161-L166)
-
-### Confidence Scoring and Fraud Indicators
-- Status-based confidence:
-  - VERIFIED: High confidence; document is clear, complete, and valid.
-  - ISSUES_FOUND: Medium confidence; readable but contains issues such as expiration, missing fields, or inconsistencies.
-  - UNREADABLE: Low confidence; cannot assess due to quality or damage.
-- Issues array: Captures specific concerns like blur, tampering signs, or missing required information.
-- Recommendations: Actionable guidance for users or reviewers when issues are found.
-
-Note: The current implementation uses categorical status rather than numeric scores. To introduce numeric confidence, extend the result schema to include a score field and derive it from issues count and severity.
-
-**Section sources**
-- [documentVerificationService.ts:24-39](file://backend/src/services/documentVerificationService.ts#L24-L39)
-- [index.ts (types):45-50](file://backend/src/types/index.ts#L45-L50)
-
-### Example Upload and Verification Workflow
-- Step 1: Create or select a claim.
-- Step 2: Upload supporting document(s) via POST /api/claims/:id/documents with documentType and file.
-- Step 3: Trigger verification via POST /api/claims/:id/documents/:docId/verify.
-- Step 4: Review returned status, issues, extractedInfo, and recommendations.
-- Step 5: Proceed with claim processing based on verification outcome.
+### API Reference Summary
+- Upload document: POST /api/claims/:id/documents
+  - Accepts multipart form with a document field.
+  - Validates claim ownership and document type.
+  - Stores file and creates a Document record.
+- Verify document: POST /api/claims/:id/documents/:docId/verify
+  - Triggers AI-based verification and returns a structured result.
+- List documents: GET /api/admin/documents
+  - Supports filtering by verification status.
+- Approve/Reject: PATCH /api/admin/documents/:id/approve|reject
+  - Updates verification status and records admin notes.
 
 **Section sources**
 - [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-
-### Error Handling for Corrupted or Unreadable Documents
-- If the file is missing on disk, the service throws an error indicating the file was not found.
-- If the AI response cannot be parsed, the service sets status to UNREADABLE and recommends manual review.
-- Clients should handle these cases by prompting users to re-upload clearer images or escalate to human review.
-
-**Section sources**
-- [documentVerificationService.ts:51-94](file://backend/src/services/documentVerificationService.ts#L51-L94)
-
-### Integration with Claim Processing
-- After verification, downstream processes can use the Document record’s verificationStatus and verificationResult to:
-  - Auto-approve low-risk claims with VERIFIED status.
-  - Flag claims with ISSUES_FOUND for manual review.
-  - Block or pause processing for UNREADABLE until corrected.
-- The claims endpoint already includes documents in claim detail responses, enabling UI to display verification outcomes alongside other claim data.
-
-**Section sources**
-- [claims.ts:85-112](file://backend/src/routes/claims.ts#L85-L112)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
-
-### Security Considerations for Sensitive Document Handling
-- Authentication: All claim endpoints are protected by authentication middleware; tokens are injected by the frontend client.
-- File validation: Only whitelisted image MIME types are accepted; size limits prevent abuse.
-- Storage: Files are stored under a controlled directory served statically; ensure proper permissions and consider restricting direct access behind authentication in production.
-- Secrets: API keys are loaded from environment variables; never hardcode secrets in code.
-
-**Section sources**
-- [api.ts:10-17](file://frontend/src/services/api.ts#L10-L17)
-- [upload.ts:30-53](file://backend/src/middleware/upload.ts#L30-L53)
-- [index.ts:16-26](file://backend/src/index.ts#L16-L26)
-- [gemini.ts:6-10](file://backend/src/utils/gemini.ts#L6-L10)
-
-### Data Retention Policies and Compliance
-- Retention: Define policies for how long uploaded documents and verification results are retained. Implement cleanup jobs to delete files and records beyond retention periods.
-- Compliance: Ensure adherence to applicable regulations for personal and sensitive data (e.g., GDPR, HIPAA-like requirements if health data is involved). Encrypt data at rest and in transit; restrict access to authorized roles; maintain audit logs for document access and verification actions.
-- Privacy: Minimize collected data; only retain necessary fields; provide mechanisms for users to request deletion.
-
-[No sources needed since this section provides general guidance]
+- [admin.ts:125-184](file://backend/src/routes/admin.ts#L125-L184)

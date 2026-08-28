@@ -1,1 +1,0 @@
-React + TypeScript, Vite as the build/dev server, and a shared REST API client (`src/services/api.ts`) consumed by all page components.

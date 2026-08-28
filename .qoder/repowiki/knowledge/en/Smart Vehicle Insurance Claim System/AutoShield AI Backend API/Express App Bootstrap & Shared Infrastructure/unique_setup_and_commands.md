@@ -1,0 +1,1 @@
+Requires an `UPLOAD_DIR` environment variable (defaults to `./uploads`) so that Multer can create the `images` and `documents` subdirectories at startup; the server also reads `PORT` (default 5000) and `CORS_ORIGIN` (default `http://localhost:5173`).

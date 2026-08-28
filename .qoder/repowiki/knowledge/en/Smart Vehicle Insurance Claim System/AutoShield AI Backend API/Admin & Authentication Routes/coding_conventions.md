@@ -1,0 +1,4 @@
+- Route handlers wrap their logic in try/catch blocks and return uniform `{ error }` JSON responses with appropriate HTTP status codes instead of throwing.
+- Protected routes attach the authenticated user's ID to `req.userId` via middleware and consume it through the typed `AuthRequest` interface rather than reading raw headers inside handlers.
+- Bearer tokens are extracted by checking `req.headers.authorization` starts with `'Bearer '` and splitting on the space before passing the token to `jwt.verify`.
+- Admin-only routes apply authorization at the router level via `router.use(adminAuthMiddleware)` so individual handlers do not repeat admin checks.

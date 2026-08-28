@@ -1,1 +1,0 @@
-Vite-powered React SPA that renders user-facing pages for claims, policies, vehicles, and dashboard, sharing auth context, API client, and types across all feature pages.

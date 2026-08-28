@@ -1,0 +1,1 @@
+React SPA for the vehicle insurance claim system, providing customer and admin portals for managing vehicles, policies, claims, documents, and AI-assisted claim processing.

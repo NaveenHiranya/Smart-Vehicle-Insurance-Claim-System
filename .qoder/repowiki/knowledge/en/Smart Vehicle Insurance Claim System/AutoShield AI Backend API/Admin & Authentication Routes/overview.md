@@ -1,0 +1,1 @@
+Express routes and middleware for user registration, login, profile management, and admin-only claim/document/statistics operations secured by JWT bearer tokens.

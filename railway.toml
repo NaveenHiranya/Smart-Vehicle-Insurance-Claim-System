@@ -3,6 +3,6 @@ builder = "nixpacks"
 buildCommand = "cd backend && npm install && npm run build"
 
 [deploy]
-startCommand = "cd backend && npm run start:migrate"
+startCommand = "cd backend && npx prisma db push && node dist/index.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3

@@ -1,0 +1,1 @@
+Express routes and services for creating, submitting, and managing vehicle insurance claims, including AI-driven damage analysis, repair estimates, document verification, and a claim assistant chat.

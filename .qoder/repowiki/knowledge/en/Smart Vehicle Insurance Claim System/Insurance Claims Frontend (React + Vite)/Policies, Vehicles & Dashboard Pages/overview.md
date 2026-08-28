@@ -1,1 +1,0 @@
-React page components for the user-facing dashboard overview and CRUD management of insurance policies and vehicles, wired to the backend REST API.

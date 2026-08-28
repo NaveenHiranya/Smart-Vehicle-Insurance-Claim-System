@@ -1,0 +1,3 @@
+- Externalized configuration is read from `process.env` with sensible defaults (e.g., `process.env.PORT || 5000`, `process.env.UPLOAD_DIR || './uploads'`, `process.env.CORS_ORIGIN || 'http://localhost:5173'`).
+- Shared singletons are created at module scope and exported — the Express `app` instance and the `PrismaClient` instance are both instantiated once and reused across the codebase.
+- Errors thrown by route handlers are expressed as instances of the custom `AppError` class carrying a numeric `statusCode`, allowing the central `errorHandler` to distinguish business errors from unexpected exceptions.

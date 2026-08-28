@@ -1,9 +1,9 @@
 # 知识卡导出索引文件
 schema_version: 1
 locale: en-US
-branch: Q0DeR-MaG1C-BrAnCh-Fo2-NoN-GiT-Or-No-C0MmIt
+branch: main
 nodes_managed: true
-exported_at: "2026-08-28T06:02:02Z"
+exported_at: "2026-08-28T08:31:54Z"
 modules:
     "":
         dir_name: Smart Vehicle Insurance Claim System
@@ -23,13 +23,29 @@ modules:
             - backend/
         source_files: []
         children:
-            - backend/claims_domain
+            - backend/admin_auth
+            - backend/claims_management
+            - backend/document_verification
+            - backend/shared_infrastructure
+        depends_on: []
+        related_to: []
+    backend/admin_auth:
+        dir_name: Admin & Authentication Routes
+        title: Admin & Authentication Routes
+        scope:
+            - backend/src/routes/admin.ts
+            - backend/src/routes/auth.ts
+            - backend/src/middleware/adminAuth.ts
+            - backend/src/middleware/auth.ts
+        source_files: []
+        children: []
         depends_on: []
         related_to:
-            - path: frontend/policies_vehicles_dashboard
-    backend/claims_domain:
-        dir_name: Claims API & AI-Assisted Damage Assessment
-        title: Claims API & AI-Assisted Damage Assessment
+            - path: backend/shared_infrastructure
+            - path: frontend
+    backend/claims_management:
+        dir_name: Claims Management API & AI-Assisted Processing
+        title: Claims Management API & AI-Assisted Processing
         scope:
             - backend/src/routes/claims.ts
             - backend/src/services/claimAssistantService.ts
@@ -38,39 +54,41 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: frontend/claims_feature
+            - path: backend/shared_infrastructure
+            - path: frontend
+    backend/document_verification:
+        dir_name: Document Verification & Repair Estimate Services
+        title: Document Verification & Repair Estimate Services
+        scope:
+            - backend/src/services/documentVerificationService.ts
+            - backend/src/services/repairEstimateService.ts
+            - backend/src/utils/gemini.ts
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    backend/shared_infrastructure:
+        dir_name: Express App Bootstrap & Shared Infrastructure
+        title: Express App Bootstrap & Shared Infrastructure
+        scope:
+            - backend/src/middleware/errorHandler.ts
+            - backend/src/middleware/upload.ts
+            - backend/src/utils/prisma.ts
+            - backend/src/index.ts
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend/admin_auth
+            - path: backend/claims_management
     frontend:
-        dir_name: Insurance Claims Frontend (React + Vite)
-        title: Insurance Claims Frontend (React + Vite)
+        dir_name: Vehicle Insurance Claim Frontend (React + Vite)
+        title: Vehicle Insurance Claim Frontend (React + Vite)
         scope:
             - frontend/
         source_files: []
-        children:
-            - frontend/claims_feature
-            - frontend/policies_vehicles_dashboard
-        depends_on: []
-        related_to: []
-    frontend/claims_feature:
-        dir_name: Claims Management Pages
-        title: Claims Management Pages
-        scope:
-            - frontend/src/pages/ClaimsPage.tsx
-            - frontend/src/pages/ClaimDetailPage.tsx
-            - frontend/src/pages/NewClaimPage.tsx
-        source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: backend/claims_domain
-    frontend/policies_vehicles_dashboard:
-        dir_name: Policies, Vehicles & Dashboard Pages
-        title: Policies, Vehicles & Dashboard Pages
-        scope:
-            - frontend/src/pages/PoliciesPage.tsx
-            - frontend/src/pages/VehiclesPage.tsx
-            - frontend/src/pages/DashboardPage.tsx
-        source_files: []
-        children: []
-        depends_on: []
-        related_to:
-            - path: backend
+            - path: backend/admin_auth
+            - path: backend/claims_management

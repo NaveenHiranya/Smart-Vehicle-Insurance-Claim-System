@@ -1,1 +1,1 @@
-Express + TypeScript on Node.js, Prisma for database schema (`prisma/schema.prisma`) and client, Google Gemini SDK for AI-assisted claim/damage features, multer-style uploads served statically from `./uploads`, dotenv for configuration.
+Node.js + Express with TypeScript, Prisma ORM against SQLite (`prisma/dev.db`), Google Gemini Vision API for image/document analysis, JWT for authentication, and multer-style file uploads served via `express.static`.

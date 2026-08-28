@@ -1,1 +1,1 @@
-No unified root command exists; developers start the system by launching the backend server and the frontend dev server separately from their respective directories.
+No monorepo-wide build or run script is present at the root; each child (`backend/`, `frontend/`) is started independently.

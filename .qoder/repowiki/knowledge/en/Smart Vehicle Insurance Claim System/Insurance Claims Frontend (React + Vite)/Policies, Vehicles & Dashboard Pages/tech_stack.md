@@ -1,1 +1,0 @@
-React functional components with TypeScript, Tailwind CSS for styling, `lucide-react` for icons, `react-router-dom` for navigation, and an axios-based `api` client wrapping the backend REST endpoints.

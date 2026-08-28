@@ -6,34 +6,34 @@ scope:
     - '**'
 ---
 
-### Claim
-- Definition：A policyholder's reported vehicle incident, capturing incident date/location/description, weather conditions, police-report flag, and linked vehicle/policy. A Claim progresses through states DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED/REJECTED → COMPLETED.
-- Aliases：claim、insurance claim
+### AutoShield AI
+- Definition：The product name of this project — an AI-powered vehicle insurance claim and damage assessment platform that lets policyholders submit claims, upload photos, receive AI-driven damage assessments and repair estimates, and manage the end-to-end claim lifecycle.
+- Aliases：Autoshield AI、AutoShield
+
+### Claim Status
+- Definition：The workflow state machine for a claim in this system. Valid states are DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED / REJECTED → COMPLETED. Admins can move a claim between these states via quick-action buttons or the status dropdown on the admin detail page.
+- Aliases：claim state、status
 
 ### Damage Assessment
-- Definition：AI-generated analysis of uploaded vehicle images identifying visible damage types (dents, scratches, cracks, broken lights, bumper, glass, panel deformation), assigning each a severity level (MINOR/MODERATE/SEVERE), and producing an overall drivability assessment.
-- Aliases：damage analysis、damage detection
+- Definition：The AI-generated analysis of a claim's vehicle photos that identifies visible defects (dents, scratches, cracks, broken lights, bumper/glass/panel damage), classifies each as MINOR/MODERATE/SEVERE, and produces a drivability assessment and overall severity rating.
+- Aliases：damage analysis、AI damage assessment
 
 ### Repair Estimate
-- Definition：Itemized cost breakdown generated from the damage assessment, including parts cost, labor cost, total cost, and estimated repair days. Stored alongside the damage assessment and feeds into payout calculation.
-- Aliases：repair cost estimate、estimate
+- Definition：An itemized breakdown produced after damage assessment, listing parts costs, labor costs, total cost, and estimated repair days. It feeds into the subsequent Insurance Payout calculation.
+- Aliases：estimate、repair cost estimate
 
 ### Insurance Payout
-- Definition：Calculated reimbursement amount derived from the repair estimate after applying the policy's deductible and coverage terms; stored per claim and linked to both the claim and its repair estimate.
+- Definition：The final calculated amount the insurer would pay on a claim, derived from the Repair Estimate minus the user's policy deductible. Stored alongside notes for auditability.
 - Aliases：payout、estimated payout
 
 ### Document Verification
-- Definition：AI-powered review of uploaded supporting documents (driver's license, vehicle registration, accident report, repair estimate) that checks readability, presence of required information, and flags issues; results recorded as PENDING/VERIFIED/ISSUES_FOUND/UNREADABLE.
-- Aliases：doc verification、document check
+- Definition：AI-powered review of uploaded claim documents (LICENSE, REGISTRATION, ACCIDENT_REPORT, REPAIR_ESTIMATE) that marks them as PENDING, VERIFIED, ISSUES_FOUND, or UNREADABLE based on readability and required-field checks.
+- Aliases：doc verification、verificationStatus
 
-### Full-Vehicle Photo / Damage Close-Up
-- Definition：Two distinct image categories submitted with a claim: full-vehicle photos capture the overall condition of the car from multiple angles, while damage close-ups isolate individual damaged areas for detailed AI inspection.
-- Aliases：full vehicle photo、close-up photo、damage photo
+### Admin Panel
+- Definition：The protected `/admin/*` section of the frontend (Dashboard, Users, Claims, Claim Detail, Documents) accessible only to users whose `isAdmin` flag is true. Admins can approve/reject claims, view all documents, and manage users.
+- Aliases：admin dashboard、admin
 
-### Claim Assistant
-- Definition：Context-aware AI chat service bound to a specific claim, able to answer questions about the claim status, explain estimated costs, identify missing documents, and guide users through next steps.
-- Aliases：claim chat、assistant
-
-### Claim Status
-- Definition：Lifecycle state machine for a claim: DRAFT (in-progress creation), SUBMITTED (sent for review), UNDER_REVIEW (being evaluated), APPROVED (accepted), REJECTED (denied), COMPLETED (finalized).
-- Aliases：status、claim lifecycle
+### Claim Progress Checklist
+- Definition：A user-facing checklist shown on the claim detail page that tracks the full claim lifecycle (9 steps) with ✅ done, ⏳ pending, ❌ issue indicators, plus contextual Suggestions and a Documents Approved by Insurance status list.
+- Aliases：progress checklist、todo list、suggestions

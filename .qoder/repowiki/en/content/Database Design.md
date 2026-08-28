@@ -3,14 +3,10 @@
 <cite>
 **Referenced Files in This Document**
 - [schema.prisma](file://backend/prisma/schema.prisma)
-- [prisma.ts](file://backend/src/utils/prisma.ts)
-- [claims.ts](file://backend/src/routes/claims.ts)
-- [policies.ts](file://backend/src/routes/policies.ts)
-- [vehicles.ts](file://backend/src/routes/vehicles.ts)
-- [claimAssistantService.ts](file://backend/src/services/claimAssistantService.ts)
-- [damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
-- [documentVerificationService.ts](file://backend/src/services/documentVerificationService.ts)
-- [repairEstimateService.ts](file://backend/src/services/repairEstimateService.ts)
+- [seedAdmin.ts](file://backend/src/scripts/seedAdmin.ts)
+- [package.json](file://backend/package.json)
+- [auth.ts](file://backend/src/middleware/auth.ts)
+- [adminAuth.ts](file://backend/src/middleware/adminAuth.ts)
 </cite>
 
 ## Table of Contents
@@ -21,128 +17,86 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Dependency Analysis](#dependency-analysis)
 7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+8. [Data Lifecycle and Audit Trails](#data-lifecycle-and-audit-trails)
+9. [Database Migration Strategy](#database-migration-strategy)
+10. [Seeding Procedures](#seeding-procedures)
+11. [Backup and Recovery](#backup-and-recovery)
+12. [Security Considerations](#security-considerations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides a comprehensive database design for the Smart Vehicle Insurance Claim System using Prisma ORM. It details the entity relationship model, field definitions, constraints, indexing strategy, query patterns, migration approach, security considerations, and performance tuning recommendations. The system models Users, Vehicles, Insurance Policies, Claims, Damage Assessments, Repair Estimates, Documents, Chat Messages, and related entities to support end-to-end claim lifecycle management with AI-assisted damage analysis and document verification.
+This document provides comprehensive data model documentation for the Prisma ORM schema used by the Smart Vehicle Insurance Claim System. It details all entity relationships, field definitions, constraints, indexes, validation rules enforced at the database level, and operational guidance including migrations, seeding, backup/recovery, and security considerations. The system models users, vehicles, insurance policies, claims, damage assessments, repair estimates, payouts, documents, images, and chat messages to support end-to-end claim processing.
 
 ## Project Structure
-The database schema is defined in a single Prisma schema file and consumed by backend services and routes that perform CRUD operations and orchestrate AI-driven workflows.
+The data model is defined in a single Prisma schema file. Supporting scripts provide admin seeding and environment configuration via package scripts. Authentication middleware enforces access control patterns that influence how data is accessed and updated.
 
 ```mermaid
 graph TB
-subgraph "Backend"
-R1["routes/claims.ts"]
-R2["routes/policies.ts"]
-R3["routes/vehicles.ts"]
-S1["services/claimAssistantService.ts"]
-S2["services/damageAnalysisService.ts"]
-S3["services/documentVerificationService.ts"]
-S4["services/repairEstimateService.ts"]
-U["utils/prisma.ts"]
-end
-subgraph "Database"
-P["PostgreSQL"]
-end
-R1 --> U
-R2 --> U
-R3 --> U
-S1 --> U
-S2 --> U
-S3 --> U
-S4 --> U
-U --> P
+A["Prisma Schema<br/>backend/prisma/schema.prisma"] --> B["SQLite Database"]
+C["Seed Script<br/>backend/src/scripts/seedAdmin.ts"] --> B
+D["Package Scripts<br/>backend/package.json"] --> E["Prisma CLI"]
+E --> B
+F["Auth Middleware<br/>backend/src/middleware/auth.ts"] --> G["API Layer"]
+H["Admin Auth Middleware<br/>backend/src/middleware/adminAuth.ts"] --> G
+G --> B
 ```
 
 **Diagram sources**
-- [claims.ts:1-450](file://backend/src/routes/claims.ts#L1-L450)
-- [policies.ts:1-131](file://backend/src/routes/policies.ts#L1-L131)
-- [vehicles.ts:1-148](file://backend/src/routes/vehicles.ts#L1-L148)
-- [claimAssistantService.ts:1-130](file://backend/src/services/claimAssistantService.ts#L1-L130)
-- [damageAnalysisService.ts:1-154](file://backend/src/services/damageAnalysisService.ts#L1-L154)
-- [documentVerificationService.ts:1-107](file://backend/src/services/documentVerificationService.ts#L1-L107)
-- [repairEstimateService.ts:1-199](file://backend/src/services/repairEstimateService.ts#L1-L199)
-- [prisma.ts:1-6](file://backend/src/utils/prisma.ts#L1-L6)
+- [schema.prisma:1-202](file://backend/prisma/schema.prisma#L1-L202)
+- [seedAdmin.ts:1-39](file://backend/src/scripts/seedAdmin.ts#L1-L39)
+- [package.json:6-13](file://backend/package.json#L6-L13)
+- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
+- [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 
 **Section sources**
-- [schema.prisma:1-201](file://backend/prisma/schema.prisma#L1-L201)
-- [prisma.ts:1-6](file://backend/src/utils/prisma.ts#L1-L6)
+- [schema.prisma:1-202](file://backend/prisma/schema.prisma#L1-L202)
+- [package.json:6-13](file://backend/package.json#L6-L13)
 
 ## Core Components
-The data model centers around the following core entities:
-- User: Identity and profile information
-- Vehicle: Policyholder’s registered vehicles
-- InsurancePolicy: Coverage details linked to a user
-- Claim: Incident record tied to a user, vehicle, and optionally a policy
-- ClaimImage: Images attached to a claim with type annotations
-- DamageAssessment: AI-generated assessment of damages and severity
-- RepairEstimate: Itemized repair cost estimate derived from damage assessment
-- InsurancePayout: Estimated payout calculation based on policy and estimate
-- Document: Uploaded documents with verification status
-- ChatMessage: Conversation history between user and assistant per claim
+The core data model centers on the following entities:
+- User: Represents system users with authentication and profile fields.
+- Vehicle: Owned by a user; linked to claims.
+- InsurancePolicy: Owned by a user; optionally linked to claims.
+- Claim: Central entity linking user, vehicle, and policy; includes status and incident metadata.
+- DamageAssessment: One-to-one with Claim; stores AI-derived damages and severity.
+- RepairEstimate: One-to-one with Claim; references DamageAssessment; stores cost breakdown.
+- InsurancePayout: One-to-one with Claim; references RepairEstimate; stores payout calculations.
+- ClaimImage: Images attached to a Claim with type and optional annotations.
+- Document: Documents attached to a Claim with verification status.
+- ChatMessage: Conversation history associated with a Claim.
 
-Key relationships:
-- One User has many Vehicles, Policies, and Claims
-- One Vehicle has many Claims
-- One InsurancePolicy belongs to one User and can be referenced by many Claims
-- One Claim has many ClaimImages, Documents, and ChatMessages; optional DamageAssessment, RepairEstimate, and InsurancePayout
-- One DamageAssessment links to one RepairEstimate and one InsurancePayout (optional)
+Key relationships and constraints:
+- User has many Vehicles, Policies, Claims.
+- Vehicle belongs to a User; has many Claims.
+- InsurancePolicy belongs to a User; has many Claims.
+- Claim belongs to a User and a Vehicle; optionally belongs to an InsurancePolicy.
+- DamageAssessment, RepairEstimate, InsurancePayout are each uniquely tied to a Claim (one-to-one).
+- ClaimImage and Document belong to a Claim.
+- ChatMessage belongs to a Claim.
 
-Indexes and constraints:
-- Primary keys: id on all models
-- Unique constraints: email on User; claimId on DamageAssessment, RepairEstimate, InsurancePayout; policyNumber not explicitly unique but recommended for uniqueness at DB level
-- Foreign keys: userId, vehicleId, policyId, claimId across related tables
-- Cascade deletes on most relationships to maintain referential integrity
+Indexes and unique constraints:
+- Primary keys are UUIDs for all entities.
+- Unique constraints exist on email, and on claimId for ClaimImage, DamageAssessment, RepairEstimate, InsurancePayout.
+- No explicit secondary indexes are declared beyond primary keys and unique constraints.
 
-Validation rules:
-- Enums enforce allowed values for ClaimStatus, ImageType, SeverityLevel, DocumentType, VerificationStatus, ChatRole
-- Required fields enforced via Prisma schema (e.g., incidentDate, incidentLocation, incidentDescription)
-- Optional fields where appropriate (e.g., weatherConditions, vin, phone, address)
+Validation rules enforced at the database level:
+- Required fields are enforced by absence of nullable markers.
+- Enumerations constrain values for ClaimStatus, ImageType, SeverityLevel, DocumentType, VerificationStatus, ChatRole.
+- Default values are applied for timestamps and booleans where specified.
 
 **Section sources**
-- [schema.prisma:10-24](file://backend/prisma/schema.prisma#L10-L24)
-- [schema.prisma:26-42](file://backend/prisma/schema.prisma#L26-L42)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-- [schema.prisma:61-93](file://backend/prisma/schema.prisma#L61-L93)
-- [schema.prisma:95-110](file://backend/prisma/schema.prisma#L95-L110)
-- [schema.prisma:112-129](file://backend/prisma/schema.prisma#L112-L129)
-- [schema.prisma:131-159](file://backend/prisma/schema.prisma#L131-L159)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
-- [schema.prisma:187-200](file://backend/prisma/schema.prisma#L187-L200)
+- [schema.prisma:10-25](file://backend/prisma/schema.prisma#L10-L25)
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [schema.prisma:62-94](file://backend/prisma/schema.prisma#L62-L94)
+- [schema.prisma:96-130](file://backend/prisma/schema.prisma#L96-L130)
+- [schema.prisma:132-160](file://backend/prisma/schema.prisma#L132-L160)
+- [schema.prisma:162-201](file://backend/prisma/schema.prisma#L162-L201)
 
 ## Architecture Overview
-The application uses Prisma Client to interact with PostgreSQL. Routes handle HTTP requests and delegate to services that perform business logic and database operations. Services may call external AI APIs and persist results back to the database.
+The data architecture uses SQLite as the database provider with Prisma Client for type-safe queries. The schema defines strong relational integrity through foreign keys and cascade behaviors. Enums enforce domain-specific constraints at the database layer.
 
-```mermaid
-sequenceDiagram
-participant Client as "Client App"
-participant ClaimsRoute as "routes/claims.ts"
-participant AssistantSvc as "services/claimAssistantService.ts"
-participant Prisma as "Prisma Client"
-participant DB as "PostgreSQL"
-Client->>ClaimsRoute : POST /api/claims/ : id/chat
-ClaimsRoute->>AssistantSvc : getChatResponse(claimId, message)
-AssistantSvc->>Prisma : findUnique(Claim, include relations)
-Prisma->>DB : SELECT ... JOIN ...
-DB-->>Prisma : Claim + related records
-Prisma-->>AssistantSvc : Claim context
-AssistantSvc->>Client : {userMessage, assistantMessage}
-Note over AssistantSvc,DB : Stores chat messages per claim
-```
-
-**Diagram sources**
-- [claims.ts:423-447](file://backend/src/routes/claims.ts#L423-L447)
-- [claimAssistantService.ts:19-129](file://backend/src/services/claimAssistantService.ts#L19-L129)
-
-**Section sources**
-- [claims.ts:1-450](file://backend/src/routes/claims.ts#L1-L450)
-- [claimAssistantService.ts:1-130](file://backend/src/services/claimAssistantService.ts#L1-L130)
-
-## Detailed Component Analysis
-
-### Entity Relationship Diagram
 ```mermaid
 erDiagram
 USER {
@@ -153,6 +107,7 @@ string firstName
 string lastName
 string phone
 string address
+boolean isAdmin
 datetime createdAt
 datetime updatedAt
 }
@@ -166,11 +121,11 @@ string vin
 string licensePlate
 string color
 int mileage
-json[] photos
+string photos
 datetime createdAt
 datetime updatedAt
 }
-INSURANCE_POLICY {
+INSURANCEPOLICY {
 string id PK
 string userId FK
 string providerName
@@ -197,7 +152,7 @@ boolean hasPoliceReport
 datetime createdAt
 datetime updatedAt
 }
-CLAIM_IMAGE {
+CLAIMIMAGE {
 string id PK
 string claimId FK
 enum type
@@ -206,7 +161,7 @@ string label
 json aiAnnotation
 datetime uploadedAt
 }
-DAMAGE_ASSESSMENT {
+DAMAGEASSESSMENT {
 string id PK
 string claimId UK FK
 json damages
@@ -215,7 +170,7 @@ enum overallSeverity
 json aiRawResponse
 datetime assessedAt
 }
-REPAIR_ESTIMATE {
+REPAIRESTIMATE {
 string id PK
 string claimId UK FK
 string damageAssessmentId UK FK
@@ -226,7 +181,7 @@ float totalCost
 int estimatedDays
 datetime createdAt
 }
-INSURANCE_PAYOUT {
+INSURANCEPAYOUT {
 string id PK
 string claimId UK FK
 string repairEstimateId UK FK
@@ -245,350 +200,369 @@ enum verificationStatus
 json verificationResult
 datetime uploadedAt
 }
-CHAT_MESSAGE {
+CHATMESSAGE {
 string id PK
 string claimId FK
 enum role
 string content
 datetime createdAt
 }
-USER ||--o{ VEHICLE : "has many"
-USER ||--o{ INSURANCE_POLICY : "has many"
-USER ||--o{ CLAIM : "has many"
-VEHICLE ||--o{ CLAIM : "has many"
-INSURANCE_POLICY ||--o{ CLAIM : "referenced by"
-CLAIM ||--o{ CLAIM_IMAGE : "has many"
-CLAIM ||--o{ DOCUMENT : "has many"
-CLAIM ||--o{ CHAT_MESSAGE : "has many"
-CLAIM ||--|| DAMAGE_ASSESSMENT : "one-to-one"
-DAMAGE_ASSESSMENT ||--|| REPAIR_ESTIMATE : "one-to-one"
-REPAIR_ESTIMATE ||--|| INSURANCE_PAYOUT : "one-to-one"
+USER ||--o{ VEHICLE : "owns"
+USER ||--o{ INSURANCEPOLICY : "owns"
+USER ||--o{ CLAIM : "submits"
+VEHICLE ||--o{ CLAIM : "involved_in"
+INSURANCEPOLICY ||--o{ CLAIM : "covers"
+CLAIM ||--o{ CLAIMIMAGE : "has"
+CLAIM ||--|| DAMAGEASSESSMENT : "has"
+CLAIM ||--|| REPAIRESTIMATE : "has"
+CLAIM ||--|| INSURANCEPAYOUT : "has"
+CLAIM ||--o{ DOCUMENT : "has"
+CLAIM ||--o{ CHATMESSAGE : "has"
 ```
 
 **Diagram sources**
-- [schema.prisma:10-24](file://backend/prisma/schema.prisma#L10-L24)
-- [schema.prisma:26-42](file://backend/prisma/schema.prisma#L26-L42)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-- [schema.prisma:61-93](file://backend/prisma/schema.prisma#L61-L93)
-- [schema.prisma:95-110](file://backend/prisma/schema.prisma#L95-L110)
-- [schema.prisma:112-129](file://backend/prisma/schema.prisma#L112-L129)
-- [schema.prisma:131-159](file://backend/prisma/schema.prisma#L131-L159)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
-- [schema.prisma:187-200](file://backend/prisma/schema.prisma#L187-L200)
+- [schema.prisma:10-201](file://backend/prisma/schema.prisma#L10-L201)
 
-### Field Definitions, Data Types, Constraints, and Validation Rules
-- User
-  - id: String, primary key, UUID default
-  - email: String, unique
-  - passwordHash: String (sensitive)
-  - firstName, lastName: String
-  - phone, address: String, nullable
-  - createdAt, updatedAt: DateTime defaults
-- Vehicle
-  - id: String, primary key, UUID default
-  - userId: String (FK to User)
-  - make, model, licensePlate, color: String
-  - year: Int
-  - vin: String, nullable
-  - mileage: Int, nullable
-  - photos: String array
-  - createdAt, updatedAt: DateTime defaults
-- InsurancePolicy
-  - id: String, primary key, UUID default
-  - userId: String (FK to User)
-  - providerName, policyNumber, coverageType: String
-  - deductible, premiumAmount: Float
-  - startDate, endDate: DateTime
-  - createdAt, updatedAt: DateTime defaults
-- Claim
-  - id: String, primary key, UUID default
-  - userId: String (FK to User)
-  - vehicleId: String (FK to Vehicle)
-  - policyId: String (FK to InsurancePolicy), nullable
-  - status: Enum (DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, COMPLETED), default DRAFT
-  - incidentDate: DateTime
-  - incidentLocation, incidentDescription: String
-  - weatherConditions: String, nullable
-  - hasPoliceReport: Boolean, default false
-  - createdAt, updatedAt: DateTime defaults
-- ClaimImage
-  - id: String, primary key, UUID default
-  - claimId: String (FK to Claim)
-  - type: Enum (FULL_VEHICLE, DAMAGE_CLOSEUP)
-  - filePath: String
-  - label: String, nullable
-  - aiAnnotation: Json, nullable
-  - uploadedAt: DateTime default
-- DamageAssessment
-  - id: String, primary key, UUID default
-  - claimId: String, unique (FK to Claim)
-  - damages: Json
-  - drivabilityAssessment: String
-  - overallSeverity: Enum (MINOR, MODERATE, SEVERE)
-  - aiRawResponse: Json, nullable
-  - assessedAt: DateTime default
-- RepairEstimate
-  - id: String, primary key, UUID default
-  - claimId: String, unique (FK to Claim)
-  - damageAssessmentId: String, unique (FK to DamageAssessment)
-  - items: Json
-  - totalPartsCost, totalLaborCost, totalCost: Float
-  - estimatedDays: Int
-  - createdAt: DateTime default
-- InsurancePayout
-  - id: String, primary key, UUID default
-  - claimId: String, unique (FK to Claim)
-  - repairEstimateId: String, unique (FK to RepairEstimate)
-  - deductible, coveredAmount, estimatedPayout: Float
-  - notes: String, nullable
-  - createdAt: DateTime default
-- Document
-  - id: String, primary key, UUID default
-  - claimId: String (FK to Claim)
-  - type: Enum (LICENSE, REGISTRATION, ACCIDENT_REPORT, REPAIR_ESTIMATE)
-  - filePath: String
-  - verificationStatus: Enum (PENDING, VERIFIED, ISSUES_FOUND, UNREADABLE), default PENDING
-  - verificationResult: Json, nullable
-  - uploadedAt: DateTime default
-- ChatMessage
-  - id: String, primary key, UUID default
-  - claimId: String (FK to Claim)
-  - role: Enum (USER, ASSISTANT)
-  - content: String
-  - createdAt: DateTime default
+## Detailed Component Analysis
 
-Constraints and cascade behavior:
-- onDelete: Cascade on most relationships to ensure referential integrity when parent records are deleted
-- Unique constraints on claimId for DamageAssessment, RepairEstimate, InsurancePayout to enforce one-to-one relationships per claim
-
-Validation rules:
-- Enum fields restrict allowed values
-- Required fields enforced at schema level
-- Business validation in routes (e.g., required fields for creating claims, policies, vehicles)
+### User Model
+- Purpose: Stores user identity, credentials, and profile information.
+- Key fields:
+  - id: UUID primary key.
+  - email: Unique string used for login.
+  - passwordHash: Stored hashed password.
+  - firstName, lastName: Profile names.
+  - phone, address: Optional contact details.
+  - isAdmin: Boolean flag for administrative access.
+  - createdAt, updatedAt: Timestamps for audit.
+- Relationships:
+  - One-to-many with Vehicle, InsurancePolicy, Claim.
+- Constraints:
+  - email is unique.
+  - isAdmin defaults to false.
+  - Timestamps default to now or update automatically.
 
 **Section sources**
-- [schema.prisma:10-24](file://backend/prisma/schema.prisma#L10-L24)
-- [schema.prisma:26-42](file://backend/prisma/schema.prisma#L26-L42)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-- [schema.prisma:61-93](file://backend/prisma/schema.prisma#L61-L93)
-- [schema.prisma:95-110](file://backend/prisma/schema.prisma#L95-L110)
-- [schema.prisma:112-129](file://backend/prisma/schema.prisma#L112-L129)
-- [schema.prisma:131-159](file://backend/prisma/schema.prisma#L131-L159)
-- [schema.prisma:161-185](file://backend/prisma/schema.prisma#L161-L185)
-- [schema.prisma:187-200](file://backend/prisma/schema.prisma#L187-L200)
+- [schema.prisma:10-25](file://backend/prisma/schema.prisma#L10-L25)
 
-### Query Patterns and Examples
-Common queries observed in routes and services:
-- Create claim with validation and ownership checks
-- List claims with filters and counts
-- Retrieve full claim detail including related entities
-- Upload images and associate with claim
-- Submit claim and trigger background damage analysis
-- Generate repair estimates after damage assessment
-- Upload and verify documents
-- Chat message retrieval and creation
-
-Example patterns:
-- Filtering by userId and status for claims listing
-- Using includes to fetch nested relations efficiently
-- Counting related records without loading full payloads
-- Upsert-like behavior via findUnique followed by create or update
+### Vehicle Model
+- Purpose: Represents vehicles owned by users.
+- Key fields:
+  - id: UUID primary key.
+  - userId: Foreign key to User with cascade delete.
+  - make, model, year, licensePlate, color: Identifying attributes.
+  - vin, mileage: Optional identifiers and usage metrics.
+  - photos: JSON array stored as string; defaults to empty array.
+  - createdAt, updatedAt: Timestamps.
+- Relationships:
+  - Belongs to User; one-to-many with Claim.
+- Constraints:
+  - onDelete Cascade ensures referential integrity when a user is removed.
 
 **Section sources**
-- [claims.ts:21-57](file://backend/src/routes/claims.ts#L21-L57)
-- [claims.ts:60-83](file://backend/src/routes/claims.ts#L60-L83)
-- [claims.ts:86-112](file://backend/src/routes/claims.ts#L86-L112)
-- [claims.ts:152-193](file://backend/src/routes/claims.ts#L152-L193)
-- [claims.ts:196-233](file://backend/src/routes/claims.ts#L196-L233)
-- [claims.ts:290-314](file://backend/src/routes/claims.ts#L290-L314)
-- [claims.ts:317-353](file://backend/src/routes/claims.ts#L317-L353)
-- [claims.ts:379-397](file://backend/src/routes/claims.ts#L379-L397)
-- [claims.ts:399-447](file://backend/src/routes/claims.ts#L399-L447)
-- [policies.ts:13-40](file://backend/src/routes/policies.ts#L13-L40)
-- [policies.ts:43-55](file://backend/src/routes/policies.ts#L43-L55)
-- [vehicles.ts:14-42](file://backend/src/routes/vehicles.ts#L14-L42)
-- [vehicles.ts:45-60](file://backend/src/routes/vehicles.ts#L45-L60)
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
 
-### Complex Queries Involving Joins and Aggregations
-- Full claim detail retrieval with nested includes for vehicle, policy, images, damage assessment, repair estimate, insurance payout, documents, and chat messages
-- Listing claims with aggregated counts for images and documents
-- Retrieving vehicles with associated claim counts
-
-These patterns minimize N+1 queries by leveraging Prisma’s include and _count features.
+### InsurancePolicy Model
+- Purpose: Captures insurance coverage details per user.
+- Key fields:
+  - id: UUID primary key.
+  - userId: Foreign key to User with cascade delete.
+  - providerName, policyNumber, coverageType: Policy metadata.
+  - deductible, premiumAmount: Numeric financial fields.
+  - startDate, endDate: Coverage period.
+  - createdAt, updatedAt: Timestamps.
+- Relationships:
+  - Belongs to User; one-to-many with Claim.
+- Constraints:
+  - onDelete Cascade ensures referential integrity when a user is removed.
 
 **Section sources**
-- [claims.ts:86-112](file://backend/src/routes/claims.ts#L86-L112)
-- [claims.ts:60-83](file://backend/src/routes/claims.ts#L60-L83)
-- [vehicles.ts:45-60](file://backend/src/routes/vehicles.ts#L45-L60)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
 
-### Data Flows and Processing Logic
-- Claim submission triggers background AI damage analysis which reads images, calls AI service, parses JSON response, persists assessment, updates image annotations, and auto-generates repair estimate
-- Document verification reads stored files, calls AI service, parses result, and updates verification status and extracted info
-- Chat assistant retrieves claim context and conversation history, composes prompt, sends to AI, and stores both user and assistant messages
-
-```mermaid
-flowchart TD
-Start(["Submit Claim"]) --> Validate["Validate inputs and ownership"]
-Validate --> UpdateStatus["Update claim status to SUBMITTED"]
-UpdateStatus --> Background["Background: analyzeDamage()"]
-Background --> ReadImages["Read images and vehicle context"]
-ReadImages --> CallAI["Call AI model with images"]
-CallAI --> ParseJSON["Parse JSON response"]
-ParseJSON --> SaveAssessment["Create/Update DamageAssessment"]
-SaveAssessment --> UpdateAnnotations["Update ClaimImage.aiAnnotation"]
-UpdateAnnotations --> AutoEstimate["Auto-generate RepairEstimate"]
-AutoEstimate --> End(["Complete"])
-```
-
-**Diagram sources**
-- [claims.ts:152-193](file://backend/src/routes/claims.ts#L152-L193)
-- [damageAnalysisService.ts:50-154](file://backend/src/services/damageAnalysisService.ts#L50-L154)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+### Claim Model
+- Purpose: Central record of an insurance claim event.
+- Key fields:
+  - id: UUID primary key.
+  - userId: Foreign key to User with cascade delete.
+  - vehicleId: Foreign key to Vehicle with cascade delete.
+  - policyId: Optional foreign key to InsurancePolicy with SetNull behavior.
+  - status: Enum constrained to predefined lifecycle states.
+  - incidentDate, incidentLocation, incidentDescription: Incident details.
+  - weatherConditions: Optional context.
+  - hasPoliceReport: Boolean flag.
+  - createdAt, updatedAt: Timestamps.
+- Relationships:
+  - Belongs to User and Vehicle; optionally to InsurancePolicy.
+  - One-to-many with ClaimImage, Document, ChatMessage.
+  - One-to-one with DamageAssessment, RepairEstimate, InsurancePayout.
+- Constraints:
+  - onDelete Cascade for User and Vehicle; SetNull for Policy to preserve claim records if policy is deleted.
 
 **Section sources**
-- [damageAnalysisService.ts:1-154](file://backend/src/services/damageAnalysisService.ts#L1-L154)
-- [documentVerificationService.ts:1-107](file://backend/src/services/documentVerificationService.ts#L1-L107)
-- [claimAssistantService.ts:1-130](file://backend/src/services/claimAssistantService.ts#L1-L130)
+- [schema.prisma:62-94](file://backend/prisma/schema.prisma#L62-L94)
+
+### DamageAssessment Model
+- Purpose: Stores AI-assessed damages and severity for a claim.
+- Key fields:
+  - id: UUID primary key.
+  - claimId: Unique foreign key to Claim with cascade delete.
+  - damages: JSON payload describing damages.
+  - drivabilityAssessment: Textual assessment.
+  - overallSeverity: Enum constrained to MINOR/MODERATE/SEVERE.
+  - aiRawResponse: Optional raw AI output.
+  - assessedAt: Timestamp.
+- Relationships:
+  - One-to-one with Claim; optional one-to-one with RepairEstimate.
+- Constraints:
+  - claimId is unique to ensure single assessment per claim.
+
+**Section sources**
+- [schema.prisma:113-130](file://backend/prisma/schema.prisma#L113-L130)
+
+### RepairEstimate Model
+- Purpose: Provides detailed repair cost estimation for a claim.
+- Key fields:
+  - id: UUID primary key.
+  - claimId: Unique foreign key to Claim with cascade delete.
+  - damageAssessmentId: Unique foreign key to DamageAssessment with cascade delete.
+  - items: JSON array of line items.
+  - totalPartsCost, totalLaborCost, totalCost: Aggregated costs.
+  - estimatedDays: Estimated repair duration.
+  - createdAt: Timestamp.
+- Relationships:
+  - One-to-one with Claim; one-to-one with DamageAssessment; optional one-to-one with InsurancePayout.
+- Constraints:
+  - claimId and damageAssessmentId are unique to maintain strict linkage.
+
+**Section sources**
+- [schema.prisma:132-146](file://backend/prisma/schema.prisma#L132-L146)
+
+### InsurancePayout Model
+- Purpose: Records payout calculations based on repair estimates and deductibles.
+- Key fields:
+  - id: UUID primary key.
+  - claimId: Unique foreign key to Claim with cascade delete.
+  - repairEstimateId: Unique foreign key to RepairEstimate with cascade delete.
+  - deductible, coveredAmount, estimatedPayout: Financial figures.
+  - notes: Optional commentary.
+  - createdAt: Timestamp.
+- Relationships:
+  - One-to-one with Claim; one-to-one with RepairEstimate.
+- Constraints:
+  - claimId and repairEstimateId are unique to ensure single payout per claim/estimate.
+
+**Section sources**
+- [schema.prisma:148-160](file://backend/prisma/schema.prisma#L148-L160)
+
+### ClaimImage Model
+- Purpose: Stores image attachments related to claims.
+- Key fields:
+  - id: UUID primary key.
+  - claimId: Foreign key to Claim with cascade delete.
+  - type: Enum FULL_VEHICLE or DAMAGE_CLOSEUP.
+  - filePath: Path to stored image.
+  - label: Optional descriptive label.
+  - aiAnnotation: Optional JSON annotation from AI analysis.
+  - uploadedAt: Timestamp.
+- Relationships:
+  - Belongs to Claim.
+- Constraints:
+  - onDelete Cascade preserves referential integrity.
+
+**Section sources**
+- [schema.prisma:96-111](file://backend/prisma/schema.prisma#L96-L111)
+
+### Document Model
+- Purpose: Stores supporting documents for claims with verification status.
+- Key fields:
+  - id: UUID primary key.
+  - claimId: Foreign key to Claim with cascade delete.
+  - type: Enum LICENSE/REGISTRATION/ACCIDENT_REPORT/REPAIR_ESTIMATE.
+  - filePath: Path to stored document.
+  - verificationStatus: Enum PENDING/VERIFIED/ISSUES_FOUND/UNREADABLE.
+  - verificationResult: Optional JSON result of verification.
+  - uploadedAt: Timestamp.
+- Relationships:
+  - Belongs to Claim.
+- Constraints:
+  - onDelete Cascade ensures cleanup when claims are removed.
+
+**Section sources**
+- [schema.prisma:162-186](file://backend/prisma/schema.prisma#L162-L186)
+
+### ChatMessage Model
+- Purpose: Maintains conversation history for a claim.
+- Key fields:
+  - id: UUID primary key.
+  - claimId: Foreign key to Claim with cascade delete.
+  - role: Enum USER or ASSISTANT.
+  - content: Message text.
+  - createdAt: Timestamp.
+- Relationships:
+  - Belongs to Claim.
+- Constraints:
+  - onDelete Cascade maintains consistency.
+
+**Section sources**
+- [schema.prisma:188-201](file://backend/prisma/schema.prisma#L188-L201)
 
 ## Dependency Analysis
-Component coupling and cohesion:
-- Routes depend on Prisma Client and services for business logic
-- Services encapsulate complex workflows and external integrations (AI models)
-- Schema defines strict relationships ensuring data consistency
-
-Direct dependencies:
-- Routes import services and Prisma
-- Services import Prisma and types
-- No circular dependencies observed between modules
-
-External dependencies:
-- PostgreSQL via Prisma datasource
-- External AI model integration within services
-
-Potential risks:
-- Tight coupling between services and AI responses requires robust parsing and fallbacks
-- Large includes in queries can increase payload size; consider selective selects for performance
+The data model exhibits clear hierarchical dependencies:
+- User is the root entity for Vehicle and InsurancePolicy.
+- Claim depends on User and Vehicle; optionally on InsurancePolicy.
+- DamageAssessment, RepairEstimate, and InsurancePayout depend on Claim.
+- ClaimImage, Document, and ChatMessage depend on Claim.
 
 ```mermaid
 graph LR
-ClaimsRoute["routes/claims.ts"] --> Prisma["utils/prisma.ts"]
-PoliciesRoute["routes/policies.ts"] --> Prisma
-VehiclesRoute["routes/vehicles.ts"] --> Prisma
-AssistantSvc["services/claimAssistantService.ts"] --> Prisma
-DamageSvc["services/damageAnalysisService.ts"] --> Prisma
-DocSvc["services/documentVerificationService.ts"] --> Prisma
-EstimateSvc["services/repairEstimateService.ts"] --> Prisma
-Prisma --> DB["PostgreSQL"]
+User["User"] --> Vehicle["Vehicle"]
+User --> Policy["InsurancePolicy"]
+User --> Claim["Claim"]
+Vehicle --> Claim
+Policy --> Claim
+Claim --> DamageAssessment["DamageAssessment"]
+Claim --> RepairEstimate["RepairEstimate"]
+Claim --> InsurancePayout["InsurancePayout"]
+Claim --> ClaimImage["ClaimImage"]
+Claim --> Document["Document"]
+Claim --> ChatMessage["ChatMessage"]
 ```
 
 **Diagram sources**
-- [claims.ts:1-450](file://backend/src/routes/claims.ts#L1-L450)
-- [policies.ts:1-131](file://backend/src/routes/policies.ts#L1-L131)
-- [vehicles.ts:1-148](file://backend/src/routes/vehicles.ts#L1-L148)
-- [claimAssistantService.ts:1-130](file://backend/src/services/claimAssistantService.ts#L1-L130)
-- [damageAnalysisService.ts:1-154](file://backend/src/services/damageAnalysisService.ts#L1-L154)
-- [documentVerificationService.ts:1-107](file://backend/src/services/documentVerificationService.ts#L1-L107)
-- [repairEstimateService.ts:1-199](file://backend/src/services/repairEstimateService.ts#L1-L199)
-- [prisma.ts:1-6](file://backend/src/utils/prisma.ts#L1-L6)
+- [schema.prisma:10-201](file://backend/prisma/schema.prisma#L10-L201)
 
 **Section sources**
-- [schema.prisma:1-201](file://backend/prisma/schema.prisma#L1-L201)
-- [prisma.ts:1-6](file://backend/src/utils/prisma.ts#L1-L6)
+- [schema.prisma:10-201](file://backend/prisma/schema.prisma#L10-L201)
 
 ## Performance Considerations
-Indexing strategies:
-- Add indexes on frequently filtered columns:
-  - claims.userId, claims.status, claims.vehicleId, claims.policyId
-  - documents.claimId, documents.type, documents.verificationStatus
-  - chatMessages.claimId, chatMessages.createdAt
-  - vehicles.userId
-- Unique indexes already exist for email, claimId-related entities; consider adding unique index on policyNumber if needed
-
-Query optimization:
-- Use selective selects in includes to reduce payload size
-- Leverage _count for aggregations instead of fetching full related records
-- Paginate large result sets (e.g., chat messages, documents)
-- Avoid deep nesting unless necessary; split into multiple queries if needed
-
-Storage and I/O:
-- Store large binary assets (images, documents) externally (object storage) and keep only paths in DB
-- Compress images before upload to reduce storage and transfer costs
-
-Scalability:
-- Connection pooling configured via Prisma client environment variables
-- Consider read replicas for heavy read workloads
-- Partition large tables (e.g., chatMessages, documents) by time if growth is significant
+- Indexing strategy:
+  - Primary keys are indexed by default.
+  - Unique constraints on email and claimId fields provide efficient lookups for those paths.
+  - No additional secondary indexes are declared; consider adding indexes on frequently queried columns such as userId, vehicleId, policyId, and status if query performance degrades under load.
+- Data types:
+  - Use enums to restrict values and reduce validation overhead.
+  - Store complex structures as JSON where appropriate (e.g., damages, items, aiAnnotation) to avoid excessive normalization while maintaining flexibility.
+- Referential integrity:
+  - Cascade deletes simplify cleanup but can cause large deletions; use cautiously in high-volume environments.
+- Storage:
+  - Photos stored as JSON arrays of strings; ensure file storage backend is optimized for large objects.
 
 [No sources needed since this section provides general guidance]
+
+## Data Lifecycle and Audit Trails
+Lifecycle stages:
+- Creation:
+  - Users create accounts; vehicles and policies are added.
+  - Claims are created with status DRAFT and populated with incident details.
+- Updates:
+  - Status transitions progress through SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, COMPLETED.
+  - DamageAssessment and RepairEstimate are generated post-submission.
+  - InsurancePayout is calculated after estimate approval.
+- Archival:
+  - Soft delete pattern is not implemented in the schema; deletion cascades remove related records.
+  - For archival needs, introduce a soft delete flag (e.g., deletedAt) and adjust queries accordingly.
+- Audit trails:
+  - createdAt and updatedAt timestamps provide basic auditability.
+  - Consider adding explicit audit tables or triggers for change tracking if required.
+
+```mermaid
+flowchart TD
+Start(["Claim Created"]) --> Draft["Status: DRAFT"]
+Draft --> Submitted["Submit -> Status: SUBMITTED"]
+Submitted --> Review["Under Review -> Status: UNDER_REVIEW"]
+Review --> Decision{"Decision"}
+Decision --> |Approved| Approved["Status: APPROVED"]
+Decision --> |Rejected| Rejected["Status: REJECTED"]
+Approved --> Estimate["Generate RepairEstimate"]
+Estimate --> Payout["Calculate InsurancePayout"]
+Payout --> Completed["Status: COMPLETED"]
+Rejected --> End(["End"])
+Completed --> End
+```
+
+**Diagram sources**
+- [schema.prisma:62-94](file://backend/prisma/schema.prisma#L62-L94)
+- [schema.prisma:132-160](file://backend/prisma/schema.prisma#L132-L160)
+
+**Section sources**
+- [schema.prisma:62-94](file://backend/prisma/schema.prisma#L62-L94)
+- [schema.prisma:132-160](file://backend/prisma/schema.prisma#L132-L160)
+
+## Database Migration Strategy
+- Provider: SQLite configured in the Prisma datasource.
+- Development workflow:
+  - Use Prisma migration commands to evolve schema changes safely.
+  - Generate client code before running the application to ensure type safety.
+- Recommended practices:
+  - Version control schema changes via migrations.
+  - Test migrations in a staging environment before applying to production.
+  - Back up the database prior to major schema changes.
+
+**Section sources**
+- [schema.prisma:5-8](file://backend/prisma/schema.prisma#L5-L8)
+- [package.json:6-13](file://backend/package.json#L6-L13)
+
+## Seeding Procedures
+- Admin seeding script:
+  - Creates an initial admin user with a hashed password if none exists.
+  - Ensures the admin flag is set for existing users.
+- Execution:
+  - Run the seed script against the development database to bootstrap administrative access.
+- Security note:
+  - Replace default credentials in production with secure provisioning processes.
+
+**Section sources**
+- [seedAdmin.ts:9-34](file://backend/src/scripts/seedAdmin.ts#L9-L34)
+
+## Backup and Recovery
+- SQLite considerations:
+  - Use consistent snapshots or WAL mode backups to avoid corruption.
+  - Schedule regular backups of the database file.
+- Recovery steps:
+  - Restore from the latest known-good backup.
+  - Validate integrity after restore using Prisma introspection or simple queries.
+- Operational tips:
+  - Automate backups and retention policies.
+  - Test recovery procedures periodically.
+
+[No sources needed since this section provides general guidance]
+
+## Security Considerations
+- Sensitive field protection:
+  - Passwords are stored as hashes; never store plaintext passwords.
+  - Avoid logging sensitive fields like passwordHash or personal identifiers.
+- Access control patterns:
+  - JWT-based authentication middleware validates tokens and attaches user context.
+  - Admin-only routes require both valid token and admin privileges.
+- Data minimization:
+  - Only expose necessary fields in API responses.
+  - Mask or omit sensitive data in logs and error messages.
+- Input validation:
+  - Leverage Prisma enums and required fields to enforce constraints at the database level.
+  - Apply application-level validation (e.g., Zod) for additional safety.
+
+**Section sources**
+- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
+- [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [schema.prisma:10-25](file://backend/prisma/schema.prisma#L10-L25)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
-- Claim not found: Ensure correct claimId and user ownership checks
-- No images to analyze: Require at least one image before submitting or analyzing
-- Document file not found: Verify file path resolution and storage location
-- AI response parsing failures: Implement robust JSON extraction and fallback handling
-- Status transitions: Enforce state machine rules (e.g., only DRAFT claims can be edited)
-
-Error handling patterns:
-- Route-level try/catch blocks returning standardized error responses
-- Service-level validations and explicit error messages
-- Logging errors for debugging and monitoring
+- Authentication failures:
+  - Ensure JWT_SECRET is configured and tokens are valid.
+  - Verify Authorization header format and token presence.
+- Admin access denied:
+  - Confirm user has isAdmin flag set and token is valid.
+- Data integrity errors:
+  - Check foreign key constraints and cascade behaviors when deleting records.
+  - Validate enum values match schema definitions.
+- Migration conflicts:
+  - Roll back migrations carefully and reapply changes in a controlled manner.
 
 **Section sources**
-- [claims.ts:21-57](file://backend/src/routes/claims.ts#L21-L57)
-- [claims.ts:152-193](file://backend/src/routes/claims.ts#L152-L193)
-- [damageAnalysisService.ts:50-154](file://backend/src/services/damageAnalysisService.ts#L50-L154)
-- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
+- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
+- [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [schema.prisma:62-201](file://backend/prisma/schema.prisma#L62-L201)
 
 ## Conclusion
-The database design provides a robust foundation for managing vehicle insurance claims with clear entity relationships, strong constraints, and scalable query patterns. Prisma enforces type safety and simplifies migrations. AI-driven services integrate seamlessly with the data model to automate damage assessment, document verification, and repair estimation. Proper indexing, selective querying, and secure handling of sensitive data will ensure performance and reliability in production environments.
-
-[No sources needed since this section summarizes without analyzing specific files]
-
-## Appendices
-
-### Migrations Strategy and Version Management
-- Use Prisma Migrate to manage schema changes:
-  - Initialize migrations with prisma migrate dev
-  - Apply migrations to development and production environments
-  - Review migration SQL before applying to production
-- Version control:
-  - Commit generated migration files alongside schema changes
-  - Tag releases and track migration history
-- Rollback strategy:
-  - Plan down migrations carefully; avoid destructive changes in production
-  - Use feature flags to gradually roll out schema changes
-
-[No sources needed since this section provides general guidance]
-
-### Security Considerations
-- Sensitive fields:
-  - passwordHash should be encrypted at rest and never logged
-  - Consider encrypting personally identifiable information (PII) such as name, address, phone
-- Access control:
-  - Enforce user ownership checks on all CRUD operations (already implemented in routes)
-  - Validate and sanitize inputs to prevent injection attacks
-- Data privacy:
-  - Minimize data exposure in API responses; use selective selects
-  - Secure file storage with access controls and signed URLs
-
-[No sources needed since this section provides general guidance]
-
-### Sample Data Structures and Typical Use Cases
-- Creating a claim:
-  - Provide vehicleId, incidentDate, incidentLocation, incidentDescription
-  - Optionally attach policyId and police report flag
-- Uploading images:
-  - Attach FULL_VEHICLE or DAMAGE_CLOSEUP images with labels
-  - Trigger AI analysis to generate damage assessment and repair estimate
-- Verifying documents:
-  - Upload LICENSE, REGISTRATION, ACCIDENT_REPORT, or REPAIR_ESTIMATE
-  - Run verification to update status and extract key information
-- Chat assistance:
-  - Retrieve recent messages and send new messages to get contextual responses
-
-**Section sources**
-- [claims.ts:21-57](file://backend/src/routes/claims.ts#L21-L57)
-- [claims.ts:196-233](file://backend/src/routes/claims.ts#L196-L233)
-- [claims.ts:317-353](file://backend/src/routes/claims.ts#L317-L353)
-- [claims.ts:399-447](file://backend/src/routes/claims.ts#L399-L447)
+The Prisma schema defines a robust, well-constrained data model tailored for vehicle insurance claim processing. Strong relationships, enums, and timestamps provide reliability and auditability. To enhance scalability and compliance, consider adding indexes, implementing soft deletes, and strengthening backup and security procedures. Migrations and seeding scripts streamline development workflows, while middleware ensures secure access to sensitive data.

@@ -1,1 +1,1 @@
-Node.js ecosystem used by both children: TypeScript/JavaScript runtime, npm/yarn/pnpm package management, and Express on the backend consumed by a Vite + React frontend.
+React + Vite for the client, Express + Prisma for the server, both targeting the same vehicle insurance claim domain model.

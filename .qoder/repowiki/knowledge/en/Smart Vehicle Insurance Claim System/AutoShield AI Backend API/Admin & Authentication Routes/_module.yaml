@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: backend/admin_auth
+title: Admin & Authentication Routes
+scope:
+    - backend/src/routes/admin.ts
+    - backend/src/routes/auth.ts
+    - backend/src/middleware/adminAuth.ts
+    - backend/src/middleware/auth.ts
+source_files: []
+depends_on: []
+related_to:
+    - path: backend/shared_infrastructure
+    - path: frontend

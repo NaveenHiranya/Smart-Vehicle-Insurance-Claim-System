@@ -2,25 +2,14 @@
 
 <cite>
 **Referenced Files in This Document**
+- [index.ts](file://backend/src/index.ts)
 - [vehicles.ts](file://backend/src/routes/vehicles.ts)
-- [vehicleDetectionService.ts](file://backend/src/services/vehicleDetectionService.ts)
-- [gemini.ts](file://backend/src/utils/gemini.ts)
-- [schema.prisma](file://backend/prisma/schema.prisma)
 - [auth.ts](file://backend/src/middleware/auth.ts)
 - [upload.ts](file://backend/src/middleware/upload.ts)
-- [index.ts](file://backend/src/index.ts)
-- [api.ts](file://frontend/src/services/api.ts)
-- [types/index.ts](file://frontend/src/types/index.ts)
-- [VehiclesPage.tsx](file://frontend/src/pages/VehiclesPage.tsx)
+- [vehicleDetectionService.ts](file://backend/src/services/vehicleDetectionService.ts)
+- [schema.prisma](file://backend/prisma/schema.prisma)
+- [errorHandler.ts](file://backend/src/middleware/errorHandler.ts)
 </cite>
-
-## Update Summary
-**Changes Made**
-- Enhanced vehicle registration workflow with improved data serialization for photos field
-- Added comprehensive user experience feedback during vehicle creation and update operations
-- Updated frontend with AI-powered vehicle detection integration and real-time form population
-- Improved error handling and success messaging throughout the vehicle management workflow
-- Enhanced backend endpoints with proper JSON serialization for photos array storage
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -35,492 +24,396 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides detailed API documentation for vehicle management endpoints in the Smart Vehicle Insurance Claim System. It covers CRUD operations for vehicles, the vehicle data model (including make, model, year, VIN, license plate, color, mileage, and photos), authentication requirements, error handling patterns, and usage examples. The system now features an enhanced vehicle registration workflow with improved data serialization for the photos field and comprehensive user experience feedback during vehicle creation and update operations. It also addresses image upload capabilities, file validation, storage handling, security considerations for vehicle documents, and the new AI-powered vehicle detection feature using Google's Gemini AI for automatic vehicle information extraction from images.
+This document provides detailed API documentation for vehicle management endpoints. It covers CRUD operations for vehicles, including creation, retrieval, updates, and deletion. It also documents the AI-powered vehicle detection endpoint that analyzes uploaded images to auto-fill vehicle details. The guide includes request/response schemas, file upload handling, error scenarios (duplicate VINs, invalid data, permission issues), and integration notes with the vehicle detection service.
 
 ## Project Structure
-The backend exposes RESTful routes under /api/vehicles with authentication enforced via middleware. The application uses Prisma to interact with a SQLite database and serves uploaded files statically. The system includes AI-powered vehicle detection capabilities through Google's Gemini AI integration and features an enhanced user interface with real-time feedback and form auto-population.
+The backend exposes RESTful routes under /api. Vehicle-related routes are mounted at /api/vehicles and require authentication via a Bearer token. File uploads are handled by middleware that stores images on disk and serves them statically.
 
 ```mermaid
 graph TB
-Client["Client App"] --> API["Express Server<br/>/api/*"]
-API --> AuthMW["Auth Middleware<br/>Bearer JWT"]
-API --> Routes["Vehicle Routes<br/>/api/vehicles"]
-Routes --> DB["Prisma Client<br/>SQLite"]
-Routes --> UploadMW["Upload Middleware<br/>Multer"]
-Routes --> DetectionSvc["Vehicle Detection Service<br/>Gemini AI"]
-DetectionSvc --> Gemini["Google Gemini AI<br/>Image Analysis"]
-API --> Static["Static Uploads<br/>/uploads"]
-Client --> UI["Enhanced UI<br/>Real-time Feedback"]
-UI --> FormAutoFill["Form Auto-fill<br/>AI Detection Results"]
+Client["Client"]
+App["Express App<br/>index.ts"]
+AuthMW["Auth Middleware<br/>auth.ts"]
+UploadMW["Upload Middleware<br/>upload.ts"]
+Vehicles["Vehicle Routes<br/>vehicles.ts"]
+VDS["Vehicle Detection Service<br/>vehicleDetectionService.ts"]
+DB["Prisma / SQLite<br/>schema.prisma"]
+Client --> App
+App --> AuthMW
+App --> Vehicles
+Vehicles --> UploadMW
+Vehicles --> VDS
+Vehicles --> DB
 ```
 
 **Diagram sources**
-- [index.ts:16-32](file://backend/src/index.ts#L16-L32)
-- [vehicles.ts:1-9](file://backend/src/routes/vehicles.ts#L1-L9)
+- [index.ts:17-34](file://backend/src/index.ts#L17-L34)
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [vehicleDetectionService.ts:1-95](file://backend/src/services/vehicleDetectionService.ts#L1-L95)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
+- [vehicles.ts:1-12](file://backend/src/routes/vehicles.ts#L1-L12)
+- [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
 
 **Section sources**
-- [index.ts:16-32](file://backend/src/index.ts#L16-L32)
-- [vehicles.ts:1-9](file://backend/src/routes/vehicles.ts#L1-L9)
+- [index.ts:17-34](file://backend/src/index.ts#L17-L34)
 
 ## Core Components
-- Authentication: All vehicle endpoints require a valid Bearer token validated by auth middleware.
-- Data Model: Vehicle entity includes fields for identification, description, and media references with enhanced photos field serialization.
-- File Handling: Multer-based upload middleware validates and stores images and documents with size limits.
-- Storage: Uploaded files are served statically from an uploads directory.
-- AI Integration: Google Gemini AI service for intelligent vehicle detection and information extraction from images.
-- Enhanced User Experience: Real-time feedback, form auto-population, and comprehensive error/success messaging.
+- Authentication: All vehicle endpoints are protected by an auth middleware that validates a Bearer JWT and attaches userId to the request.
+- File Uploads: Multer-based upload middleware enforces allowed MIME types and size limits, storing files under configured directories.
+- Vehicle Routes: Express router implements endpoints for detecting vehicles from images and standard CRUD operations for vehicles.
+- Vehicle Detection Service: Uses an AI model to analyze uploaded images and return structured vehicle attributes with confidence levels.
+- Data Model: Prisma schema defines the Vehicle entity and its relationships.
+
+Key responsibilities:
+- vehicles.ts: Route handlers for /api/vehicles/*
+- upload.ts: Image storage, filtering, and size limits
+- vehicleDetectionService.ts: Image analysis and JSON parsing
+- auth.ts: Token validation and user context injection
+- schema.prisma: Database schema for Vehicle and related entities
 
 **Section sources**
+- [vehicles.ts:10-168](file://backend/src/routes/vehicles.ts#L10-L168)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
+- [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [schema.prisma:26-42](file://backend/prisma/schema.prisma#L26-L42)
-- [upload.ts:17-53](file://backend/src/middleware/upload.ts#L17-L53)
-- [index.ts:24-26](file://backend/src/index.ts#L24-L26)
-- [vehicleDetectionService.ts:1-95](file://backend/src/services/vehicleDetectionService.ts#L1-L95)
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
 
 ## Architecture Overview
-The vehicle API follows a standard Express route pattern with Prisma queries. Requests are authenticated before reaching route handlers. The enhanced workflow processes uploaded images through Google's Gemini AI to automatically extract vehicle information including make, model, year, color, and license plate details. The frontend provides real-time feedback and auto-populates forms with detected vehicle information.
+The vehicle API follows a layered approach:
+- Request enters Express app and is routed to /api/vehicles
+- Auth middleware validates JWT and sets userId
+- For image-based detection, upload middleware persists the file and passes it to the detection service
+- CRUD operations use Prisma to read/write Vehicle records scoped to the authenticated user
+- Errors are normalized via a global error handler
 
 ```mermaid
 sequenceDiagram
 participant C as "Client"
-participant E as "Express"
+participant E as "Express App"
 participant A as "Auth Middleware"
-participant R as "Vehicle Route"
+participant R as "Vehicle Routes"
 participant U as "Upload Middleware"
-participant S as "Detection Service"
-participant G as "Gemini AI"
-C->>E : POST /api/vehicles/detect (image)
-E->>A : Validate Authorization header
-A-->>E : userId if valid
-E->>R : Call detect handler
-R->>U : Process image upload
-U-->>R : File stored at /uploads/images/{filename}
+participant S as "Vehicle Detection Service"
+participant D as "Database"
+C->>E : POST /api/vehicles/detect (multipart image)
+E->>A : Validate Bearer token
+A-->>E : userId attached
+E->>R : Route to /detect
+R->>U : Parse multipart image
+U-->>R : req.file available
 R->>S : detectVehicleFromImage(imagePath)
-S->>G : Send image for analysis
-G-->>S : Vehicle detection results
-S-->>R : Detection data
-R-->>C : JSON response with vehicle info
-Note over C,R : Enhanced UX : Real-time feedback & form auto-fill
+S-->>R : {make,model,year,color,licensePlate,confidence,...}
+R-->>C : 200 OK + detection result
+Note over R,D : CRUD endpoints call Prisma with userId scoping
 ```
 
 **Diagram sources**
-- [index.ts:28-32](file://backend/src/index.ts#L28-L32)
-- [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
-- [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
+- [index.ts:29-34](file://backend/src/index.ts#L29-L34)
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
+- [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
+- [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
 
 ## Detailed Component Analysis
 
-### Authentication Requirements
-- All vehicle endpoints are protected by auth middleware that expects a Bearer token in the Authorization header.
-- Invalid or missing tokens return 401 with an error message.
-- On success, the request context includes the authenticated user ID used to scope data access.
+### Authentication
+- All vehicle endpoints require a valid Bearer token.
+- On success, userId is attached to the request for authorization scoping.
+- Missing or invalid tokens return 401 with an error message.
+
+Error responses:
+- 401 Unauthorized: No token provided or invalid/expired token.
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [vehicles.ts:8-9](file://backend/src/routes/vehicles.ts#L8-L9)
 
-### Vehicle Data Model
-The Vehicle model defines the following fields:
-- id: unique identifier
-- userId: owner reference
-- make: string
-- model: string
-- year: integer
-- vin: optional string
-- licensePlate: string
-- color: string
-- mileage: optional integer
-- photos: JSON array stored as string defaulting to empty array `[]`
-- createdAt, updatedAt: timestamps
+### File Upload Handling
+- Supported formats: JPEG, PNG, WebP (and JPG alias).
+- Size limit: 10 MB per file.
+- Storage: Disk storage under configurable directory; images stored in images subdirectory.
+- Static serving: Uploaded files are served under /uploads.
 
-Relationships:
-- User has many Vehicles (cascade delete)
-- Vehicle has many Claims (cascade delete)
-
-**Updated** Enhanced photos field now properly serializes arrays to JSON strings for database storage and deserializes back to arrays when retrieved.
+Validation behavior:
+- If no image is uploaded to the detection endpoint, returns 400 with an error.
+- If unsupported MIME type is sent, upload middleware rejects the file.
 
 **Section sources**
-- [schema.prisma:26-42](file://backend/prisma/schema.prisma#L26-L42)
+- [upload.ts:17-47](file://backend/src/middleware/upload.ts#L17-L47)
+- [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
+- [index.ts:25-27](file://backend/src/index.ts#L25-L27)
 
-### Endpoints
+### Vehicle Detection Endpoint
+- Endpoint: POST /api/vehicles/detect
+- Purpose: Analyze an uploaded vehicle image to extract make, model, year, color, license plate, and confidence level.
+- Input: Multipart form field named image containing a supported image file.
+- Output: Structured JSON with detected fields plus imagePath pointing to the saved file.
 
-#### AI-Powered Vehicle Detection
-- Method: POST
-- Path: /api/vehicles/detect
-- Authentication: Required (Bearer token)
-- Request body: multipart/form-data with 'image' field containing vehicle photo
-- Supported formats: JPEG, PNG, WebP (max 10MB)
-- Behavior: Processes uploaded image through Google Gemini AI to extract vehicle information
-- Success response: 200 OK with detected vehicle information including make, model, year, color, license plate, confidence level, and additional observations
-- Error responses:
-  - 400 Bad Request: No image uploaded or invalid file format
-  - 500 Internal Server Error: AI processing failed or image not found
+Processing flow:
+- Validates presence of image
+- Resolves file path and reads image bytes
+- Calls AI model with a strict prompt to return JSON
+- Parses response; if parsing fails, returns safe defaults with LOW confidence
 
-Response schema:
-```json
-{
-  "make": "string",
-  "model": "string", 
-  "year": number,
-  "color": "string",
-  "licensePlate": "string",
-  "confidence": "HIGH|MEDIUM|LOW",
-  "additionalInfo": "string",
-  "imagePath": "string"
-}
-```
-
-Usage notes:
-- The endpoint automatically stores uploaded images in /uploads/images/ directory
-- AI analysis extracts vehicle details with confidence scoring
-- Results can be used to auto-fill vehicle creation forms
-- Low confidence results indicate manual verification may be needed
+Error handling:
+- 400 if no image uploaded
+- 500 if image not found or AI processing fails
 
 **Section sources**
 - [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
 - [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
-- [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
 
-#### Create Vehicle
-- Method: POST
-- Path: /api/vehicles
-- Authentication: Required (Bearer token)
-- Request body fields:
-  - make: required string
-  - model: required string
-  - year: required integer (parsed from string)
-  - licensePlate: required string
-  - color: required string
-  - vin: optional string
-  - mileage: optional integer (parsed from string; null allowed)
-  - photos: optional array of strings (automatically serialized to JSON)
-- Success response: 201 Created with created vehicle object
-- Validation errors: 400 Bad Request with error message
-- Server errors: 500 Internal Server Error with error message
+### Create Vehicle
+- Endpoint: POST /api/vehicles
+- Required fields: make, model, year, licensePlate, color
+- Optional fields: vin, mileage, photos (array of strings)
+- Behavior: Creates a new Vehicle record associated with the authenticated user. Photos are stored as a JSON string.
 
-**Updated** Enhanced with improved data serialization for photos field and better user experience feedback. Photos are automatically serialized to JSON strings for database storage.
+Response:
+- 201 Created with the newly created vehicle object.
+
+Errors:
+- 400 Bad Request if required fields are missing.
+- 500 Internal Server Error if database operation fails.
 
 Notes:
-- Photos are stored as an array of strings in the database with proper JSON serialization
-- Can be combined with AI detection results for faster vehicle registration
-- Frontend provides real-time success/error feedback during submission
+- Duplicate VIN handling is not enforced at the route level; uniqueness constraints should be applied at the database layer if needed.
 
 **Section sources**
 - [vehicles.ts:34-63](file://backend/src/routes/vehicles.ts#L34-L63)
-- [schema.prisma:26-42](file://backend/prisma/schema.prisma#L26-L42)
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
 
-#### List Vehicles
-- Method: GET
-- Path: /api/vehicles
-- Authentication: Required (Bearer token)
-- Behavior: Returns all vehicles owned by the authenticated user, ordered by creation date descending. Includes a count of associated claims.
-- Success response: 200 OK with array of vehicles
-- Server errors: 500 Internal Server Error with error message
+### List Vehicles
+- Endpoint: GET /api/vehicles
+- Behavior: Returns all vehicles owned by the authenticated user, ordered by newest first. Includes a count of associated claims.
 
-Filtering and search:
-- No query parameters are implemented for filtering by owner, type, or status at this time. Owner scoping is enforced server-side by userId.
+Response:
+- 200 OK with array of vehicle objects.
+
+Errors:
+- 500 Internal Server Error on database failure.
 
 **Section sources**
 - [vehicles.ts:65-81](file://backend/src/routes/vehicles.ts#L65-L81)
 
-#### Get Vehicle by ID
-- Method: GET
-- Path: /api/vehicles/:id
-- Authentication: Required (Bearer token)
-- Behavior: Returns the vehicle if it exists and belongs to the authenticated user. Includes related claims with limited fields and ordering.
-- Success response: 200 OK with vehicle object
-- Not found: 404 Not Found with error message
-- Server errors: 500 Internal Server Error with error message
+### Get Vehicle Detail
+- Endpoint: GET /api/vehicles/:id
+- Behavior: Returns a single vehicle owned by the authenticated user, including recent claims metadata (id, status, incidentDate, createdAt).
+
+Response:
+- 200 OK with vehicle object.
+
+Errors:
+- 404 Not Found if vehicle does not exist or belongs to another user.
+- 500 Internal Server Error on database failure.
 
 **Section sources**
 - [vehicles.ts:83-111](file://backend/src/routes/vehicles.ts#L83-L111)
 
-#### Update Vehicle
-- Method: PUT
-- Path: /api/vehicles/:id
-- Authentication: Required (Bearer token)
-- Behavior: Updates only provided fields for the vehicle owned by the authenticated user. Supports partial updates with enhanced photos field serialization.
-- Request body fields (all optional):
-  - make, model, year (parsed), vin, licensePlate, color, mileage (parsed or null), photos (serialized to JSON)
-- Success response: 200 OK with updated vehicle
-- Not found: 404 Not Found with error message
-- Server errors: 500 Internal Server Error with error message
+### Update Vehicle
+- Endpoint: PUT /api/vehicles/:id
+- Behavior: Updates any subset of vehicle fields for the authenticated user’s vehicle. Supports partial updates.
 
-**Updated** Enhanced with improved data serialization for photos field during updates. Photos arrays are properly serialized to JSON strings.
+Request fields:
+- make, model, year, vin, licensePlate, color, mileage, photos (optional)
 
-**Section sources**
-- [vehicles.ts:113-146](file://backend/src/routes/vehicles.ts#L113-L146)
+Response:
+- 200 OK with updated vehicle object.
 
-#### Delete Vehicle
-- Method: DELETE
-- Path: /api/vehicles/:id
-- Authentication: Required (Bearer token)
-- Behavior: Deletes the vehicle if it exists and belongs to the authenticated user.
-- Success response: 200 OK with confirmation message
-- Not found: 404 Not Found with error message
-- Server errors: 500 Internal Server Error with error message
-
-**Section sources**
-- [vehicles.ts:148-166](file://backend/src/routes/vehicles.ts#L148-L166)
-
-### Image Upload Functionality
-The system provides comprehensive image upload capabilities supporting both general vehicle photos and AI-powered detection:
-
-- Allowed MIME types: image/jpeg, image/png, image/webp, image/jpg
-- Size limit: 10 MB per file
-- Storage:
-  - Destination directories: images, documents under UPLOAD_DIR (defaults to ./uploads)
-  - Filenames: UUID + original extension
-- Serving:
-  - Static path: /uploads maps to the configured upload directory
-
-AI Detection Workflow:
-- Upload vehicle photo via /api/vehicles/detect endpoint
-- Image processed through Google Gemini AI for automatic vehicle information extraction
-- Results include confidence scoring and additional observational data
-- Detected information can auto-fill vehicle creation forms
-
-Security considerations:
-- Only whitelisted MIME types are accepted
-- Enforce size limits to prevent abuse
-- Serve uploads through a static path; consider additional protections (e.g., signed URLs) in production
-- AI processing requires valid GEMINI_API_KEY environment variable
-
-**Section sources**
-- [upload.ts:17-53](file://backend/src/middleware/upload.ts#L17-L53)
-- [index.ts:24-26](file://backend/src/index.ts#L24-L26)
-- [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
-
-### Search and Filtering Capabilities
-Current implementation:
-- Listing returns all vehicles for the authenticated user.
-- No query parameters for filtering by owner, type, or status are implemented in the vehicle routes.
-
-Recommendations for future enhancements:
-- Add query parameters such as owner, type, status to filter results.
-- Implement pagination and sorting options for large datasets.
-- Use Prisma where clauses to support efficient filtering.
-- Consider adding AI-powered image search capabilities for visual vehicle matching.
-
-### Request/Response Schemas
-
-#### AI Vehicle Detection
-- Request:
-  - Content-Type: multipart/form-data
-  - Field: image (required) - vehicle photograph
-- Response:
-  - 200 OK: { make, model, year, color, licensePlate, confidence, additionalInfo, imagePath }
-  - 400 Bad Request: { error: string }
-  - 500 Internal Server Error: { error: string }
-
-**Section sources**
-- [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
-- [vehicleDetectionService.ts:5-13](file://backend/src/services/vehicleDetectionService.ts#L5-L13)
-
-#### Create Vehicle
-- Request:
-  - Content-Type: application/json
-  - Body fields: make, model, year, licensePlate, color (required); vin, mileage, photos (optional)
-- Response:
-  - 201 Created: Vehicle object with properly serialized photos field
-  - 400 Bad Request: { error: string }
-  - 500 Internal Server Error: { error: string }
-
-**Updated** Enhanced with improved photos field serialization and better error handling.
-
-**Section sources**
-- [vehicles.ts:34-63](file://backend/src/routes/vehicles.ts#L34-L63)
-
-#### List Vehicles
-- Request: None
-- Response:
-  - 200 OK: Array of Vehicle objects (includes _count.claims)
-  - 500 Internal Server Error: { error: string }
-
-**Section sources**
-- [vehicles.ts:65-81](file://backend/src/routes/vehicles.ts#L65-L81)
-
-#### Get Vehicle by ID
-- Request: None
-- Response:
-  - 200 OK: Vehicle object (includes claims subset)
-  - 404 Not Found: { error: string }
-  - 500 Internal Server Error: { error: string }
-
-**Section sources**
-- [vehicles.ts:83-111](file://backend/src/routes/vehicles.ts#L83-L111)
-
-#### Update Vehicle
-- Request:
-  - Content-Type: application/json
-  - Body fields: any subset of make, model, year, vin, licensePlate, color, mileage, photos (with proper serialization)
-- Response:
-  - 200 OK: Updated Vehicle object with serialized photos field
-  - 404 Not Found: { error: string }
-  - 500 Internal Server Error: { error: string }
-
-**Updated** Enhanced with improved photos field serialization during updates.
+Errors:
+- 404 Not Found if vehicle does not exist or belongs to another user.
+- 500 Internal Server Error on database failure.
 
 **Section sources**
 - [vehicles.ts:113-146](file://backend/src/routes/vehicles.ts#L113-L146)
 
-#### Delete Vehicle
-- Request: None
-- Response:
-  - 200 OK: { message: string }
-  - 404 Not Found: { error: string }
-  - 500 Internal Server Error: { error: string }
+### Delete Vehicle
+- Endpoint: DELETE /api/vehicles/:id
+- Behavior: Deletes the specified vehicle if it belongs to the authenticated user.
+
+Response:
+- 200 OK with success message.
+
+Errors:
+- 404 Not Found if vehicle does not exist or belongs to another user.
+- 500 Internal Server Error on database failure.
 
 **Section sources**
 - [vehicles.ts:148-166](file://backend/src/routes/vehicles.ts#L148-L166)
 
-### Practical Usage Examples
+### Data Model: Vehicle
+- Fields: id, userId, make, model, year, vin (nullable), licensePlate, color, mileage (nullable), photos (JSON string defaulting to empty array), timestamps.
+- Relationships: Owned by User; linked to Claims.
 
-#### AI-Powered Vehicle Detection
-- Upload a vehicle photo:
-  - Send a POST to /api/vehicles/detect with multipart/form-data containing an 'image' field
-  - Include a valid Bearer token in the Authorization header
-  - Expect a 200 response with detected vehicle information and confidence score
-  - Use the results to auto-fill vehicle creation forms
-
-#### Enhanced User Experience Features
-The frontend provides comprehensive user experience improvements:
-
-- **Real-time Form Population**: AI-detected vehicle information automatically fills form fields
-- **Visual Feedback**: Loading indicators, success messages, and error notifications
-- **Drag-and-Drop Interface**: Intuitive image upload with preview functionality
-- **Confidence Indicators**: Visual representation of detection quality (HIGH/MEDIUM/LOW)
-- **Manual Override**: Users can modify any auto-filled fields before submission
-
-Example workflow:
-1. Navigate to vehicle creation page
-2. Drag and drop vehicle photo into detection area
-3. Click "Detect Vehicle" button
-4. Review detected information and confidence scores
-5. Auto-filled form fields based on AI analysis
-6. Submit vehicle registration with verified information
-7. Receive immediate success/failure feedback
+Constraints and notes:
+- No unique constraint on VIN is defined in the schema; duplicate VINs can be inserted unless enforced elsewhere.
+- Photos are stored as a JSON string array of file paths or URLs.
 
 **Section sources**
-- [VehiclesPage.tsx:130-187](file://frontend/src/pages/VehiclesPage.tsx#L130-L187)
-- [api.ts:10-17](file://frontend/src/services/api.ts#L10-L17)
-- [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
 
 ## Dependency Analysis
-The vehicle routes depend on:
-- Authentication middleware for authorization
-- Prisma client for data access
-- Database schema defining the Vehicle model
-- Static file serving for uploaded content
-- Google Gemini AI service for vehicle detection
-- Multer upload middleware for file handling
-- Enhanced frontend components for user experience
+- Route-level dependencies:
+  - vehicles.ts depends on prisma client, auth middleware, upload middleware, and vehicle detection service.
+- Middleware dependencies:
+  - auth.ts depends on JWT library and environment secret.
+  - upload.ts depends on multer, filesystem, and uuid.
+- Service dependencies:
+  - vehicleDetectionService.ts depends on filesystem and AI model utility.
 
-```mermaid
-graph LR
-V["vehicles.ts"] --> M["auth.ts"]
-V --> P["prisma (via utils/prisma.js)"]
-V --> S["schema.prisma"]
-V --> U["upload.ts"]
-V --> D["vehicleDetectionService.ts"]
-D --> G["gemini.ts"]
-I["index.ts"] --> V
-I --> U
-F["VehiclesPage.tsx"] --> A["api.ts"]
-A --> V
-```
+Potential coupling:
+- Tight coupling between routes and Prisma models; changes to schema may affect route queries.
+- Upload middleware is shared across features; ensure consistent validation rules.
 
-**Diagram sources**
-- [vehicles.ts:1-9](file://backend/src/routes/vehicles.ts#L1-L9)
-- [index.ts:28-32](file://backend/src/index.ts#L28-L32)
-- [vehicleDetectionService.ts:1-95](file://backend/src/services/vehicleDetectionService.ts#L1-L95)
-- [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
+Circular dependencies:
+- None observed among analyzed modules.
+
+External integrations:
+- AI model provider used by vehicle detection service.
+- File system for storing and serving uploads.
 
 **Section sources**
-- [vehicles.ts:1-9](file://backend/src/routes/vehicles.ts#L1-L9)
-- [index.ts:28-32](file://backend/src/index.ts#L28-L32)
+- [vehicles.ts:1-12](file://backend/src/routes/vehicles.ts#L1-L12)
+- [auth.ts:1-22](file://backend/src/middleware/auth.ts#L1-L22)
+- [upload.ts:1-47](file://backend/src/middleware/upload.ts#L1-L47)
+- [vehicleDetectionService.ts:1-95](file://backend/src/services/vehicleDetectionService.ts#L1-L95)
 
 ## Performance Considerations
-- Queries are filtered by userId to ensure efficient scoping.
-- Including claim counts reduces N+1 queries when listing vehicles.
-- For large datasets, consider adding pagination and selective field projection.
-- Avoid unnecessary includes in list endpoints to reduce payload size.
-- AI detection calls are synchronous and may impact response times; consider async processing for high-volume scenarios.
-- Cache frequently accessed vehicle data to reduce database load.
-- Implement rate limiting for AI detection endpoints to prevent API key quota exhaustion.
-- **Enhanced** Photos field serialization adds minimal overhead but ensures data consistency.
+- Image uploads: Enforce reasonable size limits (already set to 10 MB) to avoid large payloads.
+- AI detection: Model calls can be slow; consider caching results for identical images or batching requests if applicable.
+- Database queries: Use selective includes to reduce payload size; current listing includes claim counts which is efficient.
+- Static file serving: Ensure CDN or reverse proxy caching for uploaded images in production.
+
+[No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
-Common issues and resolutions:
-- 401 Unauthorized:
-  - Ensure Authorization header contains a valid Bearer token.
-  - Verify token is not expired and matches the expected secret.
-- 404 Not Found:
-  - Confirm the vehicle ID exists and belongs to the authenticated user.
-- 400 Bad Request:
-  - Check that required fields (make, model, year, licensePlate, color) are present and correctly typed.
-  - For detection endpoint, ensure image file is properly formatted and within size limits.
-  - **Updated** Verify photos field is properly formatted as an array when provided.
-- 500 Internal Server Error:
-  - Review server logs for database or processing errors.
-  - For AI detection failures, verify GEMINI_API_KEY is properly configured.
-  - Check that uploaded image files exist and are accessible.
+Common errors and resolutions:
+- 401 Unauthorized: Ensure Authorization header contains a valid Bearer token. Check token expiration and secret configuration.
+- 400 Bad Request (create): Provide all required fields (make, model, year, licensePlate, color).
+- 400 Bad Request (detect): Ensure image is included and uses a supported format.
+- 404 Not Found: Verify vehicle ID exists and belongs to the authenticated user.
+- 500 Internal Server Error: Check server logs for database connectivity or AI service failures.
 
-AI Detection Specific Issues:
-- Detection fails: Verify image format compatibility and file integrity
-- Low confidence results: Encourage users to provide clearer images or manual verification
-- API quota exceeded: Monitor Gemini API usage and implement fallback mechanisms
+Duplicate VIN handling:
+- The current schema does not enforce uniqueness for VIN. To prevent duplicates, add a unique constraint on the VIN field in the schema and regenerate the client.
 
-Error response format:
-- Most error responses follow a consistent shape: { error: string }.
+Permission issues:
+- All endpoints scope operations to the authenticated user via userId. Requests attempting to access other users’ vehicles will receive 404.
 
-**Updated** Enhanced error handling provides more descriptive messages for user experience improvements.
+File upload issues:
+- Unsupported MIME types are rejected by upload middleware.
+- Exceeding 10 MB limit triggers an error.
+
+Global error handling:
+- Unhandled exceptions are caught by the global error handler and returned as 500 with a generic message.
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [vehicles.ts:15-166](file://backend/src/routes/vehicles.ts#L15-L166)
-- [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
+- [vehicles.ts:34-63](file://backend/src/routes/vehicles.ts#L34-L63)
+- [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
+- [vehicles.ts:83-111](file://backend/src/routes/vehicles.ts#L83-L111)
+- [upload.ts:30-47](file://backend/src/middleware/upload.ts#L30-L47)
+- [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
 
 ## Conclusion
-The vehicle management API provides secure CRUD operations for vehicles with robust authentication and clear error handling. The enhanced vehicle registration workflow significantly improves the user experience through AI-powered vehicle detection, real-time form auto-population, and comprehensive feedback mechanisms. The improved data serialization for the photos field ensures reliable storage and retrieval of vehicle image references. While search and filtering are currently limited to user-scoped listing, the foundation supports future enhancements. Image upload utilities are available for storing and serving vehicle photos and documents, with strict validation and size limits. The integration of AI capabilities demonstrates the system's commitment to leveraging modern technologies for improved automation and user convenience.
+The Vehicles API provides secure, user-scoped CRUD operations for vehicles and an AI-powered detection endpoint to streamline registration. File uploads are validated and persisted with clear size/format constraints. While basic error handling is implemented, adding explicit duplicate VIN checks and richer error messages would improve robustness. The architecture cleanly separates concerns across routes, middleware, services, and data access layers.
+
+[No sources needed since this section summarizes without analyzing specific files]
 
 ## Appendices
 
-### Vehicle Data Model Reference
-- Fields: id, userId, make, model, year, vin, licensePlate, color, mileage, photos, createdAt, updatedAt
-- Relationships: User (owner), Claims (associated)
-- **Updated** Photos field now properly handles JSON array serialization for database storage
+### API Endpoints Summary
+- POST /api/vehicles/detect
+  - Purpose: Detect vehicle details from an image.
+  - Auth: Required (Bearer token).
+  - Content-Type: multipart/form-data
+  - Field: image (JPEG/PNG/WebP, max 10 MB)
+  - Response: 200 OK with detection result and imagePath; 400 if no image; 500 on failure.
+
+- POST /api/vehicles
+  - Purpose: Register a new vehicle.
+  - Auth: Required.
+  - Body: make, model, year, licensePlate, color (required); vin, mileage, photos (optional).
+  - Response: 201 Created with vehicle; 400 if required fields missing; 500 on failure.
+
+- GET /api/vehicles
+  - Purpose: List vehicles for the authenticated user.
+  - Auth: Required.
+  - Response: 200 OK with array of vehicles (includes claim counts).
+
+- GET /api/vehicles/:id
+  - Purpose: Retrieve a specific vehicle with recent claims metadata.
+  - Auth: Required.
+  - Response: 200 OK with vehicle; 404 if not found; 500 on failure.
+
+- PUT /api/vehicles/:id
+  - Purpose: Update vehicle fields (partial update supported).
+  - Auth: Required.
+  - Body: Any subset of vehicle fields.
+  - Response: 200 OK with updated vehicle; 404 if not found; 500 on failure.
+
+- DELETE /api/vehicles/:id
+  - Purpose: Delete a vehicle.
+  - Auth: Required.
+  - Response: 200 OK with success message; 404 if not found; 500 on failure.
+
+### Request and Response Schemas
+- Vehicle Registration Request (POST /api/vehicles)
+  - Required: make (string), model (string), year (integer), licensePlate (string), color (string)
+  - Optional: vin (string|null), mileage (integer|null), photos (array of strings)
+
+- Vehicle Detection Request (POST /api/vehicles/detect)
+  - Content-Type: multipart/form-data
+  - Field: image (file)
+
+- Vehicle Detection Response
+  - Fields: make (string), model (string), year (number), color (string), licensePlate (string), confidence ("HIGH"|"MEDIUM"|"LOW"), additionalInfo (string|null), imagePath (string)
+
+- Vehicle Object (GET/PUT/POST responses)
+  - Fields: id (string), userId (string), make (string), model (string), year (number), vin (string|null), licensePlate (string), color (string), mileage (number|null), photos (string JSON array), createdAt (datetime), updatedAt (datetime)
+  - GET /:id includes claims array with id, status, incidentDate, createdAt
+
+- Error Responses
+  - 400: { error: string }
+  - 401: { error: string }
+  - 404: { error: string }
+  - 500: { error: string }
+
+### Example Workflows
+- Add a new vehicle
+  - Steps:
+    - Obtain a valid Bearer token.
+    - Send POST /api/vehicles with required fields.
+    - Handle 201 Created response with vehicle details.
+  - References:
+    - [vehicles.ts:34-63](file://backend/src/routes/vehicles.ts#L34-L63)
+
+- Retrieve vehicle history
+  - Steps:
+    - Send GET /api/vehicles/:id.
+    - Inspect the returned claims array for recent activity.
+  - References:
+    - [vehicles.ts:83-111](file://backend/src/routes/vehicles.ts#L83-L111)
+
+- Update vehicle information
+  - Steps:
+    - Send PUT /api/vehicles/:id with desired fields.
+    - Receive updated vehicle object.
+  - References:
+    - [vehicles.ts:113-146](file://backend/src/routes/vehicles.ts#L113-L146)
+
+- Detect vehicle from image
+  - Steps:
+    - Send POST /api/vehicles/detect with image file.
+    - Use returned fields to prefill vehicle registration.
+  - References:
+    - [vehicles.ts:15-32](file://backend/src/routes/vehicles.ts#L15-L32)
+    - [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)
+
+### Integration Notes: Vehicle Detection Service
+- The service reads the uploaded image, converts it to base64, and sends it to an AI model with a strict JSON output prompt.
+- If parsing fails, it returns safe defaults with LOW confidence and a note indicating manual entry is required.
+- Supported input formats are determined by file extension mapping to MIME types.
 
 **Section sources**
-- [schema.prisma:26-42](file://backend/prisma/schema.prisma#L26-L42)
-
-### Frontend Types Reference
-- Vehicle interface includes core fields plus optional metadata like _count.claims and claims array.
-- **Updated** Enhanced with improved TypeScript definitions for better development experience
-
-**Section sources**
-- [types/index.ts:11-25](file://frontend/src/types/index.ts#L11-L25)
-
-### AI Detection Configuration
-- Requires GEMINI_API_KEY environment variable
-- Uses gemini-2.5-flash model for optimal performance
-- Supports multiple image formats with automatic MIME type detection
-- Provides confidence scoring for result reliability assessment
-
-**Section sources**
-- [gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
-- [vehicleDetectionService.ts:59-69](file://backend/src/services/vehicleDetectionService.ts#L59-L69)
-
-### Enhanced User Experience Features
-- Real-time form population with AI detection results
-- Visual confidence indicators for detection quality
-- Drag-and-drop image upload with preview
-- Comprehensive success/error feedback messaging
-- Manual override capabilities for low-confidence detections
-
-**Section sources**
-- [VehiclesPage.tsx:130-187](file://frontend/src/pages/VehiclesPage.tsx#L130-L187)
-- [VehiclesPage.tsx:217-300](file://frontend/src/pages/VehiclesPage.tsx#L217-L300)
+- [vehicleDetectionService.ts:46-95](file://backend/src/services/vehicleDetectionService.ts#L46-L95)

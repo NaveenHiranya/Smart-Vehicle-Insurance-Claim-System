@@ -1,1 +1,0 @@
-Express route handlers for CRUD, image/document upload, submission, and chat on vehicle insurance claims, backed by Gemini-powered damage analysis and an AI claim assistant.

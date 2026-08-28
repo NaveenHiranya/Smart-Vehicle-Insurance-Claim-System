@@ -1,1 +1,0 @@
-Express Router with Prisma ORM against a relational database; Google Gemini multimodal model (via `utils/gemini.js`) used for both image-based damage detection and conversational assistance; Multer middleware (`uploadImage`, `uploadDocument`) for file uploads stored under `uploads/images` and `uploads/documents`.

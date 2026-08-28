@@ -1,1 +1,1 @@
-Top-level workspace that co-locates the Express backend API and React/Vite frontend SPA for an end-to-end vehicle insurance claim management application.
+Monorepo pairing a React/Vite frontend SPA with an Express/Prisma backend API to manage vehicle insurance claims, policies, and AI-assisted document verification.

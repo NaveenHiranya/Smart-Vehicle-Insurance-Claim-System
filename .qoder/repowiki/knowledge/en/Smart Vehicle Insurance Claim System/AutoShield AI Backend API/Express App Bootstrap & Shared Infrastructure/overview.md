@@ -1,0 +1,1 @@
+Bootstraps the Express server, wires global middleware (CORS, JSON parsing, static uploads), mounts API routes, and provides shared error handling, file upload, and Prisma client utilities.

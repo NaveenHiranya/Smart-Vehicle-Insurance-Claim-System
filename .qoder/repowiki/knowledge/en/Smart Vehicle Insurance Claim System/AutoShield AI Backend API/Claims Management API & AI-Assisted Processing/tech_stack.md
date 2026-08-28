@@ -1,0 +1,1 @@
+Express Router with Multer for multipart uploads; Prisma ORM for all persistence; Google Gemini multimodal model (`getGeminiModel`) for both image-based damage analysis and conversational claim assistance; Node.js `fs`/`path` for reading uploaded images off disk into base64 payloads.

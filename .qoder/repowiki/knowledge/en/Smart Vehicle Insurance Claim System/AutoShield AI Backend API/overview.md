@@ -1,1 +1,1 @@
-Express-based backend that wires domain routes (auth, vehicles, policies, claims) into a single server with shared middleware, Prisma data access, and Gemini-powered claim services.
+Express-based backend that wires authentication, vehicle/policy/claim routes, admin endpoints, and AI-driven document verification services around a shared Prisma data layer.

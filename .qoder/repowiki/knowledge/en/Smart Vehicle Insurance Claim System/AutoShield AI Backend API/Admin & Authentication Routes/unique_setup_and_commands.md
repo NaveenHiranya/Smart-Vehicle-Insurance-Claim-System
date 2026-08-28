@@ -1,0 +1,1 @@
+Requires `JWT_SECRET` environment variable to be set; without it `jwt.sign`/`jwt.verify` will use an empty string fallback.

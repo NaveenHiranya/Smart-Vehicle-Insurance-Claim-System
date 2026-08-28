@@ -5,5 +5,4 @@ scope:
     - backend/
 source_files: []
 depends_on: []
-related_to:
-    - path: frontend/policies_vehicles_dashboard
+related_to: []

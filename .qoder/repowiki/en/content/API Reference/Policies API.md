@@ -4,386 +4,405 @@
 **Referenced Files in This Document**
 - [policies.ts](file://backend/src/routes/policies.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
-- [auth.ts](file://backend/src/middleware/auth.ts)
-- [errorHandler.ts](file://backend/src/middleware/errorHandler.ts)
 - [claims.ts](file://backend/src/routes/claims.ts)
+- [index.ts (types)](file://backend/src/types/index.ts)
+- [api.ts (frontend client)](file://frontend/src/services/api.ts)
 - [PoliciesPage.tsx](file://frontend/src/pages/PoliciesPage.tsx)
-- [api.ts](file://frontend/src/services/api.ts)
 </cite>
 
 ## Table of Contents
-1. Introduction
-2. Project Structure
-3. Core Components
-4. Architecture Overview
-5. Detailed Component Analysis
-6. Dependency Analysis
-7. Performance Considerations
-8. Troubleshooting Guide
-9. Conclusion
+1. [Introduction](#introduction)
+2. [Project Structure](#project-structure)
+3. [Core Components](#core-components)
+4. [Architecture Overview](#architecture-overview)
+5. [Detailed Component Analysis](#detailed-component-analysis)
+6. [Dependency Analysis](#dependency-analysis)
+7. [Performance Considerations](#performance-considerations)
+8. [Troubleshooting Guide](#troubleshooting-guide)
+9. [Conclusion](#conclusion)
+10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for insurance policy management endpoints in the Smart Vehicle Insurance Claim System. It covers creating, retrieving, updating, and deleting policies, including request/response schemas, validation rules, status handling, relationships to vehicles and users, authentication requirements, error handling, and integration patterns with claim processing workflows. Practical examples illustrate common policy lifecycle scenarios for insurance administration.
+This document provides comprehensive API documentation for insurance policy management endpoints in the Smart Vehicle Insurance Claim System. It covers creating, retrieving, updating, and deleting policies; request/response schemas; validation rules; lifecycle considerations; relationships with vehicles and claims; and integration points with the claims processing system.
 
 ## Project Structure
-The backend exposes a RESTful API under /api/policies protected by JWT-based authentication. The data model is defined in Prisma and includes relationships between Users, Vehicles, Claims, and InsurancePolicy. The frontend consumes these endpoints via an Axios client that injects the Bearer token automatically.
+The backend exposes RESTful endpoints under /api/policies. The routes are protected by authentication middleware and interact with a Prisma-managed SQLite database. The frontend includes a dedicated page to create and manage policies and uses an Axios client that attaches authentication tokens.
 
 ```mermaid
 graph TB
-subgraph "Frontend"
-FE_Policies["PoliciesPage.tsx"]
-FE_API["axios api.ts"]
-end
-subgraph "Backend"
-Routes["routes/policies.ts"]
-AuthMW["middleware/auth.ts"]
-DB["Prisma Client"]
-Schema["prisma/schema.prisma"]
-end
-FE_Policies --> FE_API
-FE_API --> Routes
-Routes --> AuthMW
-Routes --> DB
-DB --> Schema
+FE["Frontend: PoliciesPage.tsx"] --> API["Backend: /api/policies (Express Router)"]
+API --> DB["Database: Prisma Schema (InsurancePolicy)"]
+API --> AUTH["Auth Middleware"]
+CLAIMS["Claims API (/api/claims)"] --> DB
+CLAIMS -.->|Links via policyId| POLICY["InsurancePolicy"]
 ```
 
 **Diagram sources**
 - [policies.ts:1-131](file://backend/src/routes/policies.ts#L1-L131)
-- [auth.ts:1-23](file://backend/src/middleware/auth.ts#L1-L23)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-- [api.ts:1-33](file://frontend/src/services/api.ts#L1-L33)
-- [PoliciesPage.tsx:1-102](file://frontend/src/pages/PoliciesPage.tsx#L1-L102)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [claims.ts:20-57](file://backend/src/routes/claims.ts#L20-L57)
 
 **Section sources**
 - [policies.ts:1-131](file://backend/src/routes/policies.ts#L1-L131)
-- [schema.prisma:10-59](file://backend/prisma/schema.prisma#L10-L59)
-- [api.ts:1-33](file://frontend/src/services/api.ts#L1-L33)
+- [schema.prisma:1-202](file://backend/prisma/schema.prisma#L1-L202)
+- [PoliciesPage.tsx:1-102](file://frontend/src/pages/PoliciesPage.tsx#L1-L102)
+- [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 
 ## Core Components
-- Policy CRUD routes: POST, GET (list), GET (by id), PUT (update), DELETE (by id).
-- Authentication middleware: Validates JWT and attaches userId to requests.
-- Data model: InsurancePolicy with fields for provider, coverage, deductible, premium, and validity dates; relationships to User and Claim.
-- Frontend integration: UI for listing, creating, and deleting policies; automatic token injection.
-
-Key responsibilities:
-- Enforce required fields on create.
-- Scope all operations to the authenticated user’s policies.
-- Return consistent error shapes for client handling.
+- Policy CRUD endpoints:
+  - POST /api/policies: Create a new policy
+  - GET /api/policies: List all policies for the authenticated user
+  - GET /api/policies/:id: Retrieve a specific policy
+  - PUT /api/policies/:id: Update a policy
+  - DELETE /api/policies/:id: Delete a policy
+- Data model: InsurancePolicy stored in the database with fields for provider, coverage type, deductible, premium amount, and effective dates.
+- Authentication: All endpoints require a valid token via auth middleware.
+- Claims integration: Claims can optionally reference a policy via policyId.
 
 **Section sources**
 - [policies.ts:12-128](file://backend/src/routes/policies.ts#L12-L128)
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [claims.ts:20-57](file://backend/src/routes/claims.ts#L20-L57)
 
 ## Architecture Overview
-The Policies API follows a simple layered architecture:
-- Route handlers validate input and delegate to Prisma for persistence.
-- All routes are guarded by authMiddleware to ensure requests are from authenticated users.
-- Responses are standardized JSON objects with either data or error messages.
-- Claims can optionally reference a policy, enabling downstream workflows to compute payouts based on policy terms.
+The Policies API is a thin layer over Prisma data access. Requests are validated at the route level, persisted to the database, and returned as JSON. The frontend manages UI state and calls these endpoints through a shared Axios instance that injects authentication headers.
 
 ```mermaid
 sequenceDiagram
-participant FE as "Frontend"
-participant RT as "Routes /policies"
-participant MW as "Auth Middleware"
-participant DB as "Prisma"
-participant SC as "Schema"
-FE->>RT : HTTP Request (with Authorization header)
-RT->>MW : Invoke auth check
-MW-->>RT : Attach userId if valid
-RT->>DB : Create/Read/Update/Delete InsurancePolicy
-DB->>SC : Persist according to schema
-DB-->>RT : Resulting policy record
-RT-->>FE : JSON response (policy or error)
+participant Client as "Client"
+participant Auth as "Auth Middleware"
+participant Routes as "Policies Router"
+participant DB as "Prisma/SQLite"
+Client->>Routes : POST /api/policies {policy data}
+Routes->>Auth : validate token
+Auth-->>Routes : userId attached
+Routes->>DB : create InsurancePolicy
+DB-->>Routes : created policy
+Routes-->>Client : 201 + policy object
 ```
 
 **Diagram sources**
-- [policies.ts:12-128](file://backend/src/routes/policies.ts#L12-L128)
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
+- [policies.ts:12-40](file://backend/src/routes/policies.ts#L12-L40)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
 
 ## Detailed Component Analysis
 
-### Authentication Requirements
-- All policy endpoints require a valid JWT in the Authorization header using the Bearer scheme.
-- On missing or invalid tokens, the server responds with 401 Unauthorized.
-- The frontend automatically attaches the token from local storage to every request.
+### Endpoints Reference
 
-Authentication flow:
-- Client sends requests with Authorization: Bearer <token>.
-- Middleware verifies the token and sets req.userId.
-- If verification fails, a 401 error is returned.
+- Create Policy
+  - Method: POST
+  - Path: /api/policies
+  - Auth: Required
+  - Request body fields:
+    - providerName: string (required)
+    - policyNumber: string (required)
+    - coverageType: string (required; values used in UI include Comprehensive, Collision, Liability, Full Coverage)
+    - deductible: number (required; stored as float)
+    - premiumAmount: number (required; stored as float)
+    - startDate: date-time (required)
+    - endDate: date-time (required)
+  - Success response: 201 Created with the created InsurancePolicy object
+  - Error responses:
+    - 400 Bad Request if required fields are missing or invalid
+    - 500 Internal Server Error on server-side failures
 
-**Section sources**
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [api.ts:10-17](file://frontend/src/services/api.ts#L10-L17)
+- List Policies
+  - Method: GET
+  - Path: /api/policies
+  - Auth: Required
+  - Query parameters: none
+  - Response: Array of InsurancePolicy objects belonging to the authenticated user, ordered by creation date descending
 
-### Endpoints
+- Get Policy
+  - Method: GET
+  - Path: /api/policies/:id
+  - Auth: Required
+  - Path params: id (string)
+  - Response: Single InsurancePolicy object if found and owned by the user
+  - Error responses:
+    - 404 Not Found if policy does not exist or is not owned by the user
+    - 500 Internal Server Error on server-side failures
 
-#### Create Policy
-- Method: POST
-- Path: /api/policies
-- Authentication: Required
-- Request body fields:
-  - providerName: string (required)
-  - policyNumber: string (required)
-  - coverageType: string (required)
-  - deductible: number (required)
-  - premiumAmount: number (required)
-  - startDate: date-time string (required)
-  - endDate: date-time string (required)
-- Success response: 201 Created with the created InsurancePolicy object
-- Error responses:
-  - 400 Bad Request when any required field is missing
-  - 500 Internal Server Error on unexpected failures
+- Update Policy
+  - Method: PUT
+  - Path: /api/policies/:id
+  - Auth: Required
+  - Path params: id (string)
+  - Request body fields: any subset of providerName, policyNumber, coverageType, deductible, premiumAmount, startDate, endDate (all optional; only provided fields are updated)
+  - Response: Updated InsurancePolicy object
+  - Error responses:
+    - 404 Not Found if policy does not exist or is not owned by the user
+    - 500 Internal Server Error on server-side failures
 
-Validation rules enforced at the route level:
-- All listed fields must be present.
-- Numeric fields are parsed to floats before saving.
-
-Relationships:
-- Automatically associated with the authenticated user via userId.
-
-Example usage:
-- Add a new policy for the current user with provider details, coverage type, deductible, premium, and effective dates.
-
-**Section sources**
-- [policies.ts:12-40](file://backend/src/routes/policies.ts#L12-L40)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-
-#### List Policies
-- Method: GET
-- Path: /api/policies
-- Authentication: Required
-- Query parameters: none
-- Success response: 200 OK with an array of InsurancePolicy objects belonging to the authenticated user, ordered by creation date descending
-- Error responses:
-  - 500 Internal Server Error on unexpected failures
-
-Use cases:
-- Display the user’s policies in the dashboard or policies page.
-
-**Section sources**
-- [policies.ts:42-55](file://backend/src/routes/policies.ts#L42-L55)
-
-#### Get Policy by ID
-- Method: GET
-- Path: /api/policies/:id
-- Authentication: Required
-- Path parameter: id (string)
-- Success response: 200 OK with the requested InsurancePolicy object owned by the authenticated user
-- Error responses:
-  - 404 Not Found if no policy matches the id for this user
-  - 500 Internal Server Error on unexpected failures
-
-Use cases:
-- Fetch detailed view of a specific policy.
-
-**Section sources**
-- [policies.ts:57-74](file://backend/src/routes/policies.ts#L57-L74)
-
-#### Update Policy
-- Method: PUT
-- Path: /api/policies/:id
-- Authentication: Required
-- Path parameter: id (string)
-- Request body fields (all optional):
-  - providerName: string
-  - policyNumber: string
-  - coverageType: string
-  - deductible: number
-  - premiumAmount: number
-  - startDate: date-time string
-  - endDate: date-time string
-- Success response: 200 OK with the updated InsurancePolicy object
-- Error responses:
-  - 404 Not Found if no policy matches the id for this user
-  - 500 Internal Server Error on unexpected failures
-
-Behavior:
-- Only provided fields are updated; others remain unchanged.
-- Numeric fields are parsed to floats before saving.
-
-Use cases:
-- Correct policy details or adjust coverage and premiums.
-
-**Section sources**
-- [policies.ts:76-108](file://backend/src/routes/policies.ts#L76-L108)
-
-#### Delete Policy
-- Method: DELETE
-- Path: /api/policies/:id
-- Authentication: Required
-- Path parameter: id (string)
-- Success response: 200 OK with a confirmation message
-- Error responses:
-  - 404 Not Found if no policy matches the id for this user
-  - 500 Internal Server Error on unexpected failures
-
-Use cases:
-- Remove outdated or incorrect policies.
-
-**Section sources**
-- [policies.ts:110-128](file://backend/src/routes/policies.ts#L110-L128)
-
-### Policy Data Model
-The InsurancePolicy entity contains:
-- id: unique identifier
-- userId: owner of the policy
-- providerName: insurance provider name
-- policyNumber: unique policy identifier
-- coverageType: type of coverage (e.g., Comprehensive, Collision, Liability, Full Coverage)
-- deductible: numeric deductible amount
-- premiumAmount: numeric premium amount
-- startDate: effective start date
-- endDate: expiration date
-- createdAt, updatedAt: timestamps
-
-Relationships:
-- Belongs to a User (one-to-many from User to InsurancePolicy)
-- Can be referenced by multiple Claims (one-to-many from InsurancePolicy to Claim)
+- Delete Policy
+  - Method: DELETE
+  - Path: /api/policies/:id
+  - Auth: Required
+  - Path params: id (string)
+  - Response: Confirmation message
+  - Error responses:
+    - 404 Not Found if policy does not exist or is not owned by the user
+    - 500 Internal Server Error on server-side failures
 
 Notes:
-- There is no explicit “status” field on InsurancePolicy; policy validity is inferred from the current date relative to startDate and endDate.
-- Deleting a User cascades to their policies.
-
-**Section sources**
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-
-### Validation Rules
-- Create endpoint requires all fields: providerName, policyNumber, coverageType, deductible, premiumAmount, startDate, endDate.
-- Missing or empty required fields result in a 400 error with a descriptive message.
-- Numeric fields are converted to floats before persistence.
-- Date fields are parsed into DateTime values.
-
-Edge cases:
-- Duplicate policy numbers are not explicitly prevented at the route layer; uniqueness constraints would need to be added to the schema if required.
-- No business rule checks for overlapping policies or coverage limits are implemented in the routes.
-
-**Section sources**
-- [policies.ts:12-40](file://backend/src/routes/policies.ts#L12-L40)
-
-### Status Tracking
-- InsurancePolicy does not include a status field.
-- Effective status can be derived by comparing the current date with startDate and endDate.
-- For claims, status is tracked separately via ClaimStatus enum.
-
-Implications:
-- Clients should compute active/expired status client-side if needed.
-- Business logic for policy lifecycle states should be applied at query time or via additional schema fields if future requirements demand it.
-
-**Section sources**
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-
-### Relationship Mapping to Vehicles and Users
-- Policies are scoped to the authenticated user (userId).
-- Claims may reference a policyId; when a claim is created or updated, it can be linked to a policy owned by the same user context.
-- Vehicles are also owned by users and are independent of policies; however, claims associate both vehicle and policy to provide full context for incident analysis and payout calculations.
-
-Integration pattern:
-- When creating or editing a claim, select a policy from the user’s available policies to link the claim to coverage terms.
-
-**Section sources**
-- [schema.prisma:10-59](file://backend/prisma/schema.prisma#L10-L59)
-- [claims.ts:28-57](file://backend/src/routes/claims.ts#L28-L57)
-
-### Integration Patterns with Claim Processing Workflows
-- Claims can be created with an optional policyId.
-- During claim submission and processing, the system can use the linked policy’s coverageType, deductible, and premiumAmount to inform assessments and potential payouts.
-- The assistant service composes context including policy details when generating insights about a claim.
-
-Operational guidance:
-- Always associate a valid policy with a claim when applicable to enable accurate coverage evaluation.
-- Ensure the policy is within its effective dates at the time of the incident.
-
-**Section sources**
-- [schema.prisma:70-93](file://backend/prisma/schema.prisma#L70-L93)
-- [claims.ts:28-57](file://backend/src/routes/claims.ts#L28-L57)
-
-### Practical Examples and Common Use Cases
-
-- Create a new policy:
-  - Provide providerName, policyNumber, coverageType, deductible, premiumAmount, startDate, endDate.
-  - Expect 201 with the created policy.
-
-- List all policies:
-  - Retrieve an array of policies for the current user.
-
-- View a specific policy:
-  - Fetch details by id; expect 404 if not found or unauthorized.
-
-- Update policy details:
-  - Send only the fields you want to change; expect the updated policy.
-
-- Delete a policy:
-  - Remove a policy by id; expect success message or 404 if not found.
-
-- Link policy to a claim:
-  - When creating or editing a claim, set policyId to associate coverage details for assessment and payout calculations.
+- All numeric fields are parsed as floats before persistence.
+- Dates are converted to Date objects before storage.
+- Ownership is enforced by filtering queries with the authenticated user’s ID.
 
 **Section sources**
 - [policies.ts:12-128](file://backend/src/routes/policies.ts#L12-L128)
-- [claims.ts:28-57](file://backend/src/routes/claims.ts#L28-L57)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
 
-## Dependency Analysis
-- Routes depend on Prisma client for data access and on authMiddleware for security.
-- The schema defines relationships that enforce referential integrity between User, Vehicle, Claim, and InsurancePolicy.
-- Frontend depends on the backend API and uses axios interceptors to manage authentication state.
+### Request Schemas and Validation Rules
+
+- Required fields for creation:
+  - providerName, policyNumber, coverageType, deductible, premiumAmount, startDate, endDate
+- Field types:
+  - Strings: providerName, policyNumber, coverageType
+  - Numbers: deductible, premiumAmount (stored as float)
+  - Dates: startDate, endDate (ISO date strings accepted)
+- Validation behavior:
+  - Missing required fields result in a 400 error with a descriptive message
+  - Numeric fields are coerced to floats; invalid numbers will cause parsing errors handled by the server
+  - No explicit business rule checks for coverage limits or premium calculations are implemented in the current codebase
+
+Coverage types observed in the UI:
+- Comprehensive, Collision, Liability, Full Coverage
+
+**Section sources**
+- [policies.ts:15-20](file://backend/src/routes/policies.ts#L15-L20)
+- [PoliciesPage.tsx:55-63](file://frontend/src/pages/PoliciesPage.tsx#L55-L63)
+
+### Response Formats
+
+- Policy object fields:
+  - id: string (UUID)
+  - userId: string (owner)
+  - providerName: string
+  - policyNumber: string
+  - coverageType: string
+  - deductible: number (float)
+  - premiumAmount: number (float)
+  - startDate: date-time
+  - endDate: date-time
+  - createdAt: date-time
+  - updatedAt: date-time
+
+- Lists return arrays of the above objects.
+- Errors return JSON objects with an error field describing the issue.
+
+**Section sources**
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [policies.ts:22-35](file://backend/src/routes/policies.ts#L22-L35)
+- [policies.ts:43-54](file://backend/src/routes/policies.ts#L43-L54)
+- [policies.ts:58-73](file://backend/src/routes/policies.ts#L58-L73)
+- [policies.ts:77-107](file://backend/src/routes/policies.ts#L77-L107)
+- [policies.ts:111-127](file://backend/src/routes/policies.ts#L111-L127)
+
+### Lifecycle Management and Validity
+
+- Effective period:
+  - A policy has startDate and endDate defining its validity window.
+- Current implementation notes:
+  - There is no explicit endpoint or logic to compute or enforce “active” status based on current time.
+  - Clients may compute validity by comparing today’s date against startDate and endDate.
+- Deletion:
+  - Deleting a policy removes it from the database. Existing claims linked to the policy remain unaffected due to the SetNull relationship on claim.policyId.
+
+Recommendation:
+- Add a computed “status” field or derived view to indicate ACTIVE, EXPIRED, or PENDING based on dates.
+- Enforce business rules such as preventing updates that would make a policy invalid during an active claim.
+
+**Section sources**
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [schema.prisma:71-94](file://backend/prisma/schema.prisma#L71-L94)
+- [policies.ts:111-127](file://backend/src/routes/policies.ts#L111-L127)
+
+### Relationships: Policies, Vehicles, and Claims
+
+- User owns multiple Vehicles and Policies.
+- Claims belong to a User and a Vehicle, and optionally link to a Policy via policyId.
+- When a claim references a policy, the policy’s details can be retrieved alongside the claim for payout calculations and coverage verification.
 
 ```mermaid
-graph LR
-PoliciesRoute["routes/policies.ts"] --> AuthMW["middleware/auth.ts"]
-PoliciesRoute --> Prisma["Prisma Client"]
-Prisma --> Schema["prisma/schema.prisma"]
-FrontendAPI["frontend services/api.ts"] --> PoliciesRoute
+erDiagram
+USER ||--o{ VEHICLE : "owns"
+USER ||--o{ INSURANCE_POLICY : "owns"
+USER ||--o{ CLAIM : "submits"
+VEHICLE ||--o{ CLAIM : "involved_in"
+INSURANCE_POLICY ||--o{ CLAIM : "covers (optional)"
 ```
 
 **Diagram sources**
-- [policies.ts:1-131](file://backend/src/routes/policies.ts#L1-L131)
-- [auth.ts:1-23](file://backend/src/middleware/auth.ts#L1-L23)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-- [api.ts:1-33](file://frontend/src/services/api.ts#L1-L33)
+- [schema.prisma:10-25](file://backend/prisma/schema.prisma#L10-L25)
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [schema.prisma:71-94](file://backend/prisma/schema.prisma#L71-L94)
+
+Integration highlights:
+- Creating a claim accepts an optional policyId to associate the claim with a policy.
+- Retrieving a single claim includes the related policy when present.
 
 **Section sources**
-- [policies.ts:1-131](file://backend/src/routes/policies.ts#L1-L131)
-- [schema.prisma:44-59](file://backend/prisma/schema.prisma#L44-L59)
-- [api.ts:1-33](file://frontend/src/services/api.ts#L1-L33)
+- [claims.ts:20-57](file://backend/src/routes/claims.ts#L20-L57)
+- [claims.ts:85-112](file://backend/src/routes/claims.ts#L85-L112)
+- [schema.prisma:71-94](file://backend/prisma/schema.prisma#L71-L94)
+
+### Premium Calculation Logic and Coverage Limits
+
+- Current implementation:
+  - Premium amounts are stored as provided by the client; there is no server-side calculation or validation of premiums.
+  - No coverage limits are defined in the schema; coverageType is a free-form string constrained by application usage.
+- Recommendations:
+  - Introduce structured coverage definitions with limits and deductibles.
+  - Implement server-side premium calculation based on vehicle attributes, coverage type, and risk factors.
+  - Validate that requested coverage amounts do not exceed policy limits.
+
+**Section sources**
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [policies.ts:15-35](file://backend/src/routes/policies.ts#L15-L35)
+
+### Error Handling
+
+Common errors:
+- 400 Bad Request: Missing or invalid required fields during creation/update
+- 404 Not Found: Policy not found or not owned by the user
+- 500 Internal Server Error: Database or unexpected server errors
+
+Error payloads:
+- JSON objects with an error field containing a human-readable message
+
+Authentication handling:
+- Requests without a valid token are rejected by the auth middleware before reaching policy routes.
+
+**Section sources**
+- [policies.ts:15-20](file://backend/src/routes/policies.ts#L15-L20)
+- [policies.ts:64-66](file://backend/src/routes/policies.ts#L64-L66)
+- [policies.ts:83-85](file://backend/src/routes/policies.ts#L83-L85)
+- [policies.ts:117-119](file://backend/src/routes/policies.ts#L117-L119)
+- [api.ts:22-33](file://frontend/src/services/api.ts#L22-L33)
+
+### Examples
+
+- Create a new policy
+  - Send a POST to /api/policies with providerName, policyNumber, coverageType, deductible, premiumAmount, startDate, endDate.
+  - Expect 201 with the created policy object.
+
+- Update coverage terms
+  - Send a PUT to /api/policies/:id with any subset of updateable fields.
+  - Expect 200 with the updated policy object.
+
+- Check policy validity
+  - Fetch the policy via GET /api/policies/:id and compare startDate and endDate with the current date to determine if the policy is currently active.
+
+Note: These examples describe expected behaviors based on the current endpoints and data model.
+
+**Section sources**
+- [policies.ts:12-40](file://backend/src/routes/policies.ts#L12-L40)
+- [policies.ts:58-73](file://backend/src/routes/policies.ts#L58-L73)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+
+## Dependency Analysis
+
+```mermaid
+graph LR
+PoliciesRouter["Policies Router"] --> Prisma["Prisma Client"]
+PoliciesRouter --> AuthMiddleware["Auth Middleware"]
+ClaimsRouter["Claims Router"] --> Prisma
+ClaimsRouter --> PoliciesModel["InsurancePolicy Model"]
+Frontend["Frontend PoliciesPage"] --> Axios["Axios Client"]
+Axios --> PoliciesRouter
+```
+
+**Diagram sources**
+- [policies.ts:1-10](file://backend/src/routes/policies.ts#L1-L10)
+- [claims.ts:1-15](file://backend/src/routes/claims.ts#L1-L15)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [api.ts:1-20](file://frontend/src/services/api.ts#L1-L20)
+
+Key observations:
+- Tight coupling between routes and Prisma models ensures consistent data access.
+- Claims depend on policies via an optional foreign key, enabling linkage without enforcing mandatory association.
+
+**Section sources**
+- [policies.ts:1-10](file://backend/src/routes/policies.ts#L1-L10)
+- [claims.ts:1-15](file://backend/src/routes/claims.ts#L1-L15)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
 
 ## Performance Considerations
-- Queries are filtered by userId to limit results to the authenticated user’s scope.
+- Queries filter by userId to ensure isolation and reduce result sets.
 - Listing policies orders by createdAt descending; consider adding pagination for large datasets.
-- Avoid unnecessary updates by sending only changed fields in PUT requests.
-- Indexing userId and policyNumber in the database could improve lookup performance if the dataset grows significantly.
+- Avoid unnecessary joins; fetch related entities only when needed.
+- Use indexes on frequently queried fields like userId and policyNumber if dataset grows.
 
 [No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
-Common errors and resolutions:
-- 401 Unauthorized:
-  - Cause: Missing or invalid JWT token.
-  - Resolution: Ensure Authorization header includes a valid Bearer token; refresh token if expired.
-
-- 400 Bad Request:
-  - Cause: Missing required fields when creating a policy.
-  - Resolution: Include all required fields in the request body.
-
+- 400 Bad Request on creation:
+  - Ensure all required fields are present and correctly typed.
+  - Verify numeric fields are valid numbers and dates are valid ISO strings.
 - 404 Not Found:
-  - Cause: Policy id does not belong to the authenticated user or does not exist.
-  - Resolution: Verify the id and ensure the user owns the policy.
-
+  - Confirm the policy exists and belongs to the authenticated user.
 - 500 Internal Server Error:
-  - Cause: Unexpected server-side failure during database operations.
-  - Resolution: Retry the request; check server logs for stack traces.
-
-Error handling strategy:
-- Global error handler returns standardized error objects.
-- Route-level try/catch blocks log errors and return appropriate status codes.
+  - Check server logs for database connectivity or constraint violations.
+- Authentication issues:
+  - Ensure the Authorization header contains a valid Bearer token.
+  - The frontend automatically handles 401 by clearing session and redirecting to login.
 
 **Section sources**
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
-- [policies.ts:12-128](file://backend/src/routes/policies.ts#L12-L128)
+- [policies.ts:15-20](file://backend/src/routes/policies.ts#L15-L20)
+- [policies.ts:64-66](file://backend/src/routes/policies.ts#L64-L66)
+- [policies.ts:83-85](file://backend/src/routes/policies.ts#L83-L85)
+- [policies.ts:117-119](file://backend/src/routes/policies.ts#L117-L119)
+- [api.ts:22-33](file://frontend/src/services/api.ts#L22-L33)
 
 ## Conclusion
-The Policies API provides secure, user-scoped CRUD operations for managing insurance policies. It integrates seamlessly with claim processing by allowing claims to reference policies, enabling coverage-aware assessments and payouts. By following the documented request/response schemas, validation rules, and authentication requirements, clients can implement robust policy lifecycle management for insurance administration workflows.
+The Policies API provides essential CRUD operations for managing insurance policies, with clear ownership scoping and straightforward request/response patterns. While basic validation is in place, advanced features such as premium calculation, coverage limit enforcement, and automated status computation are not implemented in the current codebase. Integration with claims allows linking policies to incidents, supporting downstream processing and payouts.
+
+[No sources needed since this section summarizes without analyzing specific files]
+
+## Appendices
+
+### Data Model Summary
+
+```mermaid
+classDiagram
+class InsurancePolicy {
++string id
++string userId
++string providerName
++string policyNumber
++string coverageType
++number deductible
++number premiumAmount
++datetime startDate
++datetime endDate
++datetime createdAt
++datetime updatedAt
+}
+class Claim {
++string id
++string userId
++string vehicleId
++string policyId
++enum status
++datetime incidentDate
++string incidentLocation
++string incidentDescription
+}
+class Vehicle {
++string id
++string userId
++string make
++string model
++int year
++string licensePlate
+}
+InsurancePolicy "1" -- "0..*" Claim : "covers (optional)"
+Vehicle "1" -- "0..*" Claim : "involved_in"
+```
+
+**Diagram sources**
+- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
+- [schema.prisma:45-60](file://backend/prisma/schema.prisma#L45-L60)
+- [schema.prisma:71-94](file://backend/prisma/schema.prisma#L71-L94)

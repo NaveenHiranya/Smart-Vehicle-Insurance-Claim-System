@@ -1,1 +1,0 @@
-Claim submission triggers an asynchronous background call to `analyzeDamage(claimId)` via `.catch(...)` fire-and-forget so the submit response returns immediately; damage analysis reads image files directly from the filesystem using relative paths resolved from stored `/uploads/...` URIs, so the server must be run from the repository root where the `uploads/` directory lives.
