@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Shield, AlertCircle } from 'lucide-react';
+import { Shield, AlertCircle, Lock } from 'lucide-react';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -87,6 +87,16 @@ export function LoginPage() {
               Create account
             </Link>
           </p>
+
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <Link
+              to="/admin/login"
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg border border-gray-200 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-300 transition"
+            >
+              <Lock className="h-4 w-4" />
+              Admin Portal
+            </Link>
+          </div>
         </div>
       </div>
     </div>
