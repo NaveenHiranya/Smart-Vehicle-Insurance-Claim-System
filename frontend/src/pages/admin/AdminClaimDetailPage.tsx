@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus } from 'lucide-react';
 import { uploadUrl } from '../../utils/uploadUrl';
 
 const statusColors: Record<string, string> = {
@@ -26,6 +26,9 @@ export function AdminClaimDetailPage() {
   const [newStatus, setNewStatus] = useState('');
   const [statusSaving, setStatusSaving] = useState(false);
   const [docAction, setDocAction] = useState<Record<string, { loading: boolean; rejectInput: boolean; reason: string }>>({});
+  const [noteText, setNoteText] = useState('');
+  const [noteCategory, setNoteCategory] = useState('general');
+  const [noteSaving, setNoteSaving] = useState(false);
 
   const fetchClaim = () =>
     adminApi.get(`/claims/${id}`).then((r) => {
@@ -72,6 +75,25 @@ export function AdminClaimDetailPage() {
       await fetchClaim();
     } catch { alert('Failed to reject document'); }
     finally { setDocAction((p) => ({ ...p, [docId]: { ...p[docId], loading: false, rejectInput: false } })); }
+  };
+
+  const handleAddNote = async () => {
+    if (!noteText.trim()) return;
+    setNoteSaving(true);
+    try {
+      await adminApi.post(`/claims/${id}/notes`, { category: noteCategory, content: noteText.trim() });
+      setNoteText('');
+      await fetchClaim();
+    } catch { alert('Failed to add note'); }
+    finally { setNoteSaving(false); }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!confirm('Delete this note?')) return;
+    try {
+      await adminApi.delete(`/notes/${noteId}`);
+      await fetchClaim();
+    } catch { alert('Failed to delete note'); }
   };
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-400"></div></div>;
@@ -219,6 +241,67 @@ export function AdminClaimDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Admin Notes */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-5">
+        <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <StickyNote className="h-5 w-5 text-primary-600" /> Review Notes
+        </h2>
+
+        {/* Add note form */}
+        <div className="flex flex-col sm:flex-row gap-2 mb-4">
+          <select value={noteCategory} onChange={(e) => setNoteCategory(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none sm:w-36">
+            <option value="general">General</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="document">Document</option>
+          </select>
+          <input
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder="Add a review note..."
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddNote(); }}
+          />
+          <button
+            onClick={handleAddNote}
+            disabled={noteSaving || !noteText.trim()}
+            className="flex items-center gap-1 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition"
+          >
+            <Plus className="h-4 w-4" /> {noteSaving ? 'Adding...' : 'Add Note'}
+          </button>
+        </div>
+
+        {/* Existing notes */}
+        {!claim.adminNotes || claim.adminNotes.length === 0 ? (
+          <p className="text-sm text-gray-400">No review notes yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {claim.adminNotes.map((note: any) => (
+              <div key={note.id} className="flex items-start gap-3 p-3 border border-gray-100 rounded-lg bg-gray-50">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase ${
+                      note.category === 'vehicle' ? 'bg-blue-100 text-blue-700' :
+                      note.category === 'document' ? 'bg-purple-100 text-purple-700' :
+                      'bg-gray-200 text-gray-700'
+                    }`}>{note.category}</span>
+                    <span className="text-xs text-gray-400">{new Date(note.createdAt).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm text-gray-700">{note.content}</p>
+                </div>
+                <button
+                  onClick={() => handleDeleteNote(note.id)}
+                  className="p-1 text-gray-400 hover:text-red-600 transition flex-shrink-0"
+                  title="Delete note"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Documents */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">

@@ -23,6 +23,7 @@
 - Updated package name references from 'autoshield-ai-backend' to 'fastclaim-backend'
 - Updated server identification from generic names to 'Flash Claim API' in health checks and console logging
 - Updated project description to reflect Flash Claim branding
+- Enhanced health check endpoint to return consistent service identification
 
 ## Table of Contents
 1. Introduction

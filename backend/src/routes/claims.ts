@@ -96,6 +96,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
         insurancePayout: true,
         documents: true,
         chatMessages: { orderBy: { createdAt: 'asc' } },
+        adminNotes: { orderBy: { createdAt: 'desc' } },
       },
     });
 

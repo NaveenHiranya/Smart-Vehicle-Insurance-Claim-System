@@ -20,10 +20,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated project references from 'autoshield-ai' to 'fastclaim' throughout the documentation
-- Updated package names and project identification references
+- Updated project references from 'FastClaim' to 'Flash Claim' throughout the documentation
+- Corrected admin email addresses from 'admin@fastclaim.com' and 'admin@autoshield.com' to 'admin@flashclaim.com'
+- Updated package name references to reflect current project structure
 - Maintained all existing functionality and setup instructions
-- Updated example email addresses to reflect new project branding
+- Enhanced environment variable requirements based on actual code analysis
 
 ## Table of Contents
 1. Introduction
@@ -40,7 +41,7 @@
 12. Conclusion
 
 ## Introduction
-This guide helps you set up and run the FastClaim Vehicle Insurance Claim System locally. It covers prerequisites, environment configuration, database setup with Prisma, seed data creation (including an admin user), and how to start both frontend and backend servers for development. You will also find quick-start examples for registering a user and registering a vehicle, along with tips for hot reloading and common troubleshooting.
+This guide helps you set up and run the Flash Claim Vehicle Insurance Claim System locally. It covers prerequisites, environment configuration, database setup with Prisma, seed data creation (including an admin user), and how to start both frontend and backend servers for development. You will also find quick-start examples for registering a user and registering a vehicle, along with tips for hot reloading and common troubleshooting.
 
 ## Project Structure
 The project is split into two main parts:
@@ -71,16 +72,16 @@ BE_Routes --> BE_Gemini
 ```
 
 **Diagram sources**
-- [backend/src/index.ts:1-49](file://backend/src/index.ts#L1-L49)
+- [backend/src/index.ts:1-65](file://backend/src/index.ts#L1-L65)
 - [backend/prisma/schema.prisma:1-202](file://backend/prisma/schema.prisma#L1-L202)
 - [backend/src/utils/prisma.ts:1-6](file://backend/src/utils/prisma.ts#L1-L6)
 - [backend/src/utils/gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
-- [frontend/vite.config.ts:1-21](file://frontend/vite.config.ts#L1-L21)
+- [frontend/vite.config.ts:1-30](file://frontend/vite.config.ts#L1-L30)
 - [frontend/src/services/api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 
 **Section sources**
-- [backend/src/index.ts:1-49](file://backend/src/index.ts#L1-L49)
-- [frontend/vite.config.ts:1-21](file://frontend/vite.config.ts#L1-L21)
+- [backend/src/index.ts:1-65](file://backend/src/index.ts#L1-L65)
+- [frontend/vite.config.ts:1-30](file://frontend/vite.config.ts#L1-L30)
 
 ## Prerequisites
 - Node.js: Use a recent LTS version compatible with the tooling in this project. The backend uses modern TypeScript and tooling; ensure your Node.js version supports the dependencies listed in the package files.
@@ -94,8 +95,8 @@ Notes:
 **Section sources**
 - [backend/package.json:1-44](file://backend/package.json#L1-L44)
 - [frontend/package.json:1-32](file://frontend/package.json#L1-L32)
-- [backend/src/index.ts:14-22](file://backend/src/index.ts#L14-L22)
-- [frontend/vite.config.ts:8-18](file://frontend/vite.config.ts#L8-L18)
+- [backend/src/index.ts:26-31](file://backend/src/index.ts#L26-L31)
+- [frontend/vite.config.ts:16-27](file://frontend/vite.config.ts#L16-L27)
 
 ## Environment Setup
 Create environment files for both backend and frontend as needed.
@@ -106,20 +107,21 @@ Create environment files for both backend and frontend as needed.
   - CORS_ORIGIN: Allowed origin for CORS (default allows localhost:5173).
   - UPLOAD_DIR: Directory for uploaded files (served statically under /uploads).
   - JWT_SECRET: Secret used to sign and verify JWT tokens.
-  - GEMINI_API_KEY: Optional key for Google Gemini AI features.
+  - GEMINI_API_KEY: Required key for Google Gemini AI features.
 
 - Frontend:
   - No .env file is required for basic development because the Vite config proxies /api and /uploads to the backend.
 
 Important:
-- Ensure JWT_SECRET is set before starting the backend to enable authentication flows.
-- If you plan to use AI features, set GEMINI_API_KEY.
+- Ensure JWT_SECRET and GEMINI_API_KEY are set before starting the backend to enable authentication flows and AI features.
+- The backend validates required environment variables at startup and will exit if any are missing.
 
 **Section sources**
-- [backend/src/index.ts:14-27](file://backend/src/index.ts#L14-L27)
+- [backend/src/index.ts:15-22](file://backend/src/index.ts#L15-L22)
+- [backend/src/index.ts:29-31](file://backend/src/index.ts#L29-L31)
 - [backend/src/utils/gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
 - [backend/src/middleware/auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [frontend/vite.config.ts:8-18](file://frontend/vite.config.ts#L8-L18)
+- [frontend/vite.config.ts:16-27](file://frontend/vite.config.ts#L16-L27)
 
 ## Installation and Database Initialization
 Follow these steps to install dependencies and initialize the database.
@@ -136,7 +138,7 @@ Follow these steps to install dependencies and initialize the database.
 3. Seed the database with an admin user:
    - Run the seed script to create an initial admin account.
    - The script ensures an admin user exists and sets the admin flag if necessary.
-   - Default admin email: admin@fastclaim.com
+   - Default admin email: admin@flashclaim.com
 
 4. Install frontend dependencies:
    - In the frontend folder, run `npm install`.
@@ -170,9 +172,9 @@ Hot Reloading:
 **Section sources**
 - [backend/package.json:6-16](file://backend/package.json#L6-L16)
 - [package.json:5-14](file://package.json#L5-L14)
-- [backend/src/index.ts:44-46](file://backend/src/index.ts#L44-L46)
+- [backend/src/index.ts:60-62](file://backend/src/index.ts#L60-L62)
 - [frontend/package.json:6-10](file://frontend/package.json#L6-L10)
-- [frontend/vite.config.ts:8-18](file://frontend/vite.config.ts#L8-L18)
+- [frontend/vite.config.ts:16-27](file://frontend/vite.config.ts#L16-L27)
 
 ## Quick Start Examples
 After installation and seeding:
@@ -195,7 +197,7 @@ After installation and seeding:
 Notes:
 - Protected routes require a valid Bearer token in the Authorization header.
 - The frontend handles 401 responses by clearing session data and redirecting to login.
-- Admin login uses email format: admin@fastclaim.com
+- Admin login uses email format: admin@flashclaim.com
 
 **Section sources**
 - [backend/src/routes/auth.ts:10-59](file://backend/src/routes/auth.ts#L10-L59)
@@ -220,8 +222,8 @@ Tips:
 **Section sources**
 - [backend/package.json:6-16](file://backend/package.json#L6-L16)
 - [package.json:5-14](file://package.json#L5-L14)
-- [backend/src/index.ts:36-39](file://backend/src/index.ts#L36-L39)
-- [frontend/vite.config.ts:8-18](file://frontend/vite.config.ts#L8-L18)
+- [backend/src/index.ts:47-55](file://backend/src/index.ts#L47-L55)
+- [frontend/vite.config.ts:16-27](file://frontend/vite.config.ts#L16-L27)
 
 ## Dependency Analysis
 High-level relationships between core components:
@@ -238,7 +240,7 @@ AUTH_ROUTES --> GEMINI["backend/src/utils/gemini.ts"]
 
 **Diagram sources**
 - [frontend/src/services/api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
-- [backend/src/index.ts:1-49](file://backend/src/index.ts#L1-L49)
+- [backend/src/index.ts:1-65](file://backend/src/index.ts#L1-L65)
 - [backend/src/routes/auth.ts:1-168](file://backend/src/routes/auth.ts#L1-L168)
 - [backend/src/middleware/auth.ts:1-23](file://backend/src/middleware/auth.ts#L1-L23)
 - [backend/src/utils/prisma.ts:1-6](file://backend/src/utils/prisma.ts#L1-L6)
@@ -295,10 +297,10 @@ Common issues and resolutions:
 
 **Section sources**
 - [backend/src/middleware/auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [backend/src/index.ts:17-27](file://backend/src/index.ts#L17-L27)
+- [backend/src/index.ts:15-22](file://backend/src/index.ts#L15-L22)
 - [backend/prisma/schema.prisma:5-8](file://backend/prisma/schema.prisma#L5-L8)
 - [backend/src/utils/gemini.ts:1-12](file://backend/src/utils/gemini.ts#L1-L12)
 - [frontend/src/services/api.ts:7-33](file://frontend/src/services/api.ts#L7-L33)
 
 ## Conclusion
-You now have everything needed to set up, configure, and run the FastClaim Vehicle Insurance Claim System locally. Follow the steps to install dependencies, initialize the database, seed the admin user, and start both servers. Use the quick-start examples to register users and vehicles, and refer to the troubleshooting guide if you encounter common issues. For further customization, review the environment variables and Prisma schema to tailor the system to your needs.
+You now have everything needed to set up, configure, and run the Flash Claim Vehicle Insurance Claim System locally. Follow the steps to install dependencies, initialize the database, seed the admin user, and start both servers. Use the quick-start examples to register users and vehicles, and refer to the troubleshooting guide if you encounter common issues. For further customization, review the environment variables and Prisma schema to tailor the system to your needs.

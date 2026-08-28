@@ -13,6 +13,12 @@
 - [index.ts (types)](file://backend/src/types/index.ts)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated Claim Assistant Service section to reflect the new "Flash Claim Assistant" identity
+- Revised system prompt documentation to match current implementation
+- Updated all references to maintain consistency with the renamed assistant
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -69,7 +75,7 @@ ChatSvc --> DB
 - Damage Analysis Service: Reads claim images, sends them to Gemini with a structured prompt, parses JSON output into damage items, updates assessments, annotates images, and triggers repair estimates.
 - Document Verification Service: Reads uploaded documents, sends them to Gemini with context, extracts key fields, assesses readability/authenticity, and persists results.
 - Repair Estimate Service: Uses deterministic algorithms over damage items to compute parts, labor, materials, totals, estimated days, and projected payouts based on policy deductibles.
-- Claim Assistant Service: Builds rich context from claim data and conversation history, uses Gemini chat to answer user questions, and persists messages.
+- Claim Assistant Service: Builds rich context from claim data and conversation history, uses Gemini chat to answer user questions as the Flash Claim Assistant, and persists messages.
 - Gemini Utility: Centralized initialization of GoogleGenerativeAI using environment variables; supports model selection.
 
 **Section sources**
@@ -256,15 +262,18 @@ Save --> End(["Return estimate"])
 - [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
 
 ### Claim Assistant Service
-- Purpose: Provide conversational AI support tailored to the claim context, explaining assessments, estimates, next steps, and safety advice.
+- Purpose: Provide conversational AI support tailored to the claim context, explaining assessments, estimates, next steps, and safety advice as the Flash Claim Assistant.
+- Identity: Operates as the Flash Claim Assistant, a helpful and knowledgeable AI that assists policyholders with their vehicle insurance claims.
 - Context assembly: Aggregates claim status, vehicle info, incident details, policy coverage/deductible, damage assessment summary, repair estimate totals, payout projections, and document statuses.
 - Conversation memory: Loads recent chat messages and constructs a chat session with system context and history for coherent multi-turn interactions.
 - Persistence: Saves both user and assistant messages to maintain conversation history per claim.
 
+**Updated** The assistant now identifies as "Flash Claim Assistant" instead of "FastClaim Claim Assistant" in its system prompt and interactions.
+
 ```mermaid
 flowchart TD
 Start(["getChatResponse(claimId, message)"]) --> LoadCtx["Load claim + related data + recent messages"]
-LoadCtx --> BuildHistory["Build chat history with system prompt + context"]
+LoadCtx --> BuildHistory["Build chat history with Flash Claim Assistant system prompt + context"]
 BuildHistory --> Chat["Start chat + send message"]
 Chat --> SaveMsgs["Save user & assistant messages"]
 SaveMsgs --> End(["Return chat response"])
@@ -342,7 +351,7 @@ Common issues and resolutions:
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
 
 ## Conclusion
-The system integrates Google Gemini across multiple services to automate and enhance vehicle insurance claims processing. It combines robust prompt engineering, resilient response parsing, deterministic cost estimation, and conversational AI to streamline workflows. With clear configuration points, fallback behaviors, and centralized error handling, the architecture supports extensibility and operational reliability.
+The system integrates Google Gemini across multiple services to automate and enhance vehicle insurance claims processing. It combines robust prompt engineering, resilient response parsing, deterministic cost estimation, and conversational AI through the Flash Claim Assistant to streamline workflows. With clear configuration points, fallback behaviors, and centralized error handling, the architecture supports extensibility and operational reliability.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -383,7 +392,7 @@ Recommended approaches:
 ### Customizing Prompts and Extending Capabilities
 - Damage analysis prompt: Extend categories (e.g., add new damage types), refine severity guidelines, or include region-specific terminology.
 - Document verification prompt: Add checks for additional document types or regulatory requirements; expand extractedInfo fields.
-- Chat assistant system prompt: Adjust tone, add domain-specific knowledge, or integrate policy rules for more precise guidance.
+- Chat assistant system prompt: Adjust tone, add domain-specific knowledge, or integrate policy rules for more precise guidance as the Flash Claim Assistant.
 - Additional AI capabilities: Integrate vision-language features for enhanced scene understanding or add multilingual support by adjusting prompts and locale settings.
 
 **Section sources**

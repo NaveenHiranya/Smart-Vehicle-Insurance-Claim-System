@@ -91,6 +91,7 @@ model Claim {
   insurancePayout   InsurancePayout?
   documents         Document[]
   chatMessages      ChatMessage[]
+  adminNotes        AdminNote[]
 }
 
 enum ImageType {
@@ -196,6 +197,17 @@ model ChatMessage {
   role      ChatRole
   content   String
   createdAt DateTime @default(now())
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}
+
+model AdminNote {
+  id        String   @id @default(uuid())
+  claimId   String
+  category  String   // "vehicle" | "document" | "general"
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
 }

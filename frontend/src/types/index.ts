@@ -119,6 +119,15 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface AdminNote {
+  id: string;
+  claimId: string;
+  category: 'vehicle' | 'document' | 'general';
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Claim {
   id: string;
   userId: string;
@@ -140,6 +149,7 @@ export interface Claim {
   insurancePayout?: InsurancePayout;
   documents: Document[];
   chatMessages: ChatMessage[];
+  adminNotes?: AdminNote[];
   _count?: { images: number; documents: number };
 }
 

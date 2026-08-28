@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import type { Claim, DamageItem } from '../types';
-import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Send, Shield, MessageSquare, ListTodo, Lightbulb, CheckCircle2, Circle, Clock, XCircle, BadgeCheck } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Send, Shield, MessageSquare, ListTodo, Lightbulb, CheckCircle2, Circle, Clock, XCircle, BadgeCheck, StickyNote } from 'lucide-react';
 import { uploadUrl } from '../utils/uploadUrl';
 
 export function ClaimDetailPage() {
@@ -261,6 +261,30 @@ export function ClaimDetailPage() {
                 <div className="text-center"><p className="text-xs text-gray-500">Est. Payout</p><p className="text-xl font-bold text-green-600">${claim.insurancePayout.estimatedPayout.toLocaleString()}</p></div>
               </div>
               {claim.insurancePayout.notes && <p className="text-xs text-gray-500 mt-3">{claim.insurancePayout.notes}</p>}
+            </div>
+          )}
+
+          {/* Review Notes from Insurance */}
+          {claim.adminNotes && claim.adminNotes.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <StickyNote className="h-5 w-5 text-blue-600" /> Review Notes from Insurance
+              </h2>
+              <div className="space-y-2">
+                {claim.adminNotes.map((note) => (
+                  <div key={note.id} className="p-3 border border-blue-100 rounded-lg bg-blue-50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase ${
+                        note.category === 'vehicle' ? 'bg-blue-200 text-blue-800' :
+                        note.category === 'document' ? 'bg-purple-200 text-purple-800' :
+                        'bg-gray-200 text-gray-700'
+                      }`}>{note.category}</span>
+                      <span className="text-xs text-gray-400">{new Date(note.createdAt).toLocaleString()}</span>
+                    </div>
+                    <p className="text-sm text-gray-700">{note.content}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

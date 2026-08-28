@@ -92,6 +92,7 @@ router.get('/claims/:id', async (req: AuthRequest, res: Response) => {
         insurancePayout: true,
         documents: true,
         chatMessages: { orderBy: { createdAt: 'asc' } },
+        adminNotes: { orderBy: { createdAt: 'desc' } },
       },
     });
     if (!claim) { res.status(404).json({ error: 'Claim not found.' }); return; }
@@ -162,6 +163,58 @@ router.patch('/documents/:id/approve', async (req: AuthRequest, res: Response) =
   } catch (error) {
     console.error('Admin approve doc error:', error);
     res.status(500).json({ error: 'Failed to approve document.' });
+  }
+});
+
+// GET /api/admin/claims/:id/notes
+router.get('/claims/:id/notes', async (req: AuthRequest, res: Response) => {
+  try {
+    const notes = await prisma.adminNote.findMany({
+      where: { claimId: param(req, 'id') },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(notes);
+  } catch (error) {
+    console.error('Admin get notes error:', error);
+    res.status(500).json({ error: 'Failed to fetch notes.' });
+  }
+});
+
+// POST /api/admin/claims/:id/notes
+router.post('/claims/:id/notes', async (req: AuthRequest, res: Response) => {
+  try {
+    const { category, content } = req.body;
+    if (!content || !content.trim()) {
+      res.status(400).json({ error: 'Note content is required.' });
+      return;
+    }
+    const validCategories = ['vehicle', 'document', 'general'];
+    const cat = validCategories.includes(category) ? category : 'general';
+
+    const claim = await prisma.claim.findUnique({ where: { id: param(req, 'id') } });
+    if (!claim) {
+      res.status(404).json({ error: 'Claim not found.' });
+      return;
+    }
+
+    const note = await prisma.adminNote.create({
+      data: { claimId: param(req, 'id'), category: cat, content: content.trim() },
+    });
+    res.status(201).json(note);
+  } catch (error) {
+    console.error('Admin create note error:', error);
+    res.status(500).json({ error: 'Failed to create note.' });
+  }
+});
+
+// DELETE /api/admin/notes/:noteId
+router.delete('/notes/:noteId', async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.adminNote.delete({ where: { id: param(req, 'noteId') } });
+    res.json({ message: 'Note deleted.' });
+  } catch (error) {
+    console.error('Admin delete note error:', error);
+    res.status(500).json({ error: 'Failed to delete note.' });
   }
 });
 

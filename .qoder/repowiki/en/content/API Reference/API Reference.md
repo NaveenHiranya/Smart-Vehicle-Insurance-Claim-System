@@ -12,7 +12,17 @@
 - [adminAuth.ts](file://backend/src/middleware/adminAuth.ts)
 - [errorHandler.ts](file://backend/src/middleware/errorHandler.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
+- [package.json](file://backend/package.json)
+- [claimAssistantService.ts](file://backend/src/services/claimAssistantService.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated health check endpoint response to reflect "Flash Claim API" branding
+- Updated package description to "Flash Claim - Vehicle Insurance Claim & Damage Assessment Backend"
+- Updated system identification throughout backend responses and console logs
+- Enhanced AI assistant branding to "Flash Claim Assistant"
+- Updated frontend branding references for consistency
 
 ## Table of Contents
 1. Introduction
@@ -27,7 +37,7 @@
 10. Appendices
 
 ## Introduction
-This document provides comprehensive API reference documentation for the Smart Vehicle Insurance Claim System backend. It covers all RESTful endpoints grouped by domain: Authentication, Vehicles, Policies, Claims, and Administrative functions. For each endpoint, you will find HTTP methods, URL patterns, authentication requirements, request/response schemas, parameter specifications, error codes, and example payloads. It also includes guidance on pagination, filtering, rate limiting, versioning, and client implementation best practices.
+This document provides comprehensive API reference documentation for the Flash Claim Vehicle Insurance Claim System backend. It covers all RESTful endpoints grouped by domain: Authentication, Vehicles, Policies, Claims, and Administrative functions. For each endpoint, you will find HTTP methods, URL patterns, authentication requirements, request/response schemas, parameter specifications, error codes, and example payloads. It also includes guidance on pagination, filtering, rate limiting, versioning, and client implementation best practices.
 
 ## Project Structure
 The backend is an Express application that mounts route modules under a common /api prefix. Middleware handles CORS, JSON parsing, static file serving for uploads, and centralized error handling. Routes are organized by feature with shared middleware for authentication and authorization.
@@ -59,12 +69,16 @@ AdminRoutes --> DB
 - Data Layer: Prisma ORM over SQLite with strongly typed models and relations.
 - File Uploads: Multer-based image and document upload with static serving under /uploads.
 - Error Handling: Centralized error handler returning consistent JSON errors.
+- AI Integration: Flash Claim Assistant powered by Google Gemini for intelligent claim support.
+
+**Updated** Added Flash Claim Assistant integration for enhanced AI-powered claim assistance.
 
 **Section sources**
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [schema.prisma:10-202](file://backend/prisma/schema.prisma#L10-L202)
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
+- [claimAssistantService.ts:4-17](file://backend/src/services/claimAssistantService.ts#L4-L17)
 
 ## Architecture Overview
 The API follows a layered architecture:
@@ -281,7 +295,9 @@ Base path: /api/claims
 
 - POST /api/claims/:id/chat
   - Request body field: message (string)
-  - Response: assistant response
+  - Response: assistant response from Flash Claim Assistant
+
+**Updated** Chat functionality now powered by Flash Claim Assistant providing intelligent claim support.
 
 Notes:
 - Status transitions enforced at submission time.
@@ -400,16 +416,18 @@ Error response shape:
 - { error: "message" }
 
 Health check:
-- GET /api/health returns { status: "ok", service: "AutoShield AI API" }.
+- GET /api/health returns { status: "ok", service: "Flash Claim API", db: "connected" }.
+
+**Updated** Health check endpoint now returns "Flash Claim API" service identification for better system monitoring and debugging.
 
 **Section sources**
 - [auth.ts (middleware):5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
-- [index.ts:36-39](file://backend/src/index.ts#L36-L39)
+- [index.ts:48-55](file://backend/src/index.ts#L48-L55)
 
 ## Conclusion
-This API provides a robust foundation for managing vehicles, policies, and insurance claims with AI-assisted workflows and administrative oversight. Follow the authentication and authorization rules, adhere to request schemas, and implement client-side retries and error handling for resilient integrations. Adopt pagination and rate limiting as your scale grows.
+This API provides a robust foundation for managing vehicles, policies, and insurance claims with AI-assisted workflows and administrative oversight through the Flash Claim platform. Follow the authentication and authorization rules, adhere to request schemas, and implement client-side retries and error handling for resilient integrations. Adopt pagination and rate limiting as your scale grows.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -452,3 +470,17 @@ Key entities and relationships:
 - Implement retry logic with exponential backoff for transient errors.
 
 [No sources needed since this section provides general guidance]
+
+### Flash Claim System Information
+- **Service Name**: Flash Claim API
+- **Description**: Vehicle Insurance Claim & Damage Assessment Backend
+- **AI Assistant**: Flash Claim Assistant powered by Google Gemini
+- **Frontend Branding**: Flash Claim Smart Claims Platform
+
+**Updated** System identification now consistently uses "Flash Claim" branding across all endpoints and responses.
+
+**Section sources**
+- [package.json:4](file://backend/package.json#L4)
+- [index.ts:51-53](file://backend/src/index.ts#L51-L53)
+- [index.ts:61](file://backend/src/index.ts#L61)
+- [claimAssistantService.ts:4](file://backend/src/services/claimAssistantService.ts#L4)

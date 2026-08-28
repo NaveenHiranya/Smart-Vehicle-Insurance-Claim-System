@@ -7,6 +7,7 @@
 - [backend/package.json](file://backend/package.json)
 - [frontend/src/App.tsx](file://frontend/src/App.tsx)
 - [frontend/package.json](file://frontend/package.json)
+- [package.json](file://package.json)
 - [backend/src/routes/claims.ts](file://backend/src/routes/claims.ts)
 - [backend/src/services/damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
 - [backend/src/services/documentVerificationService.ts](file://backend/src/services/documentVerificationService.ts)
@@ -26,7 +27,7 @@
 
 ## Update Summary
 **Changes Made**
-- Updated all references from 'AutoShield AI' to 'Flash Claim' throughout the documentation
+- Updated all references from 'FastClaim' to 'Flash Claim' throughout the documentation
 - Updated package names and descriptions to reflect the rebranding
 - Updated UI elements and branding references in frontend components
 - Updated backend service responses and system prompts to use 'Flash Claim' branding
@@ -116,7 +117,7 @@ Key technology stack highlights:
 - Backend: Express, TypeScript, Prisma ORM, JWT, Multer, Zod, Google Generative AI SDK.
 - Frontend: React, TypeScript, Vite, Axios, React Router, Tailwind CSS.
 
-**Updated** All branding references have been updated from 'AutoShield AI' to 'Flash Claim' across all components including package names, UI elements, and service prompts.
+**Updated** All branding references have been updated from 'FastClaim' to 'Flash Claim' across all components including package names, UI elements, and service prompts.
 
 **Section sources**
 - [backend/src/middleware/auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
@@ -279,6 +280,7 @@ REPAIR_ESTIMATE ||--|| INSURANCE_PAYOUT : "calculates"
 **Section sources**
 - [backend/package.json:18-29](file://backend/package.json#L18-L29)
 - [frontend/package.json:12-28](file://frontend/package.json#L12-L28)
+- [package.json:1-16](file://package.json#L1-L16)
 
 ## Dependency Analysis
 - Frontend depends on backend APIs for authentication, claims, vehicles, policies, and admin operations.
@@ -344,6 +346,6 @@ Operational tips:
 ## Conclusion
 Flash Claim delivers an end-to-end, AI-enhanced claims experience. Its modular architecture separates concerns across frontend UI, backend APIs, AI services, and data layer. Automated damage assessment, document verification, and intelligent assistance streamline workflows for both policyholders and administrators while maintaining security and scalability.
 
-**Updated** The platform has been successfully rebranded from 'AutoShield AI' to 'Flash Claim' across all application components, maintaining full functionality while establishing a new brand identity.
+**Updated** The platform has been successfully rebranded from 'FastClaim' to 'Flash Claim' across all application components, maintaining full functionality while establishing a new brand identity.
 
 [No sources needed since this section summarizes without analyzing specific files]
