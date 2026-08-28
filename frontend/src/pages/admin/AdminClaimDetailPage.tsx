@@ -207,9 +207,9 @@ export function AdminClaimDetailPage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
               <h2 className="font-semibold text-gray-900 mb-3">Repair Estimate</h2>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-blue-50 rounded-lg p-2 text-center"><p className="text-xs text-blue-600">Parts</p><p className="font-bold text-blue-900">${claim.repairEstimate.totalPartsCost.toLocaleString()}</p></div>
-                <div className="bg-purple-50 rounded-lg p-2 text-center"><p className="text-xs text-purple-600">Labor</p><p className="font-bold text-purple-900">${claim.repairEstimate.totalLaborCost.toLocaleString()}</p></div>
-                <div className="bg-primary-50 rounded-lg p-2 text-center"><p className="text-xs text-primary-600">Total</p><p className="font-bold text-primary-900">${claim.repairEstimate.totalCost.toLocaleString()}</p></div>
+                <div className="bg-blue-50 rounded-lg p-2 text-center"><p className="text-xs text-blue-600">Parts</p><p className="font-bold text-blue-900">Rs. {claim.repairEstimate.totalPartsCost.toLocaleString()}</p></div>
+                <div className="bg-purple-50 rounded-lg p-2 text-center"><p className="text-xs text-purple-600">Labor</p><p className="font-bold text-purple-900">Rs. {claim.repairEstimate.totalLaborCost.toLocaleString()}</p></div>
+                <div className="bg-primary-50 rounded-lg p-2 text-center"><p className="text-xs text-primary-600">Total</p><p className="font-bold text-primary-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p></div>
                 <div className="bg-green-50 rounded-lg p-2 text-center"><p className="text-xs text-green-600">Days</p><p className="font-bold text-green-900">{claim.repairEstimate.estimatedDays}</p></div>
               </div>
             </div>
@@ -218,9 +218,9 @@ export function AdminClaimDetailPage() {
             <div className="bg-white rounded-xl shadow-sm border border-green-200 p-5">
               <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Shield className="h-4 w-4 text-green-600" />Payout Estimate</h2>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div><p className="text-xs text-gray-400">Deductible</p><p className="font-bold">${claim.insurancePayout.deductible.toLocaleString()}</p></div>
-                <div><p className="text-xs text-gray-400">Covered</p><p className="font-bold">${claim.insurancePayout.coveredAmount.toLocaleString()}</p></div>
-                <div><p className="text-xs text-gray-400">Payout</p><p className="font-bold text-green-600">${claim.insurancePayout.estimatedPayout.toLocaleString()}</p></div>
+                <div><p className="text-xs text-gray-400">Deductible</p><p className="font-bold">Rs. {claim.insurancePayout.deductible.toLocaleString()}</p></div>
+                <div><p className="text-xs text-gray-400">Covered</p><p className="font-bold">Rs. {claim.insurancePayout.coveredAmount.toLocaleString()}</p></div>
+                <div><p className="text-xs text-gray-400">Payout</p><p className="font-bold text-green-600">Rs. {claim.insurancePayout.estimatedPayout.toLocaleString()}</p></div>
               </div>
             </div>
           )}

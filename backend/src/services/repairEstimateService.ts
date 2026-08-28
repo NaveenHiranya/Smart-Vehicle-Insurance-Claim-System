@@ -1,7 +1,8 @@
 import prisma from '../utils/prisma.js';
 import { RepairEstimateItem, RepairEstimateResult, DamageItem } from '../types/index.js';
 
-// Repair cost lookup table (typical ranges in USD)
+// Repair cost lookup table (typical ranges in LKR – Sri Lankan Rupees)
+// Based on Sri Lankan vehicle repair market rates (garage & body shop prices)
 const REPAIR_COSTS: Record<string, { parts: Record<string, [number, number]>; laborHours: Record<string, [number, number]> }> = {
   dent: {
     parts: { default: [0, 0] },
@@ -12,49 +13,49 @@ const REPAIR_COSTS: Record<string, { parts: Record<string, [number, number]>; la
     laborHours: { default: [0.5, 2], MODERATE: [2, 4], SEVERE: [4, 8] },
   },
   crack: {
-    parts: { default: [50, 300], glass: [200, 800], SEVERE: [300, 1200] },
+    parts: { default: [15000, 90000], glass: [60000, 240000], SEVERE: [90000, 360000] },
     laborHours: { default: [1, 3], SEVERE: [3, 6] },
   },
   broken_light: {
-    parts: { default: [80, 400], headlight: [150, 800], taillight: [100, 500] },
+    parts: { default: [8000, 45000], headlight: [15000, 85000], taillight: [10000, 55000] },
     laborHours: { default: [0.5, 2] },
   },
   bumper_damage: {
-    parts: { default: [150, 600], SEVERE: [400, 1200] },
+    parts: { default: [25000, 120000], SEVERE: [80000, 350000] },
     laborHours: { default: [2, 5], SEVERE: [5, 10] },
   },
   glass_damage: {
-    parts: { default: [150, 500], windshield: [200, 800], SEVERE: [400, 1200] },
+    parts: { default: [20000, 100000], windshield: [35000, 180000], SEVERE: [80000, 350000] },
     laborHours: { default: [1, 3], SEVERE: [3, 5] },
   },
   panel_deformation: {
-    parts: { default: [200, 800], SEVERE: [600, 2000] },
+    parts: { default: [40000, 180000], SEVERE: [120000, 550000] },
     laborHours: { default: [3, 8], SEVERE: [8, 16] },
   },
   wheel_damage: {
-    parts: { default: [150, 600], SEVERE: [400, 1500] },
+    parts: { default: [20000, 120000], SEVERE: [80000, 400000] },
     laborHours: { default: [1, 3], SEVERE: [3, 6] },
   },
   structural_damage: {
-    parts: { default: [500, 2000], SEVERE: [1000, 5000] },
+    parts: { default: [100000, 500000], SEVERE: [250000, 1200000] },
     laborHours: { default: [8, 20], SEVERE: [16, 40] },
   },
   other: {
-    parts: { default: [50, 300] },
+    parts: { default: [10000, 60000] },
     laborHours: { default: [1, 4] },
   },
 };
 
 const LABOR_RATES: Record<string, number> = {
-  MINOR: 75,
-  MODERATE: 95,
-  SEVERE: 125,
+  MINOR: 2500,
+  MODERATE: 3500,
+  SEVERE: 5000,
 };
 
 const PAINT_MATERIALS: Record<string, number> = {
-  MINOR: 50,
-  MODERATE: 150,
-  SEVERE: 350,
+  MINOR: 8000,
+  MODERATE: 25000,
+  SEVERE: 60000,
 };
 
 function getMidpoint(range: [number, number]): number {
@@ -169,7 +170,7 @@ export async function generateRepairEstimate(claimId: string): Promise<RepairEst
       deductible,
       coveredAmount,
       estimatedPayout,
-      notes: `Based on ${damages.length} damage item(s). Deductible of $${deductible} applied.`,
+      notes: `Based on ${damages.length} damage item(s). Deductible of Rs. ${deductible.toLocaleString()} applied.`,
     };
 
     if (existingPayout) {

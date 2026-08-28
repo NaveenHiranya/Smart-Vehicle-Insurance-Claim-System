@@ -226,9 +226,9 @@ export function ClaimDetailPage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Repair Estimate</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                <div className="bg-blue-50 rounded-lg p-3 text-center"><p className="text-xs text-blue-600 font-medium">Parts</p><p className="text-lg font-bold text-blue-900">${claim.repairEstimate.totalPartsCost.toLocaleString()}</p></div>
-                <div className="bg-purple-50 rounded-lg p-3 text-center"><p className="text-xs text-purple-600 font-medium">Labor</p><p className="text-lg font-bold text-purple-900">${claim.repairEstimate.totalLaborCost.toLocaleString()}</p></div>
-                <div className="bg-primary-50 rounded-lg p-3 text-center"><p className="text-xs text-primary-600 font-medium">Total</p><p className="text-lg font-bold text-primary-900">${claim.repairEstimate.totalCost.toLocaleString()}</p></div>
+                <div className="bg-blue-50 rounded-lg p-3 text-center"><p className="text-xs text-blue-600 font-medium">Parts</p><p className="text-lg font-bold text-blue-900">Rs. {claim.repairEstimate.totalPartsCost.toLocaleString()}</p></div>
+                <div className="bg-purple-50 rounded-lg p-3 text-center"><p className="text-xs text-purple-600 font-medium">Labor</p><p className="text-lg font-bold text-purple-900">Rs. {claim.repairEstimate.totalLaborCost.toLocaleString()}</p></div>
+                <div className="bg-primary-50 rounded-lg p-3 text-center"><p className="text-xs text-primary-600 font-medium">Total</p><p className="text-lg font-bold text-primary-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p></div>
                 <div className="bg-green-50 rounded-lg p-3 text-center"><p className="text-xs text-green-600 font-medium">Est. Days</p><p className="text-lg font-bold text-green-900">{claim.repairEstimate.estimatedDays}</p></div>
               </div>
               <div className="overflow-x-auto">
@@ -240,9 +240,9 @@ export function ClaimDetailPage() {
                     {claim.repairEstimate.items.map((item, i) => (
                       <tr key={i} className="border-b border-gray-100">
                         <td className="py-2 capitalize">{item.damageType.replace(/_/g, ' ')}</td>
-                        <td className="py-2">${item.partCost}</td>
-                        <td className="py-2">{item.laborHours}h @ ${item.laborRate}/h</td>
-                        <td className="py-2 text-right font-medium">${item.subtotal}</td>
+                        <td className="py-2">Rs. {item.partCost.toLocaleString()}</td>
+                        <td className="py-2">{item.laborHours}h @ Rs. {item.laborRate.toLocaleString()}/h</td>
+                        <td className="py-2 text-right font-medium">Rs. {item.subtotal.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -256,9 +256,9 @@ export function ClaimDetailPage() {
             <div className="bg-white rounded-xl shadow-sm border border-green-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Shield className="h-5 w-5 text-green-600" /> Insurance Payout Estimate</h2>
               <div className="grid grid-cols-3 gap-4">
-                <div className="text-center"><p className="text-xs text-gray-500">Deductible</p><p className="text-xl font-bold text-gray-900">${claim.insurancePayout.deductible.toLocaleString()}</p></div>
-                <div className="text-center"><p className="text-xs text-gray-500">Covered</p><p className="text-xl font-bold text-gray-900">${claim.insurancePayout.coveredAmount.toLocaleString()}</p></div>
-                <div className="text-center"><p className="text-xs text-gray-500">Est. Payout</p><p className="text-xl font-bold text-green-600">${claim.insurancePayout.estimatedPayout.toLocaleString()}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Deductible</p><p className="text-xl font-bold text-gray-900">Rs. {claim.insurancePayout.deductible.toLocaleString()}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Covered</p><p className="text-xl font-bold text-gray-900">Rs. {claim.insurancePayout.coveredAmount.toLocaleString()}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Est. Payout</p><p className="text-xl font-bold text-green-600">Rs. {claim.insurancePayout.estimatedPayout.toLocaleString()}</p></div>
               </div>
               {claim.insurancePayout.notes && <p className="text-xs text-gray-500 mt-3">{claim.insurancePayout.notes}</p>}
             </div>
