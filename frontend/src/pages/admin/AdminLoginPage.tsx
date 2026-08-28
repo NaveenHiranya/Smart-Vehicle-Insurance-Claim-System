@@ -40,7 +40,7 @@ export function AdminLoginPage() {
               <Shield className="h-10 w-10 text-white" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-white">AutoShield AI</h1>
+          <h1 className="text-2xl font-bold text-white">FastClaim</h1>
           <p className="text-gray-400 mt-1">Admin Portal</p>
         </div>
 
@@ -54,7 +54,7 @@ export function AdminLoginPage() {
               <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
                 className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                placeholder="admin@autoshield.com" />
+                placeholder="admin@fastclaim.com" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>

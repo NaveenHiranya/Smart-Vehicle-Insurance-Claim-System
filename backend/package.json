@@ -1,7 +1,7 @@
 {
-  "name": "autoshield-ai-backend",
+  "name": "fastclaim-backend",
   "version": "1.0.0",
-  "description": "AutoShield AI - Vehicle Insurance Claim & Damage Assessment Backend",
+  "description": "FastClaim - Vehicle Insurance Claim & Damage Assessment Backend",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

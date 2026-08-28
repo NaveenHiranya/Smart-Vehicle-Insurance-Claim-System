@@ -34,7 +34,7 @@ export function RegisterPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <Shield className="h-10 w-10 text-primary-600" />
-            <h1 className="text-2xl font-bold text-gray-900">AutoShield AI</h1>
+            <h1 className="text-2xl font-bold text-gray-900">FastClaim</h1>
           </div>
           <p className="text-gray-600">Create your account to get started</p>
         </div>

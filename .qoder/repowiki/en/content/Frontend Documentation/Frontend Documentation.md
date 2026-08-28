@@ -15,10 +15,22 @@
 - [AdminLayout.tsx](file://frontend/src/components/AdminLayout.tsx)
 - [api.ts](file://frontend/src/services/api.ts)
 - [adminApi.ts](file://frontend/src/services/adminApi.ts)
+- [uploadUrl.ts](file://frontend/src/utils/uploadUrl.ts)
 - [types/index.ts](file://frontend/src/types/index.ts)
 - [LoginPage.tsx](file://frontend/src/pages/LoginPage.tsx)
 - [DashboardPage.tsx](file://frontend/src/pages/DashboardPage.tsx)
+- [ClaimDetailPage.tsx](file://frontend/src/pages/ClaimDetailPage.tsx)
+- [AdminClaimDetailPage.tsx](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx)
+- [AdminDocumentsPage.tsx](file://frontend/src/pages/admin/AdminDocumentsPage.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added comprehensive documentation for the new uploadUrl utility function
+- Updated file structure section to include the utils directory
+- Enhanced API integration patterns section with file upload handling
+- Added new section on centralized URL resolution utilities
+- Updated component usage examples to demonstrate uploadUrl integration
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -33,10 +45,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive frontend documentation for the React-based user interface of the Smart Vehicle Insurance Claim System. It covers component hierarchy, routing with React Router, state management via Context API, API integration using Axios, styling with Tailwind CSS, responsive design, accessibility considerations, composition patterns, prop interfaces, event handling, error boundaries, and build configuration with Vite.
+This document provides comprehensive frontend documentation for the React-based user interface of the Smart Vehicle Insurance Claim System. It covers component hierarchy, routing with React Router, state management via Context API, API integration using Axios, styling with Tailwind CSS, responsive design, accessibility considerations, composition patterns, prop interfaces, event handling, error boundaries, build configuration with Vite, and centralized URL resolution utilities for file uploads.
 
 ## Project Structure
-The frontend is a Vite + React application using TypeScript, Tailwind CSS, and React Router. The entry point renders the root App inside StrictMode, which configures routing, authentication context, and protected routes. Layouts wrap page components to provide consistent navigation and branding. Services encapsulate HTTP calls with Axios interceptors for token injection and error handling. Types define shared data models used across pages and services.
+The frontend is a Vite + React application using TypeScript, Tailwind CSS, and React Router. The entry point renders the root App inside StrictMode, which configures routing, authentication context, and protected routes. Layouts wrap page components to provide consistent navigation and branding. Services encapsulate HTTP calls with Axios interceptors for token injection and error handling. Types define shared data models used across pages and services. A centralized utility handles URL resolution for uploaded files across different environments.
 
 ```mermaid
 graph TB
@@ -47,7 +59,9 @@ APP --> AUTH["AuthProvider (AuthContext)"]
 ROUTER --> LAYOUTS["Layout / AdminLayout"]
 ROUTER --> PAGES["Pages (Dashboard, Login, etc.)"]
 PAGES --> SERVICES["API Services (api.ts, adminApi.ts)"]
+PAGES --> UTILS["Utilities (uploadUrl.ts)"]
 SERVICES --> TYPES["Shared Types (types/index.ts)"]
+UTILS --> TYPES
 ```
 
 **Diagram sources**
@@ -58,6 +72,7 @@ SERVICES --> TYPES["Shared Types (types/index.ts)"]
 - [AdminLayout.tsx:1-74](file://frontend/src/components/AdminLayout.tsx#L1-L74)
 - [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 - [adminApi.ts:1-26](file://frontend/src/services/adminApi.ts#L1-L26)
+- [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
 - [types/index.ts:1-150](file://frontend/src/types/index.ts#L1-L150)
 
 **Section sources**
@@ -70,6 +85,7 @@ SERVICES --> TYPES["Shared Types (types/index.ts)"]
 - Protected Routes: Guarded routes that enforce authentication for regular users and admins.
 - Layouts: Shared chrome for user and admin areas, including navigation and responsive behavior.
 - API Services: Axios instances with interceptors for authorization headers and unified error handling.
+- Utilities: Centralized functions for common operations like URL resolution for uploaded files.
 - Types: Shared TypeScript interfaces for domain entities and responses.
 
 Key responsibilities:
@@ -77,6 +93,7 @@ Key responsibilities:
 - ProtectedRoute and AdminProtectedRoute ensure only authenticated users access sensitive routes.
 - Layout and AdminLayout provide consistent UI shells and navigation.
 - api.ts and adminApi.ts centralize HTTP concerns and redirect on unauthorized errors.
+- uploadUrl.ts provides centralized URL resolution for uploaded files across environments.
 - types/index.ts defines contracts for requests/responses across the app.
 
 **Section sources**
@@ -87,6 +104,7 @@ Key responsibilities:
 - [AdminLayout.tsx:1-74](file://frontend/src/components/AdminLayout.tsx#L1-L74)
 - [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 - [adminApi.ts:1-26](file://frontend/src/services/adminApi.ts#L1-L26)
+- [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
 - [types/index.ts:1-150](file://frontend/src/types/index.ts#L1-L150)
 
 ## Architecture Overview
@@ -94,6 +112,7 @@ The application uses a layered architecture:
 - Presentation Layer: Pages and reusable layouts render UI and handle user interactions.
 - State Layer: Context API holds global auth state; local component state handles UI specifics.
 - Service Layer: Axios services abstract backend communication with centralized interceptors.
+- Utility Layer: Centralized functions provide common operations like URL resolution.
 - Data Contracts: Shared TypeScript types ensure consistency between UI and API payloads.
 
 ```mermaid
@@ -102,8 +121,11 @@ participant User as "User"
 participant Page as "Page Component"
 participant Ctx as "AuthContext"
 participant Svc as "Axios Service"
+participant Util as "uploadUrl"
 participant API as "Backend API"
-User->>Page : Interact (e.g., submit form)
+User->>Page : Interact (e.g., view uploaded image)
+Page->>Util : Call uploadUrl(filePath)
+Util-->>Page : Resolved URL
 Page->>Ctx : Call action (login/register/updateProfile)
 Ctx->>Svc : POST/PUT request with token
 Svc->>API : Forward request with Authorization header
@@ -114,7 +136,7 @@ else Success
 Svc-->>Ctx : Return data
 Ctx->>Ctx : Update state and persist token/user
 Ctx-->>Page : Updated state
-Page->>Page : Re-render UI
+Page->>Page : Re-render UI with resolved URLs
 end
 ```
 
@@ -122,6 +144,7 @@ end
 - [AuthContext.tsx:17-66](file://frontend/src/context/AuthContext.tsx#L17-L66)
 - [api.ts:7-33](file://frontend/src/services/api.ts#L7-L33)
 - [adminApi.ts:5-23](file://frontend/src/services/adminApi.ts#L5-L23)
+- [uploadUrl.ts:11-15](file://frontend/src/utils/uploadUrl.ts#L11-L15)
 
 ## Detailed Component Analysis
 
@@ -255,6 +278,70 @@ end
 - [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 - [adminApi.ts:1-26](file://frontend/src/services/adminApi.ts#L1-L26)
 
+### Centralized URL Resolution Utilities
+- uploadUrl Function: Centralized utility for resolving stored upload paths to full URLs.
+- Environment Handling: Automatically handles differences between development (Vite proxy) and production (Railway backend).
+- Absolute Path Support: Preserves already absolute URLs without modification.
+- Null Safety: Handles null, undefined, and empty string inputs gracefully.
+
+The uploadUrl utility addresses environment-specific differences:
+- Development: Uses Vite proxy to forward /uploads → localhost:5000, so relative paths work as-is.
+- Production: Prepends VITE_API_URL (Railway backend origin) so browser fetches files directly from Railway, not from Vercel.
+
+```mermaid
+flowchart TD
+Input["filePath input"] --> CheckNull{"Is filePath null/undefined?"}
+CheckNull --> |Yes| Empty["Return empty string"]
+CheckNull --> |No| CheckAbsolute{"Starts with http?"}
+CheckAbsolute --> |Yes| ReturnAbs["Return as-is (absolute URL)"]
+CheckAbsolute --> |No| Resolve["Resolve with API_ORIGIN"]
+Resolve --> Dev{"Development mode?"}
+Dev --> |Yes| Relative["Use relative path (Vite proxy)"]
+Dev --> |No| FullURL["Prepend VITE_API_URL"]
+Relative --> Output["Resolved URL"]
+FullURL --> Output
+ReturnAbs --> Output
+Empty --> Output
+```
+
+**Diagram sources**
+- [uploadUrl.ts:11-15](file://frontend/src/utils/uploadUrl.ts#L11-L15)
+- [vite.config.ts:16-26](file://frontend/vite.config.ts#L16-L26)
+
+**Section sources**
+- [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
+- [vite.config.ts:16-26](file://frontend/vite.config.ts#L16-L26)
+
+### File Upload Integration in Components
+Components integrate the uploadUrl utility for displaying uploaded files:
+- ClaimDetailPage: Uses uploadUrl for claim images and document thumbnails.
+- AdminClaimDetailPage: Uses uploadUrl for damage assessment images and document previews.
+- AdminDocumentsPage: Uses uploadUrl for document thumbnails in the review interface.
+
+```mermaid
+sequenceDiagram
+participant Component as "Component"
+participant UploadUrl as "uploadUrl"
+participant Browser as "Browser"
+Component->>UploadUrl : uploadUrl(img.filePath)
+UploadUrl->>UploadUrl : Check if absolute URL
+UploadUrl->>UploadUrl : Resolve with API_ORIGIN
+UploadUrl-->>Component : Resolved URL
+Component->>Browser : <img src={resolvedUrl}>
+Browser->>Browser : Load image from resolved URL
+```
+
+**Diagram sources**
+- [ClaimDetailPage.tsx:180](file://frontend/src/pages/ClaimDetailPage.tsx#L180)
+- [AdminClaimDetailPage.tsx:215](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L215)
+- [AdminDocumentsPage.tsx:116](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L116)
+- [uploadUrl.ts:11-15](file://frontend/src/utils/uploadUrl.ts#L11-L15)
+
+**Section sources**
+- [ClaimDetailPage.tsx:180](file://frontend/src/pages/ClaimDetailPage.tsx#L180)
+- [AdminClaimDetailPage.tsx:215](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L215)
+- [AdminDocumentsPage.tsx:116](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L116)
+
 ### Styling Approach and Responsive Design
 - Tailwind CSS v4 via @tailwindcss/vite plugin.
 - Custom theme colors defined in index.css for primary, danger, success, warning palettes.
@@ -293,6 +380,7 @@ end
 - Scripts: dev, build (TypeScript check then Vite build), lint, preview.
 - Plugins: React and Tailwind CSS integrated via Vite plugins.
 - Entry: index.html loads main.tsx which mounts React app into #root.
+- Environment variables: VITE_API_URL configured for different deployment targets.
 
 **Section sources**
 - [vite.config.ts:1-21](file://frontend/vite.config.ts#L1-L21)
@@ -313,11 +401,13 @@ App --> AL["AdminLayout.tsx"]
 Pages["Pages"] --> Auth
 Pages --> API["api.ts"]
 Pages --> AAPI["adminApi.ts"]
+Pages --> Utils["uploadUrl.ts"]
 Auth --> API
 PR --> Auth
 APR --> LocalStorage["localStorage"]
 API --> Types["types/index.ts"]
 AAPI --> Types
+Utils --> Types
 ```
 
 **Diagram sources**
@@ -329,6 +419,7 @@ AAPI --> Types
 - [AdminLayout.tsx:1-74](file://frontend/src/components/AdminLayout.tsx#L1-L74)
 - [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 - [adminApi.ts:1-26](file://frontend/src/services/adminApi.ts#L1-L26)
+- [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
 - [types/index.ts:1-150](file://frontend/src/types/index.ts#L1-L150)
 
 **Section sources**
@@ -342,6 +433,7 @@ AAPI --> Types
 - Optimize images and assets; consider lazy loading images.
 - Keep network requests minimal; batch where possible.
 - Monitor bundle size and tree-shaking effectiveness.
+- Centralized URL resolution reduces redundant logic across components.
 
 [No sources needed since this section provides general guidance]
 
@@ -351,15 +443,17 @@ Common issues and resolutions:
 - CORS or proxy misconfiguration: Ensure Vite dev proxy targets match backend endpoints. Confirm changeOrigin settings.
 - Form submission errors: Check try/catch blocks and error messages displayed in UI. Validate input fields and required attributes.
 - Mobile sidebar not closing: Ensure overlay click handlers are bound and state toggles correctly.
+- Image loading issues: Verify uploadUrl is properly imported and filePath values are correct. Check environment variable configuration for production deployments.
 
 **Section sources**
 - [api.ts:22-33](file://frontend/src/services/api.ts#L22-L33)
 - [adminApi.ts:14-23](file://frontend/src/services/adminApi.ts#L14-L23)
 - [LoginPage.tsx:14-27](file://frontend/src/pages/LoginPage.tsx#L14-L27)
 - [vite.config.ts:8-19](file://frontend/vite.config.ts#L8-L19)
+- [uploadUrl.ts:11-15](file://frontend/src/utils/uploadUrl.ts#L11-L15)
 
 ## Conclusion
-The frontend is structured around a clear separation of concerns: routing and layout orchestration, centralized authentication state, robust API integration with interceptors, and consistent styling with Tailwind CSS. The modular design supports scalability and maintainability. Adding error boundaries and further performance optimizations will enhance resilience and user experience.
+The frontend is structured around a clear separation of concerns: routing and layout orchestration, centralized authentication state, robust API integration with interceptors, centralized URL resolution utilities for file uploads, and consistent styling with Tailwind CSS. The modular design supports scalability and maintainability. Adding error boundaries and further performance optimizations will enhance resilience and user experience.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -394,3 +488,33 @@ D->>D : Set state and render
 
 **Section sources**
 - [DashboardPage.tsx:1-142](file://frontend/src/pages/DashboardPage.tsx#L1-L142)
+
+### Upload URL Resolution Examples
+
+#### Image Display Pattern
+```mermaid
+sequenceDiagram
+participant Component as "Image Component"
+participant UploadUrl as "uploadUrl"
+participant Env as "Environment"
+Component->>UploadUrl : uploadUrl(imagePath)
+UploadUrl->>Env : Check VITE_API_URL
+alt Development
+Env-->>UploadUrl : Empty string (use proxy)
+else Production
+Env-->>UploadUrl : Railway backend URL
+end
+UploadUrl->>UploadUrl : Prepend API_ORIGIN if needed
+UploadUrl-->>Component : Resolved URL
+Component->>Component : Render <img src={resolvedUrl}>
+```
+
+**Diagram sources**
+- [uploadUrl.ts:9-15](file://frontend/src/utils/uploadUrl.ts#L9-L15)
+- [vite.config.ts:16-26](file://frontend/vite.config.ts#L16-L26)
+
+**Section sources**
+- [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
+- [ClaimDetailPage.tsx:180](file://frontend/src/pages/ClaimDetailPage.tsx#L180)
+- [AdminClaimDetailPage.tsx:215](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L215)
+- [AdminDocumentsPage.tsx:116](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L116)

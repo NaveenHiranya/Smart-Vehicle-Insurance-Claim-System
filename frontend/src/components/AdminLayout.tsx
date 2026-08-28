@@ -33,7 +33,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             <Shield className="h-8 w-8 text-primary-400" />
             <div>
-              <h1 className="text-lg font-bold text-white">AutoShield AI</h1>
+              <h1 className="text-lg font-bold text-white">FastClaim</h1>
               <p className="text-xs text-gray-400">Admin Panel</p>
             </div>
           </div>

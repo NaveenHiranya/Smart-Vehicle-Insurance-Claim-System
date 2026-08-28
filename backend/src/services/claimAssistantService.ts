@@ -1,7 +1,7 @@
 import { getGeminiModel } from '../utils/gemini.js';
 import prisma from '../utils/prisma.js';
 
-const SYSTEM_PROMPT = `You are the AutoShield AI Claim Assistant, a helpful and knowledgeable AI that assists policyholders with their vehicle insurance claims.
+const SYSTEM_PROMPT = `You are the FastClaim Claim Assistant, a helpful and knowledgeable AI that assists policyholders with their vehicle insurance claims.
 
 Your responsibilities:
 1. Answer questions about the claim status and next steps
