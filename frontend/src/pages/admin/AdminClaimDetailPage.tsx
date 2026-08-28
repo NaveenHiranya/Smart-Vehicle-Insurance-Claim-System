@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { ArrowLeft, Shield, CheckCircle, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, Clock } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',

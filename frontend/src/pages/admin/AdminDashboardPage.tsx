@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { CheckCircle, XCircle, Users, ClipboardList, FileText, Clock, ArrowRight } from 'lucide-react';
+import { Users, ClipboardList, FileText, Clock, ArrowRight } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
