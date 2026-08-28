@@ -1,29 +1,27 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Shield, LayoutDashboard, Users, ClipboardList, FileText, LogOut, Wrench } from 'lucide-react';
+import { Wrench, LayoutDashboard, ClipboardList, LogOut } from 'lucide-react';
 
 const navItems = [
-  { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/admin/users', label: 'Users', icon: Users },
-  { path: '/admin/claims', label: 'Claims', icon: ClipboardList },
-  { path: '/admin/documents', label: 'Documents', icon: FileText },
-  { path: '/admin/garages', label: 'Garages', icon: Wrench },
+  { path: '/garage/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/garage/claims', label: 'Claims', icon: ClipboardList },
 ];
 
-export function AdminLayout({ children }: { children: React.ReactNode }) {
+export function GarageLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    navigate('/admin/login');
+    localStorage.removeItem('garageToken');
+    localStorage.removeItem('garageUser');
+    navigate('/garage/login');
   };
 
-  const adminName = (() => {
+  const garageName = (() => {
     try {
-      const raw = localStorage.getItem('adminUser');
-      if (raw) { const u = JSON.parse(raw); return `${u.firstName} ${u.lastName}`; }
+      const raw = localStorage.getItem('garageUser');
+      if (raw) { const g = JSON.parse(raw); return g.name; }
     } catch { /* ignore */ }
-    return 'Admin';
+    return 'Garage';
   })();
 
   return (
@@ -32,10 +30,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <aside className="w-64 bg-gray-900 flex flex-col fixed h-full">
         <div className="p-6 border-b border-gray-700">
           <div className="flex items-center gap-2">
-            <Shield className="h-8 w-8 text-primary-400" />
+            <Wrench className="h-8 w-8 text-orange-400" />
             <div>
               <h1 className="text-lg font-bold text-white">Flash Claim</h1>
-              <p className="text-xs text-gray-400">Admin Panel</p>
+              <p className="text-xs text-gray-400">Garage Portal</p>
             </div>
           </div>
         </div>
@@ -47,7 +45,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             return (
               <Link key={item.path} to={item.path}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? 'bg-primary-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  isActive ? 'bg-orange-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}>
                 <Icon className="h-5 w-5" />
                 {item.label}
@@ -57,7 +55,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-gray-700">
-          <p className="text-xs text-gray-500 px-3 mb-2 truncate">{adminName}</p>
+          <p className="text-xs text-gray-500 px-3 mb-2 truncate">{garageName}</p>
           <button onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white w-full transition-colors">
             <LogOut className="h-5 w-5" /> Sign Out

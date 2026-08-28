@@ -63,6 +63,8 @@ enum ClaimStatus {
   DRAFT
   SUBMITTED
   UNDER_REVIEW
+  GARAGE_REVIEW
+  GARAGE_ESTIMATED
   APPROVED
   REJECTED
   COMPLETED
@@ -82,12 +84,15 @@ model Claim {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
+  garageId            String?
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   vehicle           Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   policy            InsurancePolicy?   @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  garage            Garage?            @relation(fields: [garageId], references: [id], onDelete: SetNull)
   images            ClaimImage[]
   damageAssessment  DamageAssessment?
   repairEstimate    RepairEstimate?
+  garageEstimate    GarageEstimate?
   insurancePayout   InsurancePayout?
   documents         Document[]
   chatMessages      ChatMessage[]
@@ -210,4 +215,41 @@ model AdminNote {
   updatedAt DateTime @updatedAt
 
   claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}
+
+model Garage {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  ownerName    String
+  phone        String
+  address      String
+  city         String
+  licenseNumber String
+  specialties  String   @default("[]")
+  isActive     Boolean  @default(true)
+  isApproved   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  claims         Claim[]
+  garageEstimates GarageEstimate[]
+}
+
+model GarageEstimate {
+  id             String   @id @default(uuid())
+  claimId        String   @unique
+  garageId       String
+  items          Json
+  totalPartsCost Float
+  totalLaborCost Float
+  totalCost      Float
+  estimatedDays  Int
+  notes          String?
+  submittedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  claim  Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
 }

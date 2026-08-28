@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../services/api';
 import type { Vehicle } from '../types';
-import { Car, Plus, Trash2, Upload, Sparkles, CheckCircle, AlertCircle, X, Loader, Check } from 'lucide-react';
+import { Car, Plus, Trash2, Upload, Sparkles, CheckCircle, AlertCircle, X, Loader, Check, Camera } from 'lucide-react';
 
 export function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -137,6 +137,7 @@ export function AddVehiclePage() {
     licensePlate: string; confidence: string; additionalInfo?: string;
   } | null>(null);
   const [detectionError, setDetectionError] = useState('');
+  const vehicleCameraRef = useRef<HTMLInputElement>(null);
 
   const onDropDetect = useCallback((files: File[]) => {
     const file = files[0];
@@ -187,6 +188,16 @@ export function AddVehiclePage() {
     setDetectionError('');
   };
 
+  const handleVehicleCamera = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDetectImage(file);
+    setDetectPreview(URL.createObjectURL(file));
+    setDetectionResult(null);
+    setDetectionError('');
+    e.target.value = '';
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -224,19 +235,38 @@ export function AddVehiclePage() {
         <p className="text-sm text-gray-500 mb-4">Upload a photo of your vehicle and AI will auto-fill the details below.</p>
 
         {!detectPreview ? (
-          <div
-            {...getRootProps()}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition ${
-              isDragActive ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-400'
-            }`}
-          >
-            <input {...getInputProps()} />
-            <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">
-              {isDragActive ? 'Drop the image here...' : 'Drag & drop a vehicle photo, or '}
-              {!isDragActive && <span className="text-primary-600 font-medium">browse</span>}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">JPEG, PNG, or WebP (max 10MB)</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div
+              {...getRootProps()}
+              className={`flex-1 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition ${
+                isDragActive ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-400'
+              }`}
+            >
+              <input {...getInputProps()} />
+              <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-600">
+                {isDragActive ? 'Drop the image here...' : 'Drag & drop a vehicle photo, or '}
+                {!isDragActive && <span className="text-primary-600 font-medium">browse</span>}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">JPEG, PNG, or WebP (max 10MB)</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:w-40">
+              <button
+                type="button"
+                onClick={() => vehicleCameraRef.current?.click()}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition shadow-sm"
+              >
+                <Camera className="h-5 w-5" /> Take Photo
+              </button>
+              <input
+                ref={vehicleCameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleVehicleCamera}
+              />
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

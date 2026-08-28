@@ -5,13 +5,14 @@ import { Search, Filter, ThumbsUp } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
-  UNDER_REVIEW: 'bg-yellow-100 text-yellow-700', APPROVED: 'bg-green-100 text-green-700',
+  UNDER_REVIEW: 'bg-yellow-100 text-yellow-700', GARAGE_REVIEW: 'bg-orange-100 text-orange-700',
+  GARAGE_ESTIMATED: 'bg-purple-100 text-purple-700', APPROVED: 'bg-green-100 text-green-700',
   REJECTED: 'bg-red-100 text-red-700', COMPLETED: 'bg-green-100 text-green-700',
 };
 const severityColors: Record<string, string> = {
   MINOR: 'bg-green-100 text-green-700', MODERATE: 'bg-yellow-100 text-yellow-700', SEVERE: 'bg-red-100 text-red-700',
 };
-const statuses = ['ALL', 'DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED'];
+const statuses = ['ALL', 'DRAFT', 'SUBMITTED', 'GARAGE_REVIEW', 'GARAGE_ESTIMATED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED'];
 
 export function AdminClaimsPage() {
   const [claims, setClaims] = useState<any[]>([]);

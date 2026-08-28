@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { Users, ClipboardList, FileText, Clock, ArrowRight } from 'lucide-react';
+import { Users, ClipboardList, FileText, Clock, ArrowRight, Wrench } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
-  UNDER_REVIEW: 'bg-yellow-100 text-yellow-700', APPROVED: 'bg-green-100 text-green-700',
+  UNDER_REVIEW: 'bg-yellow-100 text-yellow-700', GARAGE_REVIEW: 'bg-orange-100 text-orange-700',
+  GARAGE_ESTIMATED: 'bg-purple-100 text-purple-700', APPROVED: 'bg-green-100 text-green-700',
   REJECTED: 'bg-red-100 text-red-700', COMPLETED: 'bg-green-100 text-green-700',
 };
 
@@ -26,7 +27,7 @@ export function AdminDashboardPage() {
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-400"></div></div>;
 
   const totalClaims = (Object.values(stats?.claimsByStatus || {}) as number[]).reduce((a, b) => a + b, 0);
-  const pendingClaims = (stats?.claimsByStatus?.SUBMITTED || 0) + (stats?.claimsByStatus?.UNDER_REVIEW || 0);
+  const pendingClaims = (stats?.claimsByStatus?.SUBMITTED || 0) + (stats?.claimsByStatus?.UNDER_REVIEW || 0) + (stats?.claimsByStatus?.GARAGE_REVIEW || 0) + (stats?.claimsByStatus?.GARAGE_ESTIMATED || 0);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -115,6 +116,7 @@ export function AdminDashboardPage() {
           { to: '/admin/users', label: 'Manage Users', icon: Users, color: 'bg-blue-600' },
           { to: '/admin/claims', label: 'Review Claims', icon: ClipboardList, color: 'bg-primary-600' },
           { to: '/admin/documents', label: 'Approve Documents', icon: FileText, color: 'bg-orange-600' },
+          { to: '/admin/garages', label: 'Manage Garages', icon: Wrench, color: 'bg-orange-700' },
         ].map(({ to, label, icon: Icon, color }) => (
           <Link key={to} to={to}
             className={`flex items-center gap-3 ${color} text-white rounded-xl p-4 hover:opacity-90 transition`}>

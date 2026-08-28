@@ -66,6 +66,7 @@ router.get('/claims', async (req: AuthRequest, res: Response) => {
       include: {
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
         vehicle: { select: { make: true, model: true, year: true, licensePlate: true } },
+        garage: { select: { id: true, name: true, city: true } },
         damageAssessment: { select: { overallSeverity: true } },
         _count: { select: { images: true, documents: true } },
       },
@@ -86,9 +87,11 @@ router.get('/claims/:id', async (req: AuthRequest, res: Response) => {
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
         vehicle: true,
         policy: true,
+        garage: { select: { id: true, name: true, ownerName: true, phone: true, address: true, city: true, licenseNumber: true } },
         images: true,
         damageAssessment: true,
         repairEstimate: true,
+        garageEstimate: true,
         insurancePayout: true,
         documents: true,
         chatMessages: { orderBy: { createdAt: 'asc' } },
@@ -107,7 +110,7 @@ router.get('/claims/:id', async (req: AuthRequest, res: Response) => {
 router.patch('/claims/:id/status', async (req: AuthRequest, res: Response) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED'];
+    const validStatuses = ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'GARAGE_REVIEW', 'GARAGE_ESTIMATED', 'APPROVED', 'REJECTED', 'COMPLETED'];
     if (!status || !validStatuses.includes(status)) {
       res.status(400).json({ error: 'Invalid status value.' });
       return;
@@ -233,6 +236,63 @@ router.patch('/documents/:id/reject', async (req: AuthRequest, res: Response) =>
   } catch (error) {
     console.error('Admin reject doc error:', error);
     res.status(500).json({ error: 'Failed to reject document.' });
+  }
+});
+
+// GET /api/admin/garages
+router.get('/garages', async (_req: AuthRequest, res: Response) => {
+  try {
+    const garages = await prisma.garage.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, email: true, name: true, ownerName: true, phone: true,
+        address: true, city: true, licenseNumber: true, specialties: true,
+        isActive: true, isApproved: true, createdAt: true,
+        _count: { select: { claims: true, garageEstimates: true } },
+      },
+    });
+    res.json(garages);
+  } catch (error) {
+    console.error('Admin garages error:', error);
+    res.status(500).json({ error: 'Failed to fetch garages.' });
+  }
+});
+
+// PATCH /api/admin/garages/:id/approve
+router.patch('/garages/:id/approve', async (req: AuthRequest, res: Response) => {
+  try {
+    const garage = await prisma.garage.findUnique({ where: { id: param(req, 'id') } });
+    if (!garage) {
+      res.status(404).json({ error: 'Garage not found.' });
+      return;
+    }
+    const updated = await prisma.garage.update({
+      where: { id: param(req, 'id') },
+      data: { isApproved: true, isActive: true },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin approve garage error:', error);
+    res.status(500).json({ error: 'Failed to approve garage.' });
+  }
+});
+
+// PATCH /api/admin/garages/:id/toggle
+router.patch('/garages/:id/toggle', async (req: AuthRequest, res: Response) => {
+  try {
+    const garage = await prisma.garage.findUnique({ where: { id: param(req, 'id') } });
+    if (!garage) {
+      res.status(404).json({ error: 'Garage not found.' });
+      return;
+    }
+    const updated = await prisma.garage.update({
+      where: { id: param(req, 'id') },
+      data: { isActive: !garage.isActive },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin toggle garage error:', error);
+    res.status(500).json({ error: 'Failed to toggle garage.' });
   }
 });
 

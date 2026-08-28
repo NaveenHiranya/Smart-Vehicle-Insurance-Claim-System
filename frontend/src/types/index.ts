@@ -37,7 +37,7 @@ export interface InsurancePolicy {
   endDate: string;
 }
 
-export type ClaimStatus = 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+export type ClaimStatus = 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'GARAGE_REVIEW' | 'GARAGE_ESTIMATED' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 export type ImageType = 'FULL_VEHICLE' | 'DAMAGE_CLOSEUP';
 export type SeverityLevel = 'MINOR' | 'MODERATE' | 'SEVERE';
 export type DocumentType = 'LICENSE' | 'REGISTRATION' | 'ACCIDENT_REPORT' | 'REPAIR_ESTIMATE';
@@ -128,6 +128,48 @@ export interface AdminNote {
   updatedAt: string;
 }
 
+export interface Garage {
+  id: string;
+  email: string;
+  name: string;
+  ownerName: string;
+  phone: string;
+  address: string;
+  city: string;
+  licenseNumber: string;
+  specialties: string;
+  isActive: boolean;
+  isApproved: boolean;
+  createdAt: string;
+  _count?: { claims: number; garageEstimates: number };
+}
+
+export interface GarageEstimateItem {
+  damageType: string;
+  partName: string;
+  partCost: number;
+  laborHours: number;
+  laborRate: number;
+  laborCost: number;
+  paintMaterials: number;
+  subtotal: number;
+  addedByGarage?: boolean;
+}
+
+export interface GarageEstimate {
+  id: string;
+  claimId: string;
+  garageId: string;
+  items: GarageEstimateItem[];
+  totalPartsCost: number;
+  totalLaborCost: number;
+  totalCost: number;
+  estimatedDays: number;
+  notes?: string;
+  submittedAt: string;
+  updatedAt: string;
+}
+
 export interface Claim {
   id: string;
   userId: string;
@@ -143,9 +185,11 @@ export interface Claim {
   updatedAt: string;
   vehicle: Vehicle;
   policy?: InsurancePolicy;
+  garage?: { id: string; name: string; ownerName?: string; phone: string; address: string; city: string; licenseNumber?: string };
   images: ClaimImage[];
   damageAssessment?: DamageAssessment;
   repairEstimate?: RepairEstimate;
+  garageEstimate?: GarageEstimate;
   insurancePayout?: InsurancePayout;
   documents: Document[];
   chatMessages: ChatMessage[];

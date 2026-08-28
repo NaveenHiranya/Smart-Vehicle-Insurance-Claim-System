@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench } from 'lucide-react';
 import { uploadUrl } from '../../utils/uploadUrl';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
-  UNDER_REVIEW: 'bg-yellow-100 text-yellow-700', APPROVED: 'bg-green-100 text-green-700',
+  UNDER_REVIEW: 'bg-yellow-100 text-yellow-700', GARAGE_REVIEW: 'bg-orange-100 text-orange-700',
+  GARAGE_ESTIMATED: 'bg-purple-100 text-purple-700', APPROVED: 'bg-green-100 text-green-700',
   REJECTED: 'bg-red-100 text-red-700', COMPLETED: 'bg-green-100 text-green-700',
 };
 const severityBg: Record<string, string> = {
@@ -16,7 +17,7 @@ const docVerifColors: Record<string, string> = {
   VERIFIED: 'bg-green-100 text-green-700', PENDING: 'bg-gray-100 text-gray-600',
   ISSUES_FOUND: 'bg-red-100 text-red-700', UNREADABLE: 'bg-red-100 text-red-700',
 };
-const ALL_STATUSES = ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED'];
+const ALL_STATUSES = ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'GARAGE_REVIEW', 'GARAGE_ESTIMATED', 'APPROVED', 'REJECTED', 'COMPLETED'];
 
 export function AdminClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -226,6 +227,72 @@ export function AdminClaimDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Garage Estimate Section */}
+      {claim.garage && (
+        <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-5 mb-5">
+          <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Wrench className="h-5 w-5 text-orange-600" /> Garage: {claim.garage.name}
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 p-3 bg-orange-50 rounded-lg text-xs">
+            <div><span className="text-gray-500">Owner:</span><br /><span className="font-medium">{claim.garage.ownerName}</span></div>
+            <div><span className="text-gray-500">Phone:</span><br /><span className="font-medium">{claim.garage.phone}</span></div>
+            <div><span className="text-gray-500">City:</span><br /><span className="font-medium">{claim.garage.city}</span></div>
+            <div><span className="text-gray-500">License:</span><br /><span className="font-medium">{claim.garage.licenseNumber}</span></div>
+          </div>
+          {claim.garageEstimate ? (
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Garage Estimate Submitted</span>
+                <span className="text-xs text-gray-500">{new Date(claim.garageEstimate.submittedAt).toLocaleString()}</span>
+              </div>
+              {claim.repairEstimate && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 bg-blue-50 rounded-lg">
+                  <div className="text-center">
+                    <p className="text-[10px] text-blue-600 font-medium">AI Estimate</p>
+                    <p className="text-sm font-bold text-blue-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-orange-600 font-medium">Garage Estimate</p>
+                    <p className="text-sm font-bold text-orange-900">Rs. {claim.garageEstimate.totalCost.toLocaleString()}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-600 font-medium">Difference</p>
+                    <p className={`text-sm font-bold ${claim.garageEstimate.totalCost > claim.repairEstimate.totalCost ? 'text-red-600' : 'text-green-600'}`}>
+                      Rs. {(claim.garageEstimate.totalCost - claim.repairEstimate.totalCost).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-600 font-medium">Garage Days</p>
+                    <p className="text-sm font-bold text-gray-900">{claim.garageEstimate.estimatedDays}</p>
+                  </div>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-gray-200 text-left text-gray-500 text-xs uppercase">
+                    <th className="pb-2">Type</th><th className="pb-2">Part</th><th className="pb-2">Parts</th><th className="pb-2">Labor</th><th className="pb-2 text-right">Subtotal</th>
+                  </tr></thead>
+                  <tbody>
+                    {(claim.garageEstimate.items as any[]).map((item: any, i: number) => (
+                      <tr key={i} className={`border-b border-gray-100 ${item.addedByGarage ? 'bg-orange-50' : ''}`}>
+                        <td className="py-1.5 capitalize text-xs">{item.damageType?.replace(/_/g, ' ')}{item.addedByGarage && <span className="text-[10px] text-orange-600 ml-1">(added)</span>}</td>
+                        <td className="py-1.5 text-xs">{item.partName}</td>
+                        <td className="py-1.5 text-xs">Rs. {item.partCost?.toLocaleString()}</td>
+                        <td className="py-1.5 text-xs">{item.laborHours}h @ Rs. {item.laborRate?.toLocaleString()}</td>
+                        <td className="py-1.5 text-right font-medium text-xs">Rs. {item.subtotal?.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {claim.garageEstimate.notes && <p className="text-xs text-gray-600 mt-2 p-2 bg-gray-50 rounded">{claim.garageEstimate.notes}</p>}
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">Garage has not submitted an estimate yet.</p>
+          )}
+        </div>
+      )}
 
       {/* Images */}
       {claim.images?.length > 0 && (

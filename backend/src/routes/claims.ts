@@ -14,13 +14,31 @@ const router = Router();
 
 router.use(authMiddleware);
 
+// GET /api/claims/garages - List active garages for user selection
+router.get('/garages', async (_req: AuthRequest, res: Response) => {
+  try {
+    const garages = await prisma.garage.findMany({
+      where: { isActive: true, isApproved: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true, name: true, phone: true, address: true, city: true,
+        licenseNumber: true, specialties: true,
+      },
+    });
+    res.json(garages);
+  } catch (error) {
+    console.error('List garages error:', error);
+    res.status(500).json({ error: 'Failed to fetch garages.' });
+  }
+});
+
 // Helper to extract string params from Express 5 (which types them as string | string[])
 const param = (req: AuthRequest, name: string): string => req.params[name] as string;
 
 // POST /api/claims
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { vehicleId, policyId, incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport } = req.body;
+    const { vehicleId, policyId, garageId, incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport } = req.body;
 
     if (!vehicleId || !incidentDate || !incidentLocation || !incidentDescription) {
       res.status(400).json({ error: 'Vehicle, incident date, location, and description are required.' });
@@ -41,6 +59,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         userId: req.userId!,
         vehicleId,
         policyId: policyId || null,
+        garageId: garageId || null,
         incidentDate: new Date(incidentDate),
         incidentLocation,
         incidentDescription,
@@ -90,9 +109,11 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       include: {
         vehicle: true,
         policy: true,
+        garage: { select: { id: true, name: true, phone: true, address: true, city: true } },
         images: true,
         damageAssessment: true,
         repairEstimate: true,
+        garageEstimate: true,
         insurancePayout: true,
         documents: true,
         chatMessages: { orderBy: { createdAt: 'asc' } },
@@ -129,7 +150,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const { incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport, policyId } = req.body;
+    const { incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport, policyId, garageId } = req.body;
 
     const claim = await prisma.claim.update({
       where: { id: param(req, 'id') },
@@ -140,6 +161,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         ...(weatherConditions !== undefined && { weatherConditions }),
         ...(hasPoliceReport !== undefined && { hasPoliceReport }),
         ...(policyId !== undefined && { policyId }),
+        ...(garageId !== undefined && { garageId: garageId || null }),
       },
     });
 
@@ -175,10 +197,12 @@ router.post('/:id/submit', async (req: AuthRequest, res: Response) => {
 
     const claimId = param(req, 'id') as string;
 
-    // Update status to SUBMITTED
+    // Update status: if garage is assigned, go to GARAGE_REVIEW, otherwise SUBMITTED
+    const fullClaim = await prisma.claim.findUnique({ where: { id: claimId } });
+    const newStatus = fullClaim?.garageId ? 'GARAGE_REVIEW' : 'SUBMITTED';
     const updatedClaim = await prisma.claim.update({
       where: { id: claimId },
-      data: { status: 'SUBMITTED' },
+      data: { status: newStatus },
     });
 
     // Run AI damage analysis in the background

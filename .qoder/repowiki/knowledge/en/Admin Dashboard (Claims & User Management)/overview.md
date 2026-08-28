@@ -1,0 +1,1 @@
+A separate admin portal for insurance reviewers to log in, inspect all users and claims, approve or reject uploaded documents, annotate claims with notes, and change claim status — fully isolated from the end-user app.

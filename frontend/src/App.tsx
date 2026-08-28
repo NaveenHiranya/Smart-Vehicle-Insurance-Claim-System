@@ -19,6 +19,13 @@ import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminClaimsPage } from './pages/admin/AdminClaimsPage';
 import { AdminClaimDetailPage } from './pages/admin/AdminClaimDetailPage';
 import { AdminDocumentsPage } from './pages/admin/AdminDocumentsPage';
+import { AdminGaragesPage } from './pages/admin/AdminGaragesPage';
+import { GarageProtectedRoute } from './components/GarageProtectedRoute';
+import { GarageLayout } from './components/GarageLayout';
+import { GarageLoginPage } from './pages/garage/GarageLoginPage';
+import { GarageRegisterPage } from './pages/garage/GarageRegisterPage';
+import { GarageDashboardPage } from './pages/garage/GarageDashboardPage';
+import { GarageClaimDetailPage } from './pages/garage/GarageClaimDetailPage';
 
 function App() {
   return (
@@ -45,7 +52,15 @@ function App() {
           <Route path="/admin/claims" element={<AdminProtectedRoute><AdminLayout><AdminClaimsPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/claims/:id" element={<AdminProtectedRoute><AdminLayout><AdminClaimDetailPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/documents" element={<AdminProtectedRoute><AdminLayout><AdminDocumentsPage /></AdminLayout></AdminProtectedRoute>} />
+          <Route path="/admin/garages" element={<AdminProtectedRoute><AdminLayout><AdminGaragesPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
+
+          {/* Garage routes */}
+          <Route path="/garage/login" element={<GarageLoginPage />} />
+          <Route path="/garage/register" element={<GarageRegisterPage />} />
+          <Route path="/garage/dashboard" element={<GarageProtectedRoute><GarageLayout><GarageDashboardPage /></GarageLayout></GarageProtectedRoute>} />
+          <Route path="/garage/claims/:id" element={<GarageProtectedRoute><GarageLayout><GarageClaimDetailPage /></GarageLayout></GarageProtectedRoute>} />
+          <Route path="/garage" element={<Navigate to="/garage/login" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

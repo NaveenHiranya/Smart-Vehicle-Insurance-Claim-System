@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../services/api';
 import type { Vehicle, InsurancePolicy } from '../types';
-import { Camera, Image, X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Camera, Image, X, ChevronLeft, ChevronRight, Check, MapPin } from 'lucide-react';
 
-const steps = ['Incident Info', 'Vehicle Photos', 'Damage Photos', 'Review & Submit'];
+const steps = ['Incident Info', 'Select Garage', 'Vehicle Photos', 'Damage Photos', 'Review & Submit'];
 
 export function NewClaimPage() {
   const [searchParams] = useSearchParams();
@@ -17,9 +17,13 @@ export function NewClaimPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [uploadedImages, setUploadedImages] = useState<{ full: File[]; damage: File[] }>({ full: [], damage: [] });
+  const [garages, setGarages] = useState<any[]>([]);
+  const fullCameraRef = useRef<HTMLInputElement>(null);
+  const damageCameraRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     vehicleId: searchParams.get('vehicleId') || '',
+    garageId: '',
     policyId: '',
     incidentDate: new Date().toISOString().split('T')[0],
     incidentLocation: '',
@@ -29,9 +33,10 @@ export function NewClaimPage() {
   });
 
   useEffect(() => {
-    Promise.all([api.get('/vehicles'), api.get('/policies')]).then(([vRes, pRes]) => {
+    Promise.all([api.get('/vehicles'), api.get('/policies'), api.get('/claims/garages')]).then(([vRes, pRes, gRes]) => {
       setVehicles(vRes.data);
       setPolicies(pRes.data);
+      setGarages(gRes.data);
     });
   }, []);
 
@@ -57,6 +62,13 @@ export function NewClaimPage() {
 
   const removeDamageImage = (idx: number) => {
     setUploadedImages((p) => ({ ...p, damage: p.damage.filter((_, i) => i !== idx) }));
+  };
+
+  const handleCameraCapture = (type: 'full' | 'damage') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setUploadedImages((prev) => ({ ...prev, [type]: [...prev[type], ...files] }));
+    e.target.value = ''; // reset so the same file can be re-captured
   };
 
   const uploadImages = async (cId: string, files: File[], type: string) => {
@@ -95,11 +107,13 @@ export function NewClaimPage() {
 
   const canProceed = () => {
     if (step === 0) return form.vehicleId && form.incidentDate && form.incidentLocation && form.incidentDescription;
-    if (step === 1) return uploadedImages.full.length > 0;
+    if (step === 1) return true; // garage is optional
+    if (step === 2) return uploadedImages.full.length > 0;
     return true;
   };
 
   const selectedVehicle = vehicles.find((v) => v.id === form.vehicleId);
+  const selectedGarage = garages.find((g) => g.id === form.garageId);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -157,16 +171,82 @@ export function NewClaimPage() {
           </div>
         )}
 
-        {/* Step 2: Full Vehicle Photos */}
+        {/* Step 2: Select Garage */}
         {step === 1 && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Select a Registered Garage (Optional)</h2>
+            <p className="text-sm text-gray-500 mb-4">Choose a garage to review and provide repair estimates for your vehicle. The garage can add their own assessment after AI analysis.</p>
+            {garages.length === 0 ? (
+              <div className="p-8 text-center border-2 border-dashed border-gray-200 rounded-xl">
+                <p className="text-sm text-gray-500">No registered garages available. You can skip this step.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label
+                  className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${
+                    !form.garageId ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setForm((p) => ({ ...p, garageId: '' }))}
+                >
+                  <input type="radio" name="garage" checked={!form.garageId} onChange={() => setForm((p) => ({ ...p, garageId: '' }))} className="sr-only" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">No garage selected</p>
+                    <p className="text-xs text-gray-500">Skip garage selection and proceed without one</p>
+                  </div>
+                </label>
+                {garages.map((g) => (
+                  <label
+                    key={g.id}
+                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${
+                      form.garageId === g.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setForm((p) => ({ ...p, garageId: g.id }))}
+                  >
+                    <input type="radio" name="garage" checked={form.garageId === g.id} onChange={() => setForm((p) => ({ ...p, garageId: g.id }))} className="sr-only" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{g.name}</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1"><MapPin className="h-3 w-3" />{g.address}, {g.city}</p>
+                      <p className="text-xs text-gray-500">{g.phone}</p>
+                    </div>
+                    {form.garageId === g.id && (
+                      <Check className="h-5 w-5 text-primary-600 flex-shrink-0" />
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Full Vehicle Photos */}
+        {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Full Vehicle Photos</h2>
             <p className="text-sm text-gray-500 mb-4">Upload photos of your entire vehicle from different angles (front, rear, left, right sides).</p>
-            <div {...fullDropzone.getRootProps()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition">
-              <input {...fullDropzone.getInputProps()} />
-              <Camera className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">Drag & drop photos here, or <span className="text-primary-600 font-medium">browse</span></p>
-              <p className="text-xs text-gray-400 mt-1">JPEG, PNG, or WebP (max 10MB each)</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div {...fullDropzone.getRootProps()} className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition">
+                <input {...fullDropzone.getInputProps()} />
+                <Camera className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Drag & drop photos here, or <span className="text-primary-600 font-medium">browse</span></p>
+                <p className="text-xs text-gray-400 mt-1">JPEG, PNG, or WebP (max 10MB each)</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:w-40">
+                <button
+                  type="button"
+                  onClick={() => fullCameraRef.current?.click()}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition shadow-sm"
+                >
+                  <Camera className="h-5 w-5" /> Take Photo
+                </button>
+                <input
+                  ref={fullCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleCameraCapture('full')}
+                />
+              </div>
             </div>
             {uploadedImages.full.length > 0 && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-4">
@@ -181,15 +261,34 @@ export function NewClaimPage() {
           </div>
         )}
 
-        {/* Step 3: Damage Close-up Photos */}
-        {step === 2 && (
+        {/* Step 4: Damage Close-up Photos */}
+        {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Damage Close-Up Photos</h2>
             <p className="text-sm text-gray-500 mb-4">Upload close-up photos of specific damaged areas for detailed AI analysis.</p>
-            <div {...damageDropzone.getRootProps()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition">
-              <input {...damageDropzone.getInputProps()} />
-              <Image className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">Drag & drop close-up photos here, or <span className="text-primary-600 font-medium">browse</span></p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div {...damageDropzone.getRootProps()} className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 transition">
+                <input {...damageDropzone.getInputProps()} />
+                <Image className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Drag & drop close-up photos here, or <span className="text-primary-600 font-medium">browse</span></p>
+              </div>
+              <div className="flex flex-col gap-2 sm:w-40">
+                <button
+                  type="button"
+                  onClick={() => damageCameraRef.current?.click()}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition shadow-sm"
+                >
+                  <Camera className="h-5 w-5" /> Take Photo
+                </button>
+                <input
+                  ref={damageCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleCameraCapture('damage')}
+                />
+              </div>
             </div>
             {uploadedImages.damage.length > 0 && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-4">
@@ -204,8 +303,8 @@ export function NewClaimPage() {
           </div>
         )}
 
-        {/* Step 4: Review & Submit */}
-        {step === 3 && (
+        {/* Step 5: Review & Submit */}
+        {step === 4 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Review & Submit</h2>
             {selectedVehicle && (
@@ -223,6 +322,10 @@ export function NewClaimPage() {
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm font-medium text-gray-900 mb-1">Photos</p>
               <p className="text-sm text-gray-600">{uploadedImages.full.length} full vehicle, {uploadedImages.damage.length} damage close-up</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-900 mb-1">Garage</p>
+              <p className="text-sm text-gray-600">{selectedGarage ? `${selectedGarage.name} — ${selectedGarage.city}` : 'None selected'}</p>
             </div>
           </div>
         )}
