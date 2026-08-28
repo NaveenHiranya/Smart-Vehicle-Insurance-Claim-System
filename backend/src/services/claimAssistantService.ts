@@ -1,4 +1,4 @@
-import { getGeminiModel } from '../utils/gemini.js';
+import { startChatWithFallback } from '../utils/gemini.js';
 import prisma from '../utils/prisma.js';
 
 const SYSTEM_PROMPT = `You are the Flash Claim Assistant, a helpful and knowledgeable AI that assists policyholders with their vehicle insurance claims in Sri Lanka.
@@ -92,17 +92,14 @@ export async function getChatResponse(claimId: string, userMessage: string) {
       parts: [{ text: msg.content }],
     }));
 
-  const model = getGeminiModel();
+  const { sendMessage, modelUsed } = await startChatWithFallback([
+    { role: 'user', parts: [{ text: `System Context:\n${SYSTEM_PROMPT}\n\nClaim Information:\n${context}` }] },
+    { role: 'model', parts: [{ text: "I understand the claim context. I'm ready to assist the policyholder with their claim. How can I help?" }] },
+    ...history,
+  ]);
+  console.log(`[chatAssistant] Used model: ${modelUsed}`);
 
-  const chat = model.startChat({
-    history: [
-      { role: 'user', parts: [{ text: `System Context:\n${SYSTEM_PROMPT}\n\nClaim Information:\n${context}` }] },
-      { role: 'model', parts: [{ text: "I understand the claim context. I'm ready to assist the policyholder with their claim. How can I help?" }] },
-      ...history,
-    ],
-  });
-
-  const result = await chat.sendMessage(userMessage);
+  const result = await sendMessage(userMessage);
   const assistantResponse = result.response.text();
 
   // Save user message

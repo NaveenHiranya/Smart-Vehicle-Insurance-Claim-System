@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getGeminiModel } from '../utils/gemini.js';
+import { generateContentWithFallback } from '../utils/gemini.js';
 import prisma from '../utils/prisma.js';
 import { DamageAnalysisResult } from '../types/index.js';
 
@@ -61,8 +61,6 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
     throw new Error('No images to analyze');
   }
 
-  const model = getGeminiModel();
-
   // Prepare image data for Gemini
   const uploadDir = process.env.UPLOAD_DIR || './uploads';
   const imageParts = claim.images.map((img: { filePath: string }) => {
@@ -80,8 +78,8 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
   const vehicleContext = `Vehicle: ${claim.vehicle.year} ${claim.vehicle.make} ${claim.vehicle.model}, Color: ${claim.vehicle.color}`;
   const fullPrompt = `${DAMAGE_ANALYSIS_PROMPT}\n\n${vehicleContext}`;
 
-  const result = await model.generateContent([fullPrompt, ...imageParts]);
-  const responseText = result.response.text();
+  const { text: responseText, modelUsed } = await generateContentWithFallback([fullPrompt, ...imageParts]);
+  console.log(`[damageAnalysis] Used model: ${modelUsed}`);
 
   // Parse the JSON response
   let analysisResult: DamageAnalysisResult;

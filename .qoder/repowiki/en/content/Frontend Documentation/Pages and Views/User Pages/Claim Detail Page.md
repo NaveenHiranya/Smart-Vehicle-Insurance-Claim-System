@@ -17,10 +17,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced admin notes display with color-coded category badges for insurance company perspective
-- Added timestamp formatting for admin notes showing creation times
-- Integrated admin notes into both user-facing and admin claim detail views
-- Updated documentation to reflect the new admin notes functionality
+- Enhanced monetary value display with Sri Lankan Rupees (Rs.) formatting throughout claim detail pages
+- Updated repair cost breakdowns to show parts, labor, and total costs with proper currency formatting
+- Enhanced insurance payout estimates with deductible, covered amounts, and estimated payouts in Rs. format
+- Improved admin notes display with color-coded category badges and timestamp formatting
+- Integrated comprehensive currency formatting across both user-facing and admin interfaces
 
 ## Table of Contents
 1. Introduction
@@ -34,10 +35,10 @@
 9. Conclusion
 
 ## Introduction
-This document explains the ClaimDetailPage, which provides a comprehensive view and management experience for an individual insurance claim. It covers how incident details, vehicle information, damage assessment results, repair estimates, current status with timeline tracking, documents, chat-based communication, approval workflow integration, and admin notes display are shown and managed. It also documents data fetching patterns, error handling for missing or invalid claim data, navigation behavior, and real-time-like updates via re-fetching after actions.
+This document explains the ClaimDetailPage, which provides a comprehensive view and management experience for an individual insurance claim. It covers how incident details, vehicle information, damage assessment results, repair estimates with Sri Lankan Rupees formatting, current status with timeline tracking, documents, chat-based communication, approval workflow integration, and admin notes display are shown and managed. It also documents data fetching patterns, error handling for missing or invalid claim data, navigation behavior, and real-time-like updates via re-fetching after actions.
 
 ## Project Structure
-The ClaimDetailPage is part of a React frontend that communicates with an Express backend. The page fetches claim data, triggers AI analysis, uploads documents, verifies documents, manages a chat conversation, and displays admin notes from insurance reviewers. The backend exposes REST endpoints to read/update claims, run AI services, persist related entities such as images, documents, assessments, estimates, payouts, chat messages, and admin notes.
+The ClaimDetailPage is part of a React frontend that communicates with an Express backend. The page fetches claim data, triggers AI analysis, uploads documents, verifies documents, manages a chat conversation, and displays admin notes from insurance reviewers. The backend exposes REST endpoints to read/update claims, run AI services, persist related entities such as images, documents, assessments, estimates, payouts, chat messages, and admin notes. All monetary values are consistently formatted with Sri Lankan Rupees (Rs.) prefixes and proper thousands separators.
 
 ```mermaid
 graph TB
@@ -92,8 +93,8 @@ ACDP --> TYPES
 - Claim detail display: incident info, vehicle make/model/year, location/date, status badge, safety warning when severe damage is detected.
 - Images gallery: shows uploaded full-vehicle and close-up damage photos.
 - Damage assessment: displays severity, drivability assessment, and itemized damages; supports re-analysis.
-- Repair estimate: shows parts/labor totals, estimated days, and line items.
-- Insurance payout: shows deductible, covered amount, and estimated payout.
+- **Repair estimate**: shows parts/labor totals with Sri Lankan Rupees formatting, estimated days, and line items with proper currency display.
+- **Insurance payout**: shows deductible, covered amount, and estimated payout all formatted with Rs. prefixes and thousands separators.
 - **Admin notes display**: shows color-coded category badges and timestamp formatting for insurance company perspective.
 - Documents: upload, view, and verify documents with verification statuses and issues.
 - Progress checklist: visual timeline of steps from creation to completion.
@@ -104,7 +105,8 @@ Key behaviors:
 - Fetches claim details on mount and refreshes after mutations.
 - Navigates back to claims listing if claim not found.
 - Uses axios interceptors to attach auth tokens and handle 401 redirects.
-- Displays admin notes with categorized badges and formatted timestamps.
+- Displays all monetary values with consistent Sri Lankan Rupees formatting.
+- Shows admin notes with categorized badges and formatted timestamps.
 
 **Section sources**
 - [ClaimDetailPage.tsx:17-67](file://frontend/src/pages/ClaimDetailPage.tsx#L17-L67)
@@ -115,7 +117,7 @@ Key behaviors:
 
 ## Architecture Overview
 The ClaimDetailPage follows a client-server architecture with clear separation of concerns:
-- Frontend UI orchestrates user interactions and renders rich claim context including admin notes.
+- Frontend UI orchestrates user interactions and renders rich claim context including admin notes with proper currency formatting.
 - Backend routes enforce authentication and delegate to specialized services.
 - Services integrate with AI models to analyze damage, generate estimates, verify documents, and power the chat assistant.
 - Data persistence uses Prisma to store claims, images, documents, assessments, estimates, payouts, chat messages, and admin notes.
@@ -137,12 +139,12 @@ U->>F : Open claim detail
 F->>A : GET /claims/ : id
 A->>R : GET /claims/ : id
 R-->>A : Claim + relations + adminNotes
-A-->>F : Claim data
-F->>F : Render sections including admin notes
+A-->>F : Claim data with Rs. formatted values
+F->>F : Render sections including admin notes and currency
 AF->>AA : GET /admin/claims/ : id
 AA->>AR : GET /admin/claims/ : id
 AR-->>AA : Claim with admin notes
-AA-->>AF : Admin claim data
+AA-->>AF : Admin claim data with currency formatting
 AF->>AF : Render admin notes with category badges
 U->>F : Click "Analyze"
 F->>A : POST /claims/ : id/analyze
@@ -184,7 +186,7 @@ AF->>AA : GET /admin/claims/ : id (refresh)
 - Status badge: color-coded per status values.
 - Safety warning: shown when overall severity is SEVERE.
 
-Data source: GET /claims/:id returns claim with vehicle, images, damageAssessment, repairEstimate, insurancePayout, documents, chatMessages, and adminNotes.
+Data source: GET /claims/:id returns claim with vehicle, images, damageAssessment, repairEstimate, insurancePayout, documents, chatMessages, and adminNotes. All monetary values are automatically formatted with Sri Lankan Rupees.
 
 Error handling: If claim not found, navigate to /claims.
 
@@ -192,6 +194,31 @@ Error handling: If claim not found, navigate to /claims.
 - [ClaimDetailPage.tsx:17-25](file://frontend/src/pages/ClaimDetailPage.tsx#L17-L25)
 - [ClaimDetailPage.tsx:141-168](file://frontend/src/pages/ClaimDetailPage.tsx#L141-L168)
 - [claims.ts:85-112](file://backend/src/routes/claims.ts#L85-L112)
+
+### Monetary Value Formatting with Sri Lankan Rupees
+**Updated** Enhanced with comprehensive Sri Lankan Rupees (Rs.) formatting throughout all monetary displays.
+
+All monetary values are consistently formatted with:
+- **Rs. prefix**: Every monetary value displays the Sri Lankan Rupees symbol followed by the amount
+- **Thousands separators**: Uses `toLocaleString()` for proper number formatting (e.g., 1,234,567)
+- **Consistent styling**: Bold fonts and appropriate colors for different monetary categories
+
+Implementation includes:
+- **Repair cost breakdowns**: Parts, labor, and total costs all formatted with Rs. prefixes
+- **Insurance payout estimates**: Deductible, covered amounts, and estimated payouts with proper currency formatting
+- **Line item costs**: Individual part costs, labor rates, and subtotals with consistent formatting
+- **Admin interface**: Same currency formatting applied across both user and admin views
+
+Examples of formatted values:
+- Parts: `Rs. {claim.repairEstimate.totalPartsCost.toLocaleString()}`
+- Labor: `Rs. {claim.repairEstimate.totalLaborCost.toLocaleString()}`
+- Total: `Rs. {claim.repairEstimate.totalCost.toLocaleString()}`
+- Payout: `Rs. {claim.insurancePayout.estimatedPayout.toLocaleString()}`
+
+**Section sources**
+- [ClaimDetailPage.tsx:229-261](file://frontend/src/pages/ClaimDetailPage.tsx#L229-L261)
+- [AdminClaimDetailPage.tsx:210-223](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L210-L223)
+- [index.ts:74-102](file://frontend/src/types/index.ts#L74-L102)
 
 ### Admin Notes Display with Color-Coded Categories
 **Updated** Enhanced with admin notes display showing color-coded category badges and timestamp formatting for insurance company perspective.
@@ -219,24 +246,44 @@ Implementation details:
 - Supports re-analysis by calling POST /claims/:id/analyze.
 
 Processing logic:
-- Backend service reads claim images, sends them to AI model, parses JSON output, persists assessment, updates image annotations, and auto-generates repair estimate.
+- Backend service reads claim images, sends them to AI model, parses JSON output, persists assessment, updates image annotations, and auto-generates repair estimate with Sri Lankan Rupees formatting.
 
 **Section sources**
 - [ClaimDetailPage.tsx:187-221](file://frontend/src/pages/ClaimDetailPage.tsx#L187-L221)
 - [claims.ts:270-288](file://backend/src/routes/claims.ts#L270-L288)
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
 
-### Repair Estimates
-- Shows total parts cost, labor cost, total cost, estimated days, and itemized breakdown.
-- Generated automatically after damage analysis or via dedicated endpoint.
+### Repair Estimates with Currency Formatting
+**Updated** Enhanced with comprehensive Sri Lankan Rupees formatting for all repair cost components.
+
+- Shows total parts cost, labor cost, total cost with Rs. prefixes and thousands separators
+- Estimated days display alongside formatted costs
+- Itemized breakdown with individual part costs, labor hours, labor rates, and subtotals all properly formatted
+- Generated automatically after damage analysis or via dedicated endpoint
 
 Processing logic:
-- Service computes item costs using predefined ranges and severity, aggregates totals, calculates estimated days, and creates/updates estimate record. Also computes insurance payout if policy exists.
+- Service computes item costs using predefined ranges in Sri Lankan Rupees, aggregates totals, calculates estimated days, and creates/updates estimate record with proper currency formatting. Also computes insurance payout if policy exists.
 
 **Section sources**
 - [ClaimDetailPage.tsx:223-251](file://frontend/src/pages/ClaimDetailPage.tsx#L223-L251)
 - [claims.ts:290-314](file://backend/src/routes/claims.ts#L290-L314)
 - [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+
+### Insurance Payout Estimates with Currency Formatting
+**Updated** Enhanced with Sri Lankan Rupees formatting for all payout components.
+
+- Shows deductible, covered amount, and estimated payout all with Rs. prefixes and proper formatting
+- Consistent visual presentation with bold fonts and appropriate colors
+- Notes field displays additional payout information when available
+
+Implementation:
+- All payout values use `Rs. {value.toLocaleString()}` pattern for consistent formatting
+- Visual hierarchy emphasizes the estimated payout amount in green color
+- Grid layout provides clear separation between different payout components
+
+**Section sources**
+- [ClaimDetailPage.tsx:254-265](file://frontend/src/pages/ClaimDetailPage.tsx#L254-L265)
+- [AdminClaimDetailPage.tsx:217-226](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L217-L226)
 
 ### Current Status and Timeline Tracking
 - Status badge reflects current claim status.
@@ -278,6 +325,7 @@ Verification logic:
 Assistant logic:
 - Builds context from claim, vehicle, policy, assessment, estimate, payout, and documents.
 - Maintains conversation history and persists both user and assistant messages.
+- References Sri Lankan Rupees when discussing monetary values in responses.
 
 **Section sources**
 - [ClaimDetailPage.tsx:57-67](file://frontend/src/pages/ClaimDetailPage.tsx#L57-L67)
@@ -288,6 +336,7 @@ Assistant logic:
 ### Real-Time Updates and Refresh Strategy
 - After each mutation (analyze, upload, verify, chat), the page calls GET /claims/:id to refresh the latest state.
 - This pattern ensures consistent UI without WebSockets.
+- Currency formatting is maintained across all refresh operations.
 
 **Section sources**
 - [ClaimDetailPage.tsx:27-67](file://frontend/src/pages/ClaimDetailPage.tsx#L27-L67)
@@ -295,6 +344,7 @@ Assistant logic:
 ### Approval Workflow Integration
 - While direct status transitions are not exposed on this page, the backend enforces workflow rules (e.g., submit only from DRAFT, require images).
 - The progress checklist and suggestions reflect workflow stages and guide users toward completion.
+- Currency-formatted estimates and payouts are integrated into the approval workflow.
 
 **Section sources**
 - [claims.ts:152-193](file://backend/src/routes/claims.ts#L152-L193)
@@ -314,6 +364,7 @@ Assistant logic:
 - Services depend on:
   - Prisma for database access.
   - Gemini model utilities for AI capabilities.
+  - Sri Lankan Rupees formatting for all monetary calculations.
 
 ```mermaid
 graph LR
@@ -356,6 +407,7 @@ ACDP --> TYPES
 - Image loading can be optimized with lazy loading and proper sizing.
 - AI operations (analysis, verification, chat) can be slow; keep disabled states and spinners to improve perceived performance.
 - Avoid unnecessary re-renders by memoizing derived lists (already used for todoSteps and suggestions).
+- Currency formatting using `toLocaleString()` is lightweight and doesn't significantly impact performance.
 - Admin notes display is lightweight and doesn't significantly impact performance due to simple conditional rendering.
 
 ## Troubleshooting Guide
@@ -374,11 +426,15 @@ Common issues and resolutions:
 - Admin notes not displaying:
   - Verify claim includes adminNotes relation in backend query.
   - Check that admin notes exist for the claim and have valid category values.
+- Currency formatting issues:
+  - Ensure all monetary values are numbers (not strings) before applying `toLocaleString()`.
+  - Verify that the locale settings support thousands separators.
 
 Relevant flows:
 - Error handling in frontend catches failures and alerts users; navigation occurs on claim fetch failure.
 - Backend routes return descriptive errors for validation and resource-not-found cases.
 - Admin notes are fetched as part of the standard claim data retrieval process.
+- Currency formatting is applied consistently across all monetary displays.
 
 **Section sources**
 - [ClaimDetailPage.tsx:17-25](file://frontend/src/pages/ClaimDetailPage.tsx#L17-L25)
@@ -390,4 +446,4 @@ Relevant flows:
 - [admin.ts:183-208](file://backend/src/routes/admin.ts#L183-L208)
 
 ## Conclusion
-The ClaimDetailPage delivers a robust, user-friendly interface for managing individual claims. It integrates AI-driven damage analysis, automated repair estimates, document verification, conversational assistant, and enhanced admin notes display to guide users through the process. The design emphasizes clarity with status badges, progress checklists, contextual suggestions, and color-coded administrative feedback. The recent enhancement with admin notes display provides insurance companies with a professional way to communicate review feedback using categorized badges and formatted timestamps. Data consistency is maintained through explicit re-fetching after mutations, while error handling ensures graceful degradation and clear user feedback.
+The ClaimDetailPage delivers a robust, user-friendly interface for managing individual claims with comprehensive Sri Lankan Rupees formatting throughout all monetary displays. It integrates AI-driven damage analysis, automated repair estimates with proper currency formatting, document verification, conversational assistant, and enhanced admin notes display to guide users through the process. The design emphasizes clarity with status badges, progress checklists, contextual suggestions, and color-coded administrative feedback. The recent enhancement with Sri Lankan Rupees formatting provides consistent monetary presentation across repair cost breakdowns, insurance payout estimates, and all financial components. Data consistency is maintained through explicit re-fetching after mutations, while error handling ensures graceful degradation and clear user feedback. The system now provides a professional, localized experience for Sri Lankan insurance claim management with culturally appropriate currency formatting.

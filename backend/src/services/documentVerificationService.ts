@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getGeminiModel } from '../utils/gemini.js';
+import { generateContentWithFallback } from '../utils/gemini.js';
 import prisma from '../utils/prisma.js';
 import { DocumentVerificationResult } from '../types/index.js';
 
@@ -55,8 +55,6 @@ export async function verifyDocument(documentId: string): Promise<DocumentVerifi
     throw new Error('Document file not found on disk');
   }
 
-  const model = getGeminiModel();
-
   const imageData = fs.readFileSync(filePath);
   const mimeType = path.extname(filePath).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg';
 
@@ -64,7 +62,7 @@ export async function verifyDocument(documentId: string): Promise<DocumentVerifi
 Claim context: Vehicle is a ${document.claim.vehicle.year} ${document.claim.vehicle.make} ${document.claim.vehicle.model}.
 Policyholder name: ${document.claim.user.firstName} ${document.claim.user.lastName}.`;
 
-  const result = await model.generateContent([
+  const { text: responseText, modelUsed } = await generateContentWithFallback([
     `${DOCUMENT_VERIFICATION_PROMPT}\n\n${context}`,
     {
       inlineData: {
@@ -73,8 +71,7 @@ Policyholder name: ${document.claim.user.firstName} ${document.claim.user.lastNa
       },
     },
   ]);
-
-  const responseText = result.response.text();
+  console.log(`[docVerification] Used model: ${modelUsed}`);
 
   let verificationResult: DocumentVerificationResult;
   try {

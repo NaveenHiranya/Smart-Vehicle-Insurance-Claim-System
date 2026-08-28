@@ -10,10 +10,17 @@
 - [seedAdmin.ts](file://backend/src/scripts/seedAdmin.ts)
 - [App.tsx](file://frontend/src/App.tsx)
 - [AdminClaimDetailPage.tsx](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx)
+- [ClaimDetailPage.tsx](file://frontend/src/pages/ClaimDetailPage.tsx)
 - [AdminDashboardPage.tsx](file://frontend/src/pages/admin/AdminDashboardPage.tsx)
 - [adminApi.ts](file://frontend/src/services/adminApi.ts)
 - [AdminProtectedRoute.tsx](file://frontend/src/components/AdminProtectedRoute.tsx)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated currency display consistency section to reflect Sri Lankan Rupees formatting across both admin and user interfaces
+- Enhanced Admin Claim Detail Page documentation to include consistent currency formatting
+- Added information about unified monetary display standards across the application
 
 ## Table of Contents
 1. Introduction
@@ -27,7 +34,7 @@
 9. Conclusion
 
 ## Introduction
-This document explains the Admin Note System within the Smart Vehicle Insurance Claim System. It focuses on how administrators can add, view, and delete notes attached to claims, and how these notes integrate with claim review workflows. The system provides a secure admin-only API for note management and a React-based admin UI that displays notes alongside claim details and supports quick status changes and document approvals.
+This document explains the Admin Note System within the Smart Vehicle Insurance Claim System. It focuses on how administrators can add, view, and delete notes attached to claims, and how these notes integrate with claim review workflows. The system provides a secure admin-only API for note management and a React-based admin UI that displays notes alongside claim details and supports quick status changes and document approvals. **Updated**: The administrative interface now maintains consistent currency formatting with the user interface, displaying all monetary values in Sri Lankan Rupees (Rs.) throughout the administrative claim detail page.
 
 ## Project Structure
 The Admin Note System spans both backend and frontend:
@@ -42,29 +49,32 @@ B["AdminClaimDetailPage.tsx"]
 C["AdminDashboardPage.tsx"]
 D["adminApi.ts"]
 E["AdminProtectedRoute.tsx"]
+F["ClaimDetailPage.tsx"]
 end
 subgraph "Backend"
-F["index.ts"]
-G["routes/admin.ts"]
-H["middleware/adminAuth.ts"]
-I["prisma schema.prisma"]
-J["scripts/seedAdmin.ts"]
+G["index.ts"]
+H["routes/admin.ts"]
+I["middleware/adminAuth.ts"]
+J["prisma schema.prisma"]
+K["scripts/seedAdmin.ts"]
 end
 A --> B
 A --> C
 B --> D
 C --> D
-D --> G
+D --> H
+H --> I
+H --> J
 G --> H
 G --> I
-F --> G
-F --> H
-J --> I
+K --> J
+F --> D
 ```
 
 **Diagram sources**
 - [App.tsx:23-49](file://frontend/src/App.tsx#L23-L49)
 - [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
+- [ClaimDetailPage.tsx:1-456](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L456)
 - [AdminDashboardPage.tsx:1-130](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L1-L130)
 - [adminApi.ts:1-28](file://frontend/src/services/adminApi.ts#L1-L28)
 - [index.ts:25-62](file://backend/src/index.ts#L25-L62)
@@ -87,6 +97,7 @@ Key responsibilities:
 - Persist notes against claims with categories (vehicle, document, general).
 - Protect endpoints with JWT-based admin checks.
 - Present notes chronologically and allow deletion by admins.
+- **Updated**: Display monetary values consistently using Sri Lankan Rupees (Rs.) format across both admin and user interfaces.
 
 **Section sources**
 - [schema.prisma:204-213](file://backend/prisma/schema.prisma#L204-L213)
@@ -250,6 +261,7 @@ API-->>FE : Remove from UI
   - Provides input to add a note with category selection.
   - Supports deleting notes with confirmation.
   - Integrates with adminApi to call backend endpoints.
+  - **Updated**: Displays repair estimates and insurance payouts with consistent Sri Lankan Rupees formatting (Rs.) throughout the interface.
 - AdminProtectedRoute:
   - Guards admin routes by checking for adminToken in localStorage.
 - AdminDashboardPage:
@@ -263,6 +275,7 @@ class AdminClaimDetailPage {
 +state noteCategory
 +handleAddNote()
 +handleDeleteNote(noteId)
++displayCurrencyValues()
 }
 class AdminProtectedRoute {
 +render(children)
@@ -282,8 +295,27 @@ AdminDashboardPage --> AdminProtectedRoute : "uses"
 
 **Section sources**
 - [AdminClaimDetailPage.tsx:80-97](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L80-L97)
+- [AdminClaimDetailPage.tsx:210-223](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L210-L223)
 - [AdminProtectedRoute.tsx:3-6](file://frontend/src/components/AdminProtectedRoute.tsx#L3-L6)
 - [AdminDashboardPage.tsx:12-24](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L12-L24)
+
+### Currency Display Consistency
+**Updated** The administrative claim detail page now displays monetary values consistently with the user interface using Sri Lankan Rupees (Rs.) formatting throughout the administrative interface.
+
+Key features:
+- Repair estimates display parts, labor, and total costs with Rs. prefix
+- Insurance payout amounts show deductible, covered amount, and estimated payout with Rs. formatting
+- Consistent number formatting using `.toLocaleString()` method
+- Unified visual presentation across both admin and user claim detail pages
+
+Implementation details:
+- All monetary values use the format `Rs. {value.toLocaleString()}`
+- Consistent styling with color-coded sections (blue for parts, purple for labor, green for payouts)
+- Proper number formatting with thousands separators for better readability
+
+**Section sources**
+- [AdminClaimDetailPage.tsx:210-223](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L210-L223)
+- [ClaimDetailPage.tsx:229-261](file://frontend/src/pages/ClaimDetailPage.tsx#L229-L261)
 
 ### Seed Admin User
 - Purpose: Create or ensure an admin user exists in the database for initial setup.
@@ -334,6 +366,9 @@ BE --> BC["bcryptjs (seed)"]
   - Minimize re-renders by updating local state efficiently after mutations.
 - Security:
   - Ensure CORS and environment variables are correctly configured to prevent unnecessary failures.
+- **Updated**: Currency formatting performance:
+  - Using `.toLocaleString()` for efficient number formatting
+  - Minimal computational overhead for currency display
 
 [No sources needed since this section provides general guidance]
 
@@ -347,6 +382,9 @@ Common issues and resolutions:
   - Empty note content or invalid category; validate inputs before submission.
 - Database connectivity:
   - Health check endpoint indicates DB reachability; confirm DATABASE_URL and migrations.
+- **Updated**: Currency display issues:
+  - If monetary values don't display correctly, verify that claim data includes proper numeric values for repair estimates and insurance payouts.
+  - Ensure `.toLocaleString()` method is available in the browser environment.
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
@@ -354,6 +392,6 @@ Common issues and resolutions:
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 
 ## Conclusion
-The Admin Note System enables administrators to annotate claims with categorized notes, supporting thorough review workflows. It combines secure admin-only endpoints with a user-friendly interface, integrating seamlessly into the broader claim management system. Proper authentication, validation, and clear data models ensure reliability and maintainability.
+The Admin Note System enables administrators to annotate claims with categorized notes, supporting thorough review workflows. It combines secure admin-only endpoints with a user-friendly interface, integrating seamlessly into the broader claim management system. **Updated**: The system now maintains consistent currency formatting across both administrative and user interfaces, displaying all monetary values in Sri Lankan Rupees (Rs.) for improved user experience and consistency. Proper authentication, validation, and clear data models ensure reliability and maintainability.
 
 [No sources needed since this section summarizes without analyzing specific files]
