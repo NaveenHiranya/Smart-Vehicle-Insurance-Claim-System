@@ -125,7 +125,7 @@ export function VehicleDetailPage() {
             <div className="p-2.5 bg-primary-100 rounded-lg"><VehicleTypeIcon type={vehicle.vehicleType} className="h-7 w-7 text-primary-600" /></div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{vehicle.year} {vehicle.make} {vehicle.model}</h1>
-              <p className="text-gray-500">{VEHICLE_TYPE_LABELS[vehicle.vehicleType] || 'Car'} - {vehicle.color} - {vehicle.licensePlate}</p>
+              <p className="text-gray-500">{VEHICLE_TYPE_LABELS[vehicle.vehicleType as VehicleType] || 'Car'} - {vehicle.color} - {vehicle.licensePlate}</p>
             </div>
           </div>
           <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-600 transition">
@@ -134,7 +134,7 @@ export function VehicleDetailPage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div><p className="text-xs text-gray-500 uppercase">Type</p><p className="font-medium text-gray-900">{VEHICLE_TYPE_LABELS[vehicle.vehicleType] || 'Car'}</p></div>
+          <div><p className="text-xs text-gray-500 uppercase">Type</p><p className="font-medium text-gray-900">{VEHICLE_TYPE_LABELS[vehicle.vehicleType as VehicleType] || 'Car'}</p></div>
           <div><p className="text-xs text-gray-500 uppercase">VIN</p><p className="font-medium text-gray-900">{vehicle.vin || 'N/A'}</p></div>
           <div><p className="text-xs text-gray-500 uppercase">License Plate</p><p className="font-medium text-gray-900">{vehicle.licensePlate}</p></div>
           <div><p className="text-xs text-gray-500 uppercase">Mileage</p><p className="font-medium text-gray-900">{vehicle.mileage ? `${vehicle.mileage.toLocaleString()} mi` : 'N/A'}</p></div>
