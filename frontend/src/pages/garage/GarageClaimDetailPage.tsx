@@ -17,6 +17,8 @@ export function GarageClaimDetailPage() {
   const [paintMaterials, setPaintMaterials] = useState(0);
   const [notes, setNotes] = useState('');
   const [estimateDate, setEstimateDate] = useState(() => new Date().toISOString().slice(0, 10));
+  // Repair days — null = auto-computed from labor hours (8h/day); a number means the garage set it
+  const [daysOverride, setDaysOverride] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
@@ -38,14 +40,19 @@ export function GarageClaimDetailPage() {
           ? new Date(existing.estimateDate).toISOString().slice(0, 10)
           : new Date().toISOString().slice(0, 10)
       );
+      // A submitted estimate keeps the day count the garage chose; new estimates auto-compute
+      setDaysOverride(existing?.estimatedDays ? existing.estimatedDays : null);
     }).catch(() => setError('Failed to load this claim. It may not exist or is not assigned to your garage.'))
     .finally(() => setLoading(false));
 
   useEffect(() => { fetchClaim(); }, [id]);
 
+  // Auto day count from labor hours — shown as the baseline the garage can override
+  const computedDays = Math.max(1, Math.ceil((laborHours || 0) / 8));
+
   const totals = useMemo(
-    () => estimateTotals({ parts, laborHours, laborRate, paintMaterials }),
-    [parts, laborHours, laborRate, paintMaterials]
+    () => estimateTotals({ parts, laborHours, laborRate, paintMaterials, estimatedDays: daysOverride ?? undefined }),
+    [parts, laborHours, laborRate, paintMaterials, daysOverride]
   );
 
   const updatePartText = (idx: number, field: 'damageType' | 'partName', value: string) => {
@@ -353,6 +360,23 @@ export function GarageClaimDetailPage() {
               className="flex items-center gap-1 px-3 py-2 border border-orange-300 text-orange-700 rounded-lg text-sm hover:bg-orange-50">
               <Plus className="h-4 w-4" /> Add Part
             </button>
+            <div className="flex items-center gap-2">
+              <label htmlFor="repair-days" className="text-sm font-medium text-gray-700">Repair days</label>
+              <div className="flex items-center">
+                <input id="repair-days" type="number" min={1} max={365} value={totals.estimatedDays}
+                  onChange={(e) => setDaysOverride(Math.max(1, parseInt(e.target.value) || 1))}
+                  onFocus={(e) => e.target.select()}
+                  title={`Auto-computed from labor hours: ${computedDays} day(s)`}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-20 focus:ring-2 focus:ring-orange-500 outline-none" />
+                {daysOverride != null && daysOverride !== computedDays && (
+                  <button type="button" onClick={() => setDaysOverride(null)}
+                    title={`Reset to auto: ${computedDays} day(s) from ${laborHours} labor hours`}
+                    className="ml-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium whitespace-nowrap">
+                    Auto
+                  </button>
+                )}
+              </div>
+            </div>
             <div className="flex items-center gap-2 sm:ml-auto">
               <label htmlFor="estimate-date" className="text-sm font-medium text-gray-700">Estimate date</label>
               <input id="estimate-date" type="date" value={estimateDate} onChange={(e) => setEstimateDate(e.target.value)}

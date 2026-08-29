@@ -38,6 +38,8 @@ model Vehicle {
   vin          String?
   licensePlate String
   color        String
+  // Vehicle class — drives AI detection, repair pricing scale and UI icons
+  vehicleType  VehicleType @default(CAR)
   mileage      Int?
   photos       String @default("[]")
   // Vehicle valuation (LKR) set by the insurance company — caps claim payouts
@@ -58,6 +60,20 @@ enum VehicleVerification {
   PENDING
   VERIFIED
   REJECTED
+}
+
+// Vehicle classes on Sri Lankan roads — the repair pricing engine scales its
+// base (car) table by class, so every registered vehicle estimates correctly
+enum VehicleType {
+  CAR
+  SUV_PICKUP
+  VAN
+  LORRY_TRUCK
+  BUS
+  MOTORCYCLE
+  THREE_WHEELER
+  TRACTOR
+  OTHER
 }
 
 // Built-in insurance plans the company offers — one per insurance type (or several)

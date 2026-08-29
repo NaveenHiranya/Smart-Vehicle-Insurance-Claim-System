@@ -25,6 +25,7 @@
 - Implemented advanced filtering capabilities with visual status indicators and count badges
 - Improved user experience with better claim organization and quick access to detailed information
 - Updated routing configuration to support the new claims listing page
+- **Updated**: Enhanced GarageClaimDetailPage with date picker component for estimate dates, improved form state management, enhanced validation logic, and better display of submitted estimates with dual timestamps
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -40,7 +41,7 @@
 ## Introduction
 This document describes the Garage Frontend Interface for the Smart Vehicle Insurance Claim System. It focuses on how garage users authenticate, navigate, view assigned claims, and submit repair estimates. The interface is built with React, TypeScript, Vite, Tailwind CSS, and React Router. Authentication and routing are handled via context and route guards, while API calls to the backend are centralized through an Axios instance configured for the garage tenant.
 
-**Updated** Recent improvements include a new dedicated GarageClaimsPage component that provides comprehensive claims listing with status-based filtering, real-time counts, and enhanced user interface for managing multiple claims efficiently.
+**Updated** Recent improvements include a new dedicated GarageClaimsPage component that provides comprehensive claims listing with status-based filtering, real-time counts, and enhanced user interface for managing multiple claims efficiently. The GarageClaimDetailPage now features enhanced estimate date selection with a native date picker, improved form state management, and better validation logic for estimate submissions.
 
 ## Project Structure
 The frontend is organized by feature areas:
@@ -70,7 +71,7 @@ G --> H["Backend /api/garage"]
 - [GarageProtectedRoute.tsx:3-7](file://frontend/src/components/GarageProtectedRoute.tsx#L3-L7)
 - [GarageDashboardPage.tsx:13-119](file://frontend/src/pages/garage/GarageDashboardPage.tsx#L13-L119)
 - [GarageClaimsPage.tsx:20-112](file://frontend/src/pages/garage/GarageClaimsPage.tsx#L20-L112)
-- [GarageClaimDetailPage.tsx:19-355](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L355)
+- [GarageClaimDetailPage.tsx:19-403](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L403)
 - [garageApi.ts:1-31](file://frontend/src/services/garageApi.ts#L1-L31)
 
 **Section sources**
@@ -83,11 +84,11 @@ G --> H["Backend /api/garage"]
 - Garage API Client: Centralized Axios instance that injects Authorization headers and clears session on 401/403.
 - Garage Dashboard Page: Lists all assigned claims, highlights pending review items, and shows summary metrics with enhanced responsive design.
 - **New**: Garage Claims Page: Dedicated comprehensive claims listing interface with status-based filtering, real-time counts, and detailed claim information display.
-- Garage Claim Detail Page: Displays vehicle and incident details, AI assessment when available, and allows editing/submission of repair estimates with AI vs garage comparison.
+- **Enhanced**: Garage Claim Detail Page: Displays vehicle and incident details, AI assessment when available, and allows editing/submission of repair estimates with AI vs garage comparison. Now includes date picker for estimate dates, enhanced form state management, improved validation, and better display of submitted estimates with dual timestamps.
 - Garage Estimate Utilities: Handles data normalization for both legacy and current estimate formats, providing consistent structure for processing.
 - Garage Login/Register Pages: Handle authentication and registration flows with improved error handling, pending approval states, and better mobile responsiveness.
 
-**Updated** All garage portal pages now feature consistent styling with dark theme support, improved mobile responsiveness, enhanced user interface elements including better status indicators and progress feedback, and advanced estimate comparison features. The new GarageClaimsPage provides a dedicated space for efficient claim management.
+**Updated** All garage portal pages now feature consistent styling with dark theme support, improved mobile responsiveness, enhanced user interface elements including better status indicators and progress feedback, and advanced estimate comparison features. The new GarageClaimsPage provides a dedicated space for efficient claim management. The enhanced GarageClaimDetailPage now supports precise estimate date selection and improved validation logic.
 
 **Section sources**
 - [GarageLayout.tsx:9-72](file://frontend/src/components/GarageLayout.tsx#L9-L72)
@@ -95,13 +96,13 @@ G --> H["Backend /api/garage"]
 - [garageApi.ts:1-31](file://frontend/src/services/garageApi.ts#L1-L31)
 - [GarageDashboardPage.tsx:13-119](file://frontend/src/pages/garage/GarageDashboardPage.tsx#L13-L119)
 - [GarageClaimsPage.tsx:20-112](file://frontend/src/pages/garage/GarageClaimsPage.tsx#L20-L112)
-- [GarageClaimDetailPage.tsx:19-355](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L355)
+- [GarageClaimDetailPage.tsx:19-403](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L403)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
 - [GarageLoginPage.tsx:6-105](file://frontend/src/pages/garage/GarageLoginPage.tsx#L6-L105)
 - [GarageRegisterPage.tsx:6-144](file://frontend/src/pages/garage/GarageRegisterPage.tsx#L6-L144)
 
 ## Architecture Overview
-The garage portal uses role-based routing and a dedicated API client. On first load, App sets up routes and wraps garage routes with a protected component that enforces authentication. Garage pages call the garage API client which automatically attaches tokens and handles unauthorized responses by clearing local storage and redirecting to login. The claim detail page now includes sophisticated estimate comparison and data normalization capabilities.
+The garage portal uses role-based routing and a dedicated API client. On first load, App sets up routes and wraps garage routes with a protected component that enforces authentication. Garage pages call the garage API client which automatically attaches tokens and handles unauthorized responses by clearing local storage and redirecting to login. The claim detail page now includes sophisticated estimate comparison, enhanced date selection, and improved validation capabilities.
 
 ```mermaid
 sequenceDiagram
@@ -234,6 +235,10 @@ GCP-->>U : Show updated filtered results
 - Allows adding/removing items, editing fields, and submitting the final estimate.
 - Shows AI assessment when available and warns if it is still pending.
 - **New Feature**: Displays AI vs Garage estimate comparison with cost differences and day estimates.
+- **Enhanced Date Selection**: Native HTML date picker component for selecting estimate dates with proper formatting and validation.
+- **Improved Form State Management**: Tracks estimate dates alongside other form fields with proper initialization from existing estimates.
+- **Enhanced Validation Logic**: Submit button validation now checks for any cost entries (parts, labor hours, or paint materials) rather than requiring parts specifically.
+- **Better Display of Submitted Estimates**: Shows both estimate date and submission timestamp for clarity and audit purposes.
 
 ```mermaid
 sequenceDiagram
@@ -251,11 +256,13 @@ N-->>D : Structured estimate
 D->>T : estimateTotals(structured estimate)
 T-->>D : Computed totals
 D->>D : Display AI vs Garage comparison
-D->>A : POST /claims/ : id/estimate {items, totals, notes}
-A->>S : Submit estimate
+D->>D : Initialize date picker with estimate date
+D->>D : Validate hasAnyCost (parts || labor || paint)
+D->>A : POST /claims/ : id/estimate {items, totals, notes, estimateDate}
+A->>S : Submit estimate with date
 S-->>A : Success
 A-->>D : Refresh claim data
-D-->>D : Exit edit mode, show updated state
+D-->>D : Exit edit mode, show updated state with dual timestamps
 ```
 
 **Diagram sources**
@@ -266,7 +273,7 @@ D-->>D : Exit edit mode, show updated state
 - [garageApi.ts:7-14](file://frontend/src/services/garageApi.ts#L7-L14)
 
 **Section sources**
-- [GarageClaimDetailPage.tsx:19-355](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L355)
+- [GarageClaimDetailPage.tsx:19-403](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L403)
 
 ### Garage Estimate Utilities and Data Normalization
 - **New Utility Module**: Provides standardized processing for both legacy array-based estimates and current object-based estimates.
@@ -319,7 +326,7 @@ GarageProtectedRoute --> GarageLayout : "wraps"
 
 ### Data Models Used by Garage Pages
 - Claim, GarageEstimate, RepairEstimate, DamageAssessment, and related types define the shape of data displayed and submitted by garage pages.
-- **Enhanced**: New structured estimate format supporting both legacy and current data structures with normalized labor rates and paint materials.
+- **Enhanced**: New structured estimate format supporting both legacy and current data structures with normalized labor rates and paint materials. Includes support for estimateDate field alongside submittedAt for better audit trails.
 
 ```mermaid
 erDiagram
@@ -335,6 +342,8 @@ uuid claim_id FK
 number total_cost
 number estimated_days
 text notes
+datetime estimate_date
+datetime submitted_at
 }
 REPAIR_ESTIMATE {
 uuid id PK
@@ -414,6 +423,7 @@ GE --> Types["Types & Interfaces"]
 - **Updated** Responsive design optimizations ensure optimal performance across different screen sizes and devices.
 - **New**: Data normalization utilities provide efficient processing of both legacy and current estimate formats without redundant calculations.
 - **New**: Claims page filtering is performed client-side for instant response times without additional network requests.
+- **Enhanced**: Date picker integration uses native HTML5 date input for optimal performance and accessibility across browsers.
 
 ## Troubleshooting Guide
 - Unauthorized access: If a request returns 401/403, the garage API interceptor clears local storage and redirects to login. Verify token presence and validity before making requests.
@@ -423,6 +433,8 @@ GE --> Types["Types & Interfaces"]
 - **Updated** Enhanced error handling provides better user feedback for common issues including network errors, authentication problems, and form validation failures.
 - **New**: Estimate normalization issues - if estimates don't display correctly, verify that the data format matches expected structure (either legacy array format or modern object format).
 - **New**: Claims page loading issues - if the claims page fails to load, check network connectivity and verify that the garage has proper permissions to access the claims endpoint.
+- **Enhanced**: Date picker issues - if the estimate date picker doesn't work properly, ensure the browser supports HTML5 date inputs and that the date format is correctly formatted as YYYY-MM-DD.
+- **Enhanced**: Validation issues - if the submit button remains disabled, verify that at least one cost entry exists (parts, labor hours, or paint materials) as the validation now accepts any cost type rather than requiring parts specifically.
 
 **Section sources**
 - [garageApi.ts:16-28](file://frontend/src/services/garageApi.ts#L16-L28)
@@ -432,4 +444,4 @@ GE --> Types["Types & Interfaces"]
 - [GarageClaimsPage.tsx:26-31](file://frontend/src/pages/garage/GarageClaimsPage.tsx#L26-L31)
 
 ## Conclusion
-The Garage Frontend Interface provides a focused, secure, and efficient experience for garage users to manage assigned claims and submit repair estimates. Recent improvements include a new dedicated GarageClaimsPage component that offers comprehensive claims listing with status-based filtering, real-time counts, and enhanced user interface for efficient claim management. The interface also includes enhanced AI vs garage estimate comparison, comprehensive data normalization utilities, improved estimate editing workflows, enhanced responsive design, consistent styling across all garage portal pages, better mobile responsiveness, and improved user interface elements. The interface leverages React Router for navigation, a dedicated API client for authenticated requests, clear UI patterns for dashboards and detailed workflows, and sophisticated estimate processing capabilities. The design supports both AI-assisted insights and manual adjustments, ensuring flexibility and accuracy in the estimation process with enhanced user experience across all devices. The new garageEstimate utilities provide robust handling of both legacy and current data formats, making the system more maintainable and future-proof. The addition of the dedicated claims listing page significantly improves the workflow for garage operators who need to manage multiple claims efficiently.
+The Garage Frontend Interface provides a focused, secure, and efficient experience for garage users to manage assigned claims and submit repair estimates. Recent improvements include a new dedicated GarageClaimsPage component that offers comprehensive claims listing with status-based filtering, real-time counts, and enhanced user interface for efficient claim management. The interface also includes enhanced AI vs garage estimate comparison, comprehensive data normalization utilities, improved estimate editing workflows, enhanced responsive design, consistent styling across all garage portal pages, better mobile responsiveness, and improved user interface elements. The interface leverages React Router for navigation, a dedicated API client for authenticated requests, clear UI patterns for dashboards and detailed workflows, and sophisticated estimate processing capabilities. The design supports both AI-assisted insights and manual adjustments, ensuring flexibility and accuracy in the estimation process with enhanced user experience across all devices. The new garageEstimate utilities provide robust handling of both legacy and current data formats, making the system more maintainable and future-proof. The addition of the dedicated claims listing page significantly improves the workflow for garage operators who need to manage multiple claims efficiently. **Enhanced** The latest updates to the GarageClaimDetailPage include a native date picker for precise estimate date selection, improved form state management that tracks estimate dates alongside other fields, enhanced validation logic that accepts any cost entries (parts, labor, or paint), and better display of submitted estimates showing both estimate date and submission timestamp for improved audit trails and user clarity.

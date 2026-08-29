@@ -3,7 +3,7 @@ import prisma from '../utils/prisma.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { uploadImage } from '../middleware/upload.js';
 import { detectVehicleFromImage } from '../services/vehicleDetectionService.js';
-import { AuthRequest } from '../types/index.js';
+import { AuthRequest, VEHICLE_TYPES } from '../types/index.js';
 
 const router = Router();
 
@@ -35,7 +35,7 @@ router.post('/detect', uploadImage.single('image'), async (req: AuthRequest, res
 // the vehicle always starts PENDING until the insurance company verifies it
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { make, model, year, vin, licensePlate, color, mileage, photos, insurance } = req.body;
+    const { make, model, year, vin, licensePlate, color, mileage, photos, insurance, vehicleType } = req.body;
 
     if (!make || !model || !year || !licensePlate || !color) {
       res.status(400).json({ error: 'Make, model, year, license plate, and color are required.' });
@@ -53,6 +53,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         color,
         mileage: mileage ? parseInt(mileage) : null,
         photos: JSON.stringify(photos || []),
+        vehicleType: (VEHICLE_TYPES as readonly string[]).includes(vehicleType) ? vehicleType : 'CAR',
       },
       include: { insurancePolicy: { include: { template: { select: { name: true } } } } },
     });
@@ -155,7 +156,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const { make, model, year, vin, licensePlate, color, mileage, photos } = req.body;
+    const { make, model, year, vin, licensePlate, color, mileage, photos, vehicleType } = req.body;
 
     const vehicle = await prisma.vehicle.update({
       where: { id: param(req, 'id') },
@@ -168,6 +169,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         ...(color && { color }),
         ...(mileage !== undefined && { mileage: mileage ? parseInt(mileage) : null }),
         ...(photos && { photos: JSON.stringify(photos) }),
+        ...(vehicleType && (VEHICLE_TYPES as readonly string[]).includes(vehicleType) && { vehicleType }),
       },
     });
 

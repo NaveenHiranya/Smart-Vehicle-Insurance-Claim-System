@@ -14,6 +14,9 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
     },
     server: {
+      // Listen on all interfaces so the dev server answers both 127.0.0.1 and
+      // [::1] — Windows browsers may resolve localhost to either stack
+      host: true,
       proxy: {
         '/api': {
           target: backendTarget,

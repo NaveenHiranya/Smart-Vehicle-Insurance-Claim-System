@@ -26,6 +26,7 @@ const DAMAGE_SCHEMA = {
           severity: { type: 'STRING', enum: [...SEVERITIES] },
           location: { type: 'STRING' },
           description: { type: 'STRING' },
+          affectedParts: { type: 'ARRAY', items: { type: 'STRING' } },
         },
         required: ['type', 'severity', 'location', 'description'],
       },
@@ -45,6 +46,8 @@ Rules:
 - MINOR = cosmetic only. MODERATE = functional damage, still drivable. SEVERE = safety-critical or structural.
 - location: short area name, e.g. "front-left bumper".
 - description: one short sentence.
+- affectedParts: the main replaceable parts involved, e.g. ["front bumper", "headlight"]. Use parts that fit the vehicle type shown (bike fairing, three-wheeler canopy, lorry cab...). Up to 4 parts; omit if not applicable.
+- Assess in the context of the vehicle type stated for this claim.
 - No visible damage: empty damages array and overallSeverity MINOR.`;
 
 const MAX_AI_IMAGES = 6;
@@ -88,11 +91,16 @@ export function parseDamageAnalysis(raw: string): DamageAnalysisResult {
     .slice(0, MAX_DAMAGES)
     .map((d: Record<string, unknown>) => {
       const type = normalizeType(d.type);
+      const affectedParts = (Array.isArray(d.affectedParts) ? d.affectedParts : [])
+        .map((p) => String(p ?? '').trim())
+        .filter(Boolean)
+        .slice(0, 6);
       return {
         type,
         severity: normalizeSeverity(d.severity),
         location: String(d.location ?? 'unspecified area').trim().slice(0, 120) || 'unspecified area',
         description: String(d.description ?? '').trim().slice(0, 300) || `${type.replace(/_/g, ' ')} damage.`,
+        ...(affectedParts.length > 0 && { affectedParts }),
       };
     });
 
@@ -129,7 +137,7 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
     throw new Error('No readable images to analyze');
   }
 
-  const vehicleContext = `Vehicle: ${claim.vehicle.year} ${claim.vehicle.make} ${claim.vehicle.model}, Color: ${claim.vehicle.color}`;
+  const vehicleContext = `Vehicle: ${claim.vehicle.year} ${claim.vehicle.make} ${claim.vehicle.model}, Type: ${claim.vehicle.vehicleType}, Color: ${claim.vehicle.color}`;
 
   const { text: responseText, modelUsed } = await generateContentWithFallback(
     [DAMAGE_ANALYSIS_PROMPT, vehicleContext, ...imageParts],

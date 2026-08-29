@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import prisma from '../utils/prisma.js';
 import { adminAuthMiddleware } from '../middleware/adminAuth.js';
-import { AuthRequest } from '../types/index.js';
+import { AuthRequest, VEHICLE_TYPES } from '../types/index.js';
 import { recalculatePayout } from '../services/payoutService.js';
 import { analyzeDamage } from '../services/damageAnalysisService.js';
 
@@ -332,7 +332,7 @@ router.post('/vehicles/:id/policy', async (req: AuthRequest, res: Response) => {
 // POST /api/admin/vehicles — register a vehicle on behalf of a user
 router.post('/vehicles', async (req: AuthRequest, res: Response) => {
   try {
-    const { userId, make, model, year, vin, licensePlate, color, mileage } = req.body;
+    const { userId, make, model, year, vin, licensePlate, color, mileage, vehicleType } = req.body;
     if (!userId || !make || !model || !year || !licensePlate || !color) {
       res.status(400).json({ error: 'Owner, make, model, year, license plate, and color are required.' });
       return;
@@ -358,6 +358,7 @@ router.post('/vehicles', async (req: AuthRequest, res: Response) => {
         color: String(color).trim(),
         mileage: mileage ? parseInt(mileage) : null,
         photos: '[]',
+        vehicleType: (VEHICLE_TYPES as readonly string[]).includes(vehicleType) ? vehicleType : 'CAR',
       },
     });
     res.status(201).json(vehicle);

@@ -43,6 +43,24 @@ export interface AdminUser extends User {
 
 export type VehicleVerification = 'PENDING' | 'VERIFIED' | 'REJECTED';
 
+// Vehicle classes on Sri Lankan roads — the AI fills this at registration and
+// the repair estimate scales its pricing by class
+export type VehicleType =
+  | 'CAR' | 'SUV_PICKUP' | 'VAN' | 'LORRY_TRUCK' | 'BUS'
+  | 'MOTORCYCLE' | 'THREE_WHEELER' | 'TRACTOR' | 'OTHER';
+
+export const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
+  CAR: 'Car',
+  SUV_PICKUP: 'SUV / Pickup',
+  VAN: 'Van',
+  LORRY_TRUCK: 'Lorry / Truck',
+  BUS: 'Bus',
+  MOTORCYCLE: 'Motorcycle',
+  THREE_WHEELER: 'Three-Wheeler',
+  TRACTOR: 'Tractor',
+  OTHER: 'Other',
+};
+
 export interface Vehicle {
   id: string;
   userId: string;
@@ -52,6 +70,8 @@ export interface Vehicle {
   vin?: string;
   licensePlate: string;
   color: string;
+  // Vehicle class — AI-detected at registration; drives pricing and icons
+  vehicleType: VehicleType;
   mileage?: number;
   photos: string[];
   valuation?: number | null;

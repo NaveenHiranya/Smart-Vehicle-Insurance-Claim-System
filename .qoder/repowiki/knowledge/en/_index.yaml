@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-08-29T14:30:42Z"
+exported_at: "2026-08-29T15:29:07Z"
 modules:
     "":
-        dir_name: Vehicle-Based Insurance Claim Platform (Backend & Frontend)
-        title: Vehicle-Based Insurance Claim Platform (Backend & Frontend)
+        dir_name: Vehicle-Based Insurance Claim System (Backend & Frontend)
+        title: Vehicle-Based Insurance Claim System (Backend & Frontend)
         scope: []
         source_files: []
         children: []

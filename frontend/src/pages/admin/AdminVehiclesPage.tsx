@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import type { PolicyTemplate } from '../../types';
+import type { PolicyTemplate, VehicleType } from '../../types';
+import { VEHICLE_TYPE_LABELS } from '../../types';
 import { Banknote, Car, ClipboardList, Plus, Search, X, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 
 interface AdminVehicle {
@@ -13,6 +14,8 @@ interface AdminVehicle {
   vin?: string | null;
   licensePlate: string;
   color: string;
+  // Vehicle class — drives the repair pricing scale and the type badge
+  vehicleType?: VehicleType;
   mileage?: number | null;
   valuation?: number | null;
   // Verification + per-vehicle insurance — claims require a VERIFIED vehicle with a policy
@@ -43,7 +46,7 @@ interface UserOption {
   email: string;
 }
 
-const emptyForm = { userId: '', make: '', model: '', year: '', vin: '', licensePlate: '', color: '', mileage: '' };
+const emptyForm = { userId: '', vehicleType: 'CAR', make: '', model: '', year: '', vin: '', licensePlate: '', color: '', mileage: '' };
 
 export function AdminVehiclesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -345,7 +348,10 @@ export function AdminVehiclesPage() {
                   </td>
                   <td className="px-5 py-3">
                     <p className="text-gray-900 font-medium">{v.year} {v.make} {v.model}</p>
-                    {v.vin && <p className="text-xs text-gray-500">VIN {v.vin}</p>}
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      <span className="inline-block px-1.5 py-0.5 rounded bg-primary-50 text-primary-700 font-medium">{VEHICLE_TYPE_LABELS[v.vehicleType || 'CAR']}</span>
+                      {v.vin && <> · VIN {v.vin}</>}
+                    </p>
                   </td>
                   <td className="px-5 py-3">
                     {v.insurancePolicy ? (
@@ -443,6 +449,16 @@ export function AdminVehiclesPage() {
                   <option value="">— Select user —</option>
                   {users.map((u) => (
                     <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Vehicle Type *</label>
+                <select value={form.vehicleType} onChange={set('vehicleType')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none">
+                  {(Object.keys(VEHICLE_TYPE_LABELS) as VehicleType[]).map((t) => (
+                    <option key={t} value={t}>{VEHICLE_TYPE_LABELS[t]}</option>
                   ))}
                 </select>
               </div>

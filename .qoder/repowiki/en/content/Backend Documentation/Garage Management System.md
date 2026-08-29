@@ -9,6 +9,10 @@
 - [admin.ts](file://backend/src/routes/admin.ts)
 - [auth.ts](file://backend/src/middleware/auth.ts)
 - [claimAssistantService.ts](file://backend/src/services/claimAssistantService.ts)
+- [payoutService.ts](file://backend/src/services/payoutService.ts)
+- [GarageClaimDetailPage.tsx](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx)
+- [garageEstimate.ts](file://frontend/src/utils/garageEstimate.ts)
+- [index.ts (types)](file://frontend/src/types/index.ts)
 - [App.tsx](file://frontend/src/App.tsx)
 - [Layout.tsx](file://frontend/src/components/Layout.tsx)
 - [AuthContext.tsx](file://frontend/src/context/AuthContext.tsx)
@@ -16,6 +20,14 @@
 - [package.json (backend)](file://backend/package.json)
 - [package.json (frontend)](file://frontend/package.json)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced garage estimate editor with new estimateDate field support
+- Improved validation logic for both legacy array-based and modern object-based estimate formats
+- Enhanced backend API endpoints for handling optional estimate dates with proper date parsing and validation
+- Updated frontend components to support editable estimate dates with proper formatting
+- Added comprehensive date validation and error handling in backend processing
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -29,7 +41,7 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the Garage Management System, a full-stack application for managing vehicle insurance claims with roles for policyholders, garages, and administrators. The system supports claim creation, AI-assisted damage analysis, repair estimates, document verification, chat assistance, and administrative oversight including garage approvals. It is built with an Express backend, Prisma ORM with SQLite, and a React frontend using Vite and Tailwind CSS.
+This document describes the Garage Management System, a full-stack application for managing vehicle insurance claims with roles for policyholders, garages, and administrators. The system supports claim creation, AI-assisted damage analysis, repair estimates with enhanced date tracking, document verification, chat assistance, and administrative oversight including garage approvals. It is built with an Express backend, Prisma ORM with SQLite, and a React frontend using Vite and Tailwind CSS.
 
 ## Project Structure
 The repository is organized into two main parts:
@@ -43,6 +55,8 @@ FE_App["App.tsx"]
 FE_Layout["Layout.tsx"]
 FE_Auth["AuthContext.tsx"]
 FE_API["api.ts"]
+FE_GarageUI["GarageClaimDetailPage.tsx"]
+FE_EstimateUtils["garageEstimate.ts"]
 end
 subgraph "Backend"
 BE_Index["index.ts"]
@@ -51,12 +65,14 @@ BE_Routes_Garage["routes/garage.ts"]
 BE_Routes_Admin["routes/admin.ts"]
 BE_Middleware_Auth["middleware/auth.ts"]
 BE_Service_Chat["services/claimAssistantService.ts"]
+BE_Service_Payout["services/payoutService.ts"]
 BE_Schema["prisma/schema.prisma"]
 end
 FE_App --> FE_Layout
 FE_App --> FE_Auth
 FE_Layout --> FE_API
 FE_Auth --> FE_API
+FE_GarageUI --> FE_EstimateUtils
 FE_API --> BE_Index
 BE_Index --> BE_Routes_Claims
 BE_Index --> BE_Routes_Garage
@@ -65,6 +81,7 @@ BE_Routes_Claims --> BE_Middleware_Auth
 BE_Routes_Garage --> BE_Middleware_Auth
 BE_Routes_Admin --> BE_Middleware_Auth
 BE_Routes_Claims --> BE_Service_Chat
+BE_Routes_Garage --> BE_Service_Payout
 BE_Routes_Claims --> BE_Schema
 BE_Routes_Garage --> BE_Schema
 BE_Routes_Admin --> BE_Schema
@@ -76,6 +93,8 @@ BE_Routes_Admin --> BE_Schema
 - [Layout.tsx:15-177](file://frontend/src/components/Layout.tsx#L15-L177)
 - [AuthContext.tsx:17-73](file://frontend/src/context/AuthContext.tsx#L17-L73)
 - [api.ts:7-24](file://frontend/src/services/api.ts#L7-L24)
+- [GarageClaimDetailPage.tsx:1-403](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L1-L403)
+- [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
 - [schema.prisma:10-256](file://backend/prisma/schema.prisma#L10-L256)
 
 **Section sources**
@@ -86,14 +105,14 @@ BE_Routes_Admin --> BE_Schema
 ## Core Components
 - Authentication and Authorization: JWT-based middleware protects user, garage, and admin routes.
 - Claims Management: Create, update, submit, list, and retrieve claims; upload images and documents; trigger AI analysis and estimates; chat assistant per claim.
-- Garage Portal: List assigned claims, view details, and submit repair estimates; updates claim status accordingly.
+- **Enhanced Garage Portal**: List assigned claims, view details, and submit repair estimates with optional estimate dates; require prior AI damage assessment; updates claim status accordingly.
 - Admin Portal: Dashboard stats, user management, claim oversight, document approval/rejection, garage approval/toggle.
-- Data Layer: Prisma models define users, vehicles, policies, claims, assessments, estimates, payouts, documents, messages, notes, garages, and garage estimates.
+- Data Layer: Prisma models define users, vehicles, policies, claims, assessments, estimates, payouts, documents, messages, notes, garages, and garage estimates with enhanced date tracking.
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [claims.ts:38-476](file://backend/src/routes/claims.ts#L38-L476)
-- [garage.ts:11-133](file://backend/src/routes/garage.ts#L11-L133)
+- [garage.ts:11-163](file://backend/src/routes/garage.ts#L11-L163)
 - [admin.ts:11-299](file://backend/src/routes/admin.ts#L11-L299)
 - [schema.prisma:10-256](file://backend/prisma/schema.prisma#L10-L256)
 
@@ -103,6 +122,7 @@ The system follows a layered architecture:
 - Backend Express app mounts route modules under /api namespaces.
 - Route handlers enforce role-based access via middleware and delegate to Prisma for data operations.
 - Services encapsulate AI-driven features like damage analysis and chat responses.
+- **Enhanced Estimate Processing**: Backend validates both legacy array-based and modern object-based estimate formats with optional date fields.
 
 ```mermaid
 sequenceDiagram
@@ -110,15 +130,20 @@ participant FE as "Frontend App"
 participant API as "Axios Client"
 participant BE as "Express Server"
 participant MW as "Auth Middleware"
-participant RT as "Claims Routes"
+participant RT as "Garage Routes"
+participant SVC as "Payout Service"
 participant DB as "Prisma/SQLite"
-FE->>API : POST /api/claims (create)
-API->>BE : HTTP request with Bearer token
+FE->>API : POST /api/garage/claims/ : id/estimate
+API->>BE : HTTP request with Bearer token & estimate data
 BE->>MW : Validate token
 MW-->>BE : userId attached
-BE->>RT : Handle create claim
-RT->>DB : Create Claim record
-DB-->>RT : Created claim
+BE->>RT : Handle estimate submission
+RT->>RT : Validate estimate format (array/object)
+RT->>RT : Parse & validate estimateDate (optional)
+RT->>DB : Create/Update GarageEstimate with date
+RT->>SVC : Recalculate payout based on estimate
+SVC->>DB : Update InsurancePayout
+DB-->>RT : Success
 RT-->>BE : 201 JSON
 BE-->>API : Response
 API-->>FE : Render success state
@@ -128,10 +153,108 @@ API-->>FE : Render success state
 - [api.ts:11-24](file://frontend/src/services/api.ts#L11-L24)
 - [index.ts:43-51](file://backend/src/index.ts#L43-L51)
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [claims.ts:38-76](file://backend/src/routes/claims.ts#L38-L76)
-- [schema.prisma:73-100](file://backend/prisma/schema.prisma#L73-L100)
+- [garage.ts:69-163](file://backend/src/routes/garage.ts#L69-L163)
+- [payoutService.ts:11-67](file://backend/src/services/payoutService.ts#L11-L67)
+- [schema.prisma:283-300](file://backend/prisma/schema.prisma#L283-L300)
 
 ## Detailed Component Analysis
+
+### Enhanced Garage Estimate Module
+Responsibilities:
+- List and view claims assigned to the authenticated garage.
+- Submit or update repair estimates with optional estimate dates; require prior AI damage assessment.
+- Support both legacy array-based and modern object-based estimate formats.
+- Validate estimate dates with proper parsing and error handling.
+- Update claim status to GARAGE_ESTIMATED upon estimate submission.
+- Recalculate insurance payouts based on garage estimates.
+
+**Updated** Enhanced with optional estimate date field support and improved validation logic for multiple estimate formats.
+
+```mermaid
+flowchart TD
+Start(["Submit Estimate"]) --> CheckAssessment{"AI Assessment Exists?"}
+CheckAssessment --> |No| ErrAssess["Return error: need assessment"]
+CheckAssessment --> |Yes| ParseItems{"Parse Items Format"}
+ParseItems --> ArrayFormat["Legacy Array Format"]
+ParseItems --> ObjectFormat["Modern Object Format"]
+ArrayFormat --> ExtractParts["Extract parts from array"]
+ObjectFormat --> ExtractPartsObj["Extract parts from object"]
+ExtractParts --> ValidateCosts{"Has Parts/Labor/Paint?"}
+ExtractPartsObj --> ValidateCosts
+ValidateCosts --> |No| ErrCosts["Return error: need costs"]
+ValidateCosts --> |Yes| ParseDate{"Has Estimate Date?"}
+ParseDate --> |Yes| ValidateDate["Validate Date Format"]
+ParseDate --> |No| UseCurrent["Use Current Date"]
+ValidateDate --> |Invalid| ErrDate["Return error: invalid date"]
+ValidateDate --> |Valid| SetDate["Set Parsed Date"]
+UseCurrent --> SaveEstimate["Save Estimate"]
+SetDate --> SaveEstimate
+SaveEstimate --> UpdateStatus["Update Claim Status"]
+UpdateStatus --> RecalcPayout["Recalculate Payout"]
+RecalcPayout --> Done(["Estimate Submitted"])
+```
+
+**Diagram sources**
+- [garage.ts:69-163](file://backend/src/routes/garage.ts#L69-L163)
+
+**Section sources**
+- [garage.ts:1-163](file://backend/src/routes/garage.ts#L1-L163)
+
+### Enhanced Frontend Estimate Editor
+Features:
+- Editable estimate date field with default current date.
+- Support for both legacy and modern estimate data structures.
+- Real-time cost calculations and validation.
+- Proper date formatting when submitting to backend.
+- Display of existing estimate dates when revising estimates.
+
+**Updated** Added estimate date field with proper formatting and validation.
+
+```mermaid
+sequenceDiagram
+participant UI as "Garage UI"
+participant Utils as "Estimate Utils"
+participant API as "Garage API"
+participant BE as "Backend"
+UI->>UI : Load claim with existing estimate
+UI->>Utils : normalizeGarageItems(items)
+Utils-->>UI : Structured estimate data
+UI->>UI : Set estimateDate (existing or today)
+UI->>UI : User edits estimate & date
+UI->>API : POST estimate with formatted date
+API->>BE : Send {items, estimateDate}
+BE->>BE : Validate & parse estimateDate
+BE-->>API : Success response
+API-->>UI : Update UI with new estimate
+```
+
+**Diagram sources**
+- [GarageClaimDetailPage.tsx:19-94](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L94)
+- [garageEstimate.ts:17-49](file://frontend/src/utils/garageEstimate.ts#L17-L49)
+
+**Section sources**
+- [GarageClaimDetailPage.tsx:1-403](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L1-L403)
+- [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
+
+### Enhanced Validation Logic
+The system now supports multiple estimate formats:
+
+**Legacy Array Format:**
+- Labor hours, labor rate, and paint materials stored on each item
+- Normalized to modern structure during processing
+
+**Modern Object Format:**
+- Separate parts array with single labor line and paint/materials line
+- Direct mapping to database structure
+
+**Date Validation:**
+- Optional estimate date field with proper ISO string parsing
+- Fallback to current date when no date provided
+- Comprehensive error handling for invalid date formats
+
+**Section sources**
+- [garage.ts:89-115](file://backend/src/routes/garage.ts#L89-L115)
+- [garageEstimate.ts:17-39](file://frontend/src/utils/garageEstimate.ts#L17-L39)
 
 ### Claims Module
 Responsibilities:
@@ -166,35 +289,6 @@ BGAnalyze --> Done(["Claim submitted"])
 
 **Section sources**
 - [claims.ts:17-476](file://backend/src/routes/claims.ts#L17-L476)
-
-### Garage Module
-Responsibilities:
-- List and view claims assigned to the authenticated garage.
-- Submit or update repair estimates; require prior AI damage assessment.
-- Update claim status to GARAGE_ESTIMATED upon estimate submission.
-
-```mermaid
-sequenceDiagram
-participant G as "Garage UI"
-participant GA as "Garage API"
-participant DB as "Prisma"
-G->>GA : GET /api/garage/claims
-GA->>DB : Find claims by garageId
-DB-->>GA : Claims with related data
-GA-->>G : List
-G->>GA : POST /api/garage/claims/ : id/estimate
-GA->>DB : Verify damage assessment exists
-GA->>DB : Upsert GarageEstimate
-GA->>DB : Update Claim status = GARAGE_ESTIMATED
-DB-->>GA : Success
-GA-->>G : Estimate returned
-```
-
-**Diagram sources**
-- [garage.ts:11-133](file://backend/src/routes/garage.ts#L11-L133)
-
-**Section sources**
-- [garage.ts:1-136](file://backend/src/routes/garage.ts#L1-L136)
 
 ### Admin Module
 Responsibilities:
@@ -278,11 +372,13 @@ SVC-->>UI : Return both messages
 **Section sources**
 - [claimAssistantService.ts:1-128](file://backend/src/services/claimAssistantService.ts#L1-L128)
 
-### Data Models and Relationships
-The Prisma schema defines the core entities and relationships:
+### Enhanced Data Models and Relationships
+The Prisma schema defines the core entities and relationships with enhanced date tracking:
 - Users, Vehicles, Insurance Policies, Claims, Garages.
-- Supporting entities: ClaimImage, DamageAssessment, RepairEstimate, InsurancePayout, Document, ChatMessage, AdminNote, GarageEstimate.
+- Supporting entities: ClaimImage, DamageAssessment, RepairEstimate, InsurancePayout, Document, ChatMessage, AdminNote, GarageEstimate with optional estimateDate field.
 - Enums standardize statuses and types across the system.
+
+**Updated** Enhanced GarageEstimate model with optional estimateDate field for tracking when estimates apply.
 
 ```mermaid
 erDiagram
@@ -375,8 +471,13 @@ string id PK
 string claimId FK
 string garageId FK
 json items
+float totalPartsCost
+float totalLaborCost
 float totalCost
 int estimatedDays
+string notes
+datetime estimateDate
+datetime submittedAt
 }
 USER ||--o{ VEHICLE : owns
 USER ||--o{ INSURANCE_POLICY : holds
@@ -395,17 +496,19 @@ GARAGE ||--o{ GARAGE_ESTIMATE : submits
 ```
 
 **Diagram sources**
-- [schema.prisma:10-256](file://backend/prisma/schema.prisma#L10-L256)
+- [schema.prisma:10-300](file://backend/prisma/schema.prisma#L10-L300)
 
 **Section sources**
-- [schema.prisma:1-256](file://backend/prisma/schema.prisma#L1-L256)
+- [schema.prisma:1-300](file://backend/prisma/schema.prisma#L1-L300)
 
 ## Dependency Analysis
 - Frontend dependencies: React, React Router, Axios, Tailwind, Vite.
 - Backend dependencies: Express, Prisma, JWT, Multer, Zod, Google Generative AI, bcryptjs.
 - Routing layer: index.ts wires route modules to URL prefixes.
 - Middleware layer: auth.ts secures routes; other middleware (upload, error handling) support specific features.
-- Services layer: claimAssistantService orchestrates AI interactions and persistence.
+- Services layer: claimAssistantService orchestrates AI interactions and persistence; payoutService recalculates insurance payouts.
+
+**Updated** Enhanced dependency structure with improved estimate processing services.
 
 ```mermaid
 graph LR
@@ -417,6 +520,8 @@ RT --> PR["Prisma Client"]
 RT --> SV["Services (chat, damage, estimate)"]
 SV --> AI["Gemini API"]
 PR --> DB["SQLite Database"]
+RT --> PS["Payout Service"]
+PS --> DB
 ```
 
 **Diagram sources**
@@ -435,6 +540,7 @@ PR --> DB["SQLite Database"]
 - File uploads: Enforce reasonable limits and consider offloading large files to object storage in production.
 - Caching: Consider caching frequent reads (e.g., garage listings) if traffic increases.
 - Database: For high concurrency, migrate from SQLite to a relational database with proper indexing on foreign keys and frequently filtered columns.
+- **Enhanced Processing**: Efficient parsing of multiple estimate formats reduces validation overhead.
 
 [No sources needed since this section provides general guidance]
 
@@ -445,12 +551,18 @@ Common issues and resolutions:
 - 401 Unauthorized: Verify token presence and validity; frontend clears token and redirects on 401.
 - Upload failures: Confirm UPLOAD_DIR exists and is writable; check multer configuration and file size limits.
 - AI service errors: Implement retries and fallbacks; log model usage and errors for diagnostics.
+- **Enhanced Error Handling**: Invalid estimate dates now return proper 400 errors with descriptive messages; both legacy and modern estimate formats are supported with appropriate validation.
+
+**Updated** Added troubleshooting guidance for enhanced estimate date validation and format support.
 
 **Section sources**
 - [index.ts:18-25](file://backend/src/index.ts#L18-L25)
 - [index.ts:31-41](file://backend/src/index.ts#L31-L41)
 - [api.ts:26-36](file://frontend/src/services/api.ts#L26-L36)
 - [claims.ts:220-258](file://backend/src/routes/claims.ts#L220-L258)
+- [garage.ts:107-115](file://backend/src/routes/garage.ts#L107-L115)
 
 ## Conclusion
-The Garage Management System provides a comprehensive platform for managing vehicle insurance claims with robust role-based access, AI-assisted workflows, and administrative oversight. Its modular backend and reactive frontend enable scalable feature development. Future enhancements may include advanced analytics, notifications, and migration to a cloud database for production scale.
+The Garage Management System provides a comprehensive platform for managing vehicle insurance claims with robust role-based access, AI-assisted workflows, and administrative oversight. Its modular backend and reactive frontend enable scalable feature development. Recent enhancements include improved garage estimate editing with optional date tracking, enhanced validation for multiple estimate formats, and better error handling for date parsing. Future enhancements may include advanced analytics, notifications, and migration to a cloud database for production scale.
+
+**Updated** Enhanced conclusion reflecting recent improvements to estimate handling and validation capabilities.

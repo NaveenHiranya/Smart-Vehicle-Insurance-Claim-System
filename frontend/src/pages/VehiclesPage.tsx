@@ -2,8 +2,24 @@ import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../services/api';
-import type { Vehicle, PolicyTemplate, VehicleVerification } from '../types';
-import { Car, Plus, Trash2, Upload, Sparkles, CheckCircle, AlertCircle, X, Loader, Check, Camera, XCircle } from 'lucide-react';
+import type { Vehicle, PolicyTemplate, VehicleVerification, VehicleType } from '../types';
+import { VEHICLE_TYPE_LABELS } from '../types';
+import { Car, Plus, Trash2, Upload, Sparkles, CheckCircle, AlertCircle, X, Loader, Check, Camera, XCircle, Truck, Bus, Bike, Tractor } from 'lucide-react';
+
+// Vehicle class options shown in the registration form — the AI pre-selects one
+const VEHICLE_TYPE_OPTIONS: VehicleType[] = ['CAR', 'SUV_PICKUP', 'VAN', 'LORRY_TRUCK', 'BUS', 'MOTORCYCLE', 'THREE_WHEELER', 'TRACTOR', 'OTHER'];
+
+// Class-aware icon so a bike card doesn't show a car glyph
+function VehicleTypeIcon({ type, className }: { type?: VehicleType; className?: string }) {
+  switch (type) {
+    case 'LORRY_TRUCK': return <Truck className={className} />;
+    case 'BUS': return <Bus className={className} />;
+    case 'MOTORCYCLE': return <Bike className={className} />;
+    case 'THREE_WHEELER': return <Bike className={className} />;
+    case 'TRACTOR': return <Tractor className={className} />;
+    default: return <Car className={className} />;
+  }
+}
 
 // Verification badge shared by the vehicles grid and detail views
 function VerificationBadge({ status }: { status: VehicleVerification }) {
@@ -60,11 +76,11 @@ export function VehiclesPage() {
             <Link key={v.id} to={`/vehicles/${v.id}`}
               className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition">
               <div className="flex items-start justify-between mb-3">
-                <div className="p-2 bg-primary-100 rounded-lg"><Car className="h-6 w-6 text-primary-600" /></div>
+                <div className="p-2 bg-primary-100 rounded-lg"><VehicleTypeIcon type={v.vehicleType} className="h-6 w-6 text-primary-600" /></div>
                 <span className="text-xs text-gray-500">{v.licensePlate}</span>
               </div>
               <h3 className="font-semibold text-gray-900 text-lg">{v.year} {v.make} {v.model}</h3>
-              <p className="text-sm text-gray-500 mt-1">{v.color} {v.mileage ? `- ${v.mileage.toLocaleString()} mi` : ''}</p>
+              <p className="text-sm text-gray-500 mt-1">{VEHICLE_TYPE_LABELS[v.vehicleType] || 'Car'} · {v.color} {v.mileage ? `- ${v.mileage.toLocaleString()} mi` : ''}</p>
               <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                 <span className="text-sm text-gray-500">{v._count?.claims || 0} claim(s)</span>
                 <VerificationBadge status={v.verificationStatus} />
@@ -105,9 +121,12 @@ export function VehicleDetailPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{vehicle.year} {vehicle.make} {vehicle.model}</h1>
-            <p className="text-gray-500">{vehicle.color} - {vehicle.licensePlate}</p>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary-100 rounded-lg"><VehicleTypeIcon type={vehicle.vehicleType} className="h-7 w-7 text-primary-600" /></div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{vehicle.year} {vehicle.make} {vehicle.model}</h1>
+              <p className="text-gray-500">{VEHICLE_TYPE_LABELS[vehicle.vehicleType] || 'Car'} - {vehicle.color} - {vehicle.licensePlate}</p>
+            </div>
           </div>
           <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-600 transition">
             <Trash2 className="h-5 w-5" />
@@ -115,10 +134,10 @@ export function VehicleDetailPage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div><p className="text-xs text-gray-500 uppercase">Type</p><p className="font-medium text-gray-900">{VEHICLE_TYPE_LABELS[vehicle.vehicleType] || 'Car'}</p></div>
           <div><p className="text-xs text-gray-500 uppercase">VIN</p><p className="font-medium text-gray-900">{vehicle.vin || 'N/A'}</p></div>
           <div><p className="text-xs text-gray-500 uppercase">License Plate</p><p className="font-medium text-gray-900">{vehicle.licensePlate}</p></div>
           <div><p className="text-xs text-gray-500 uppercase">Mileage</p><p className="font-medium text-gray-900">{vehicle.mileage ? `${vehicle.mileage.toLocaleString()} mi` : 'N/A'}</p></div>
-          <div><p className="text-xs text-gray-500 uppercase">Color</p><p className="font-medium text-gray-900">{vehicle.color}</p></div>
         </div>
       </div>
 
@@ -202,7 +221,7 @@ export function VehicleDetailPage() {
 }
 
 export function AddVehiclePage() {
-  const [form, setForm] = useState({ make: '', model: '', year: '', vin: '', licensePlate: '', color: '', mileage: '' });
+  const [form, setForm] = useState({ vehicleType: 'CAR', make: '', model: '', year: '', vin: '', licensePlate: '', color: '', mileage: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -223,7 +242,7 @@ export function AddVehiclePage() {
   const [detecting, setDetecting] = useState(false);
   const [detectionResult, setDetectionResult] = useState<{
     make: string; model: string; year: number; color: string;
-    licensePlate: string; confidence: string; additionalInfo?: string;
+    licensePlate: string; vehicleType: string; confidence: string; additionalInfo?: string;
   } | null>(null);
   const [detectionError, setDetectionError] = useState('');
   const vehicleCameraRef = useRef<HTMLInputElement>(null);
@@ -257,6 +276,7 @@ export function AddVehiclePage() {
       // Auto-fill form fields
       setForm((prev) => ({
         ...prev,
+        vehicleType: data.vehicleType || prev.vehicleType,
         make: data.make !== 'Unknown' ? data.make : prev.make,
         model: data.model !== 'Unknown' ? data.model : prev.model,
         year: data.year ? String(data.year) : prev.year,
@@ -377,7 +397,7 @@ export function AddVehiclePage() {
               <div className={`p-3 rounded-lg border text-sm ${confidenceColor(detectionResult.confidence)}`}>
                 <div className="flex items-center gap-1.5 mb-1.5 font-medium">
                   <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                  Detected: {detectionResult.year} {detectionResult.make} {detectionResult.model} &bull; {detectionResult.color}
+                  Detected: {detectionResult.vehicleType && `${VEHICLE_TYPE_LABELS[detectionResult.vehicleType as VehicleType] || ''} · `}{detectionResult.year} {detectionResult.make} {detectionResult.model} &bull; {detectionResult.color}
                   {detectionResult.licensePlate && <> &bull; {detectionResult.licensePlate}</>}
                   <span className={`ml-auto text-xs px-1.5 py-0.5 rounded font-semibold border ${confidenceColor(detectionResult.confidence)}`}>
                     {detectionResult.confidence}
@@ -434,6 +454,14 @@ export function AddVehiclePage() {
           </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Type *</label>
+            <select value={form.vehicleType} onChange={(e) => setForm((p) => ({ ...p, vehicleType: e.target.value }))}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none">
+              {VEHICLE_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{VEHICLE_TYPE_LABELS[t]}</option>)}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Auto-detected by the AI — used to price repairs correctly for this vehicle class.</p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Make *</label>

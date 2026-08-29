@@ -1,6 +1,0 @@
-- Each feature area is organized as a trio of route, service, and optional script files (e.g. `routes/claims.ts` + `services/claimAssistantService.ts` + `scripts/seedPolicyTemplates.ts`), keeping HTTP handlers thin and business logic isolated.
-- Role-based access control is enforced by dedicated middleware (`adminAuth.ts`, `garageAuth.ts`, `auth.ts`) mounted per route group rather than inline checks inside controllers.
-- All database mutations go through the singleton Prisma client exported from `utils/prisma.ts`; models and enums are defined centrally in `prisma/schema.prisma` and consumed via generated types.
-- Frontend routes are grouped by user role and wrapped with matching layout + guard components (`ProtectedRoute`/`AdminProtectedRoute`/`GarageProtectedRoute` + `Layout`/`AdminLayout`/`GarageLayout`) instead of ad-hoc redirects.
-- File uploads are routed through a shared `middleware/upload.ts` and served statically from the configured `UPLOAD_DIR`, with uploaded paths stored as JSON arrays in entity fields (e.g. `Vehicle.photos`).
-- Startup validation uses explicit constant arrays of required env keys (e.g. `REQUIRED_ENV`) and exits early if any are missing, providing a uniform bootstrap contract across environments.

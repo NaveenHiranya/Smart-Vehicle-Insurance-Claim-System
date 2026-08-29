@@ -1,0 +1,1 @@
+Node.js + Express backend with Prisma ORM over SQLite (`prisma/schema.prisma`); JWT-based authentication; Google Gemini AI integration for image/damage analysis (`utils/gemini.ts`); React + Vite frontend with React Router v6, TypeScript, and role-based route guards.

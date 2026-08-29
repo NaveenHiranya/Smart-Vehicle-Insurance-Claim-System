@@ -1,1 +1,0 @@
-Backend requires `JWT_SECRET`, `GEMINI_API_KEY`, and `DATABASE_URL` environment variables at startup — missing values cause an immediate `process.exit(1)` with instructions to copy `backend/.env.example`. Policy templates are seeded automatically on every server start via `seedPolicyTemplates()` so production databases never run empty of plans.

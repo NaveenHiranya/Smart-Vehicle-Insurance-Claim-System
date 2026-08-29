@@ -38,11 +38,14 @@ export function normalizeGarageItems(items: unknown): StructuredEstimate {
   };
 }
 
-export function estimateTotals(e: StructuredEstimate) {
+// estimatedDays is optional — when the garage supplies a positive value it
+// overrides the labor-hours-based computation (8h/day)
+export function estimateTotals(e: StructuredEstimate & { estimatedDays?: number }) {
   const totalPartsCost = e.parts.reduce((s, p) => s + (Number(p.partCost) || 0), 0);
   const laborCost = Math.round(e.laborHours * e.laborRate);
   const totalLaborCost = laborCost + e.paintMaterials;
   const totalCost = totalPartsCost + totalLaborCost;
-  const estimatedDays = Math.max(1, Math.ceil(e.laborHours / 8));
+  const manualDays = Math.round(Number(e.estimatedDays) || 0);
+  const estimatedDays = manualDays > 0 ? manualDays : Math.max(1, Math.ceil(e.laborHours / 8));
   return { totalPartsCost, laborCost, totalLaborCost, totalCost, estimatedDays };
 }

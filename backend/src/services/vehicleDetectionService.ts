@@ -1,5 +1,6 @@
 import { generateContentWithFallback } from '../utils/gemini.js';
 import { loadImagePart, resolveUploadPath } from '../utils/imageUtils.js';
+import { VEHICLE_TYPES, type VehicleType } from '../types/index.js';
 
 export interface VehicleDetectionResult {
   make: string;
@@ -7,6 +8,7 @@ export interface VehicleDetectionResult {
   year: number;
   color: string;
   licensePlate: string;
+  vehicleType: VehicleType;
   confidence: string;
   additionalInfo?: string;
 }
@@ -20,24 +22,27 @@ const DETECTION_SCHEMA = {
     year: { type: 'INTEGER' },
     color: { type: 'STRING' },
     licensePlate: { type: 'STRING' },
+    vehicleType: { type: 'STRING', enum: [...VEHICLE_TYPES] },
     confidence: { type: 'STRING', enum: ['HIGH', 'MEDIUM', 'LOW'] },
     additionalInfo: { type: 'STRING' },
   },
-  required: ['make', 'model', 'year', 'color', 'licensePlate', 'confidence', 'additionalInfo'],
+  required: ['make', 'model', 'year', 'color', 'licensePlate', 'vehicleType', 'confidence', 'additionalInfo'],
 };
 
-const VEHICLE_DETECTION_PROMPT = `Identify the vehicle in this photo (make, model, approximate year, paint color) and read the license plate if visible. Judge your confidence: HIGH when clearly identifiable, MEDIUM when partially obscured, LOW when unclear or not a vehicle. Use "Unknown" for anything you cannot determine, and the current year when the year is a guess.`;
+const VEHICLE_DETECTION_PROMPT = `Identify the vehicle in this photo (make, model, approximate year, paint color) and read the license plate if visible. Also classify the vehicle type exactly: CAR (hatchback/sedan/coupe), SUV_PICKUP (SUV/crossover/pickup), VAN (minivan/KDH-type), LORRY_TRUCK (lorry/truck), BUS (bus/coach), MOTORCYCLE (motorcycle/scooter/moped), THREE_WHEELER (three-wheeler/tuk-tuk), TRACTOR (tractor), or OTHER (anything else). Judge your confidence: HIGH when clearly identifiable, MEDIUM when partially obscured, LOW when unclear or not a vehicle. Use "Unknown" for anything you cannot determine, and the current year when the year is a guess.`;
 
 function normalizeDetection(parsed: Record<string, unknown>): VehicleDetectionResult {
   const confidence = String(parsed.confidence ?? '').trim().toUpperCase();
   const year = Number(parsed.year);
   const currentYear = new Date().getFullYear();
+  const rawType = String(parsed.vehicleType ?? '').trim().toUpperCase();
   return {
     make: String(parsed.make ?? '').trim() || 'Unknown',
     model: String(parsed.model ?? '').trim() || 'Unknown',
     year: Number.isInteger(year) && year >= 1900 && year <= currentYear + 1 ? year : currentYear,
     color: String(parsed.color ?? '').trim() || 'Unknown',
     licensePlate: String(parsed.licensePlate ?? '').trim(),
+    vehicleType: (VEHICLE_TYPES as readonly string[]).includes(rawType) ? (rawType as VehicleType) : 'OTHER',
     confidence: ['HIGH', 'MEDIUM', 'LOW'].includes(confidence) ? confidence : 'LOW',
     additionalInfo: String(parsed.additionalInfo ?? '').trim() || undefined,
   };
@@ -75,6 +80,7 @@ export async function detectVehicleFromImage(imagePath: string): Promise<Vehicle
       year: new Date().getFullYear(),
       color: 'Unknown',
       licensePlate: '',
+      vehicleType: 'OTHER',
       confidence: 'LOW',
       additionalInfo: 'AI could not parse vehicle details from this image. Please fill in manually.',
     };

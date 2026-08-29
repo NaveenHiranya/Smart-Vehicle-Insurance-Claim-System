@@ -119,7 +119,7 @@ router.post('/claims/:id/estimate', async (req: AuthRequest, res: Response) => {
       totalPartsCost: Number(totalPartsCost) || 0,
       totalLaborCost: Number(totalLaborCost) || 0,
       totalCost: Number(totalCost) || 0,
-      estimatedDays: Number(estimatedDays) || 1,
+      estimatedDays: Math.min(365, Math.max(1, Math.round(Number(estimatedDays) || 1))),
       notes: notes || null,
     };
 

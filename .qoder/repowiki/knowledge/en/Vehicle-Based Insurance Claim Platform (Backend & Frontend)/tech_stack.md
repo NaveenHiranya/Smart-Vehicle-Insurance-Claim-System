@@ -1,1 +1,0 @@
-Node.js + Express + TypeScript backend with Prisma ORM over SQLite; React + Vite + TypeScript frontend using react-router-dom, served on Vercel. Google Gemini is used for AI-powered damage assessment and claim assistance (via `utils/gemini.ts`).

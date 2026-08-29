@@ -4,11 +4,13 @@
 **Referenced Files in This Document**
 - [ClaimDetailPage.tsx](file://frontend/src/pages/ClaimDetailPage.tsx)
 - [AdminClaimDetailPage.tsx](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx)
+- [GarageClaimDetailPage.tsx](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx)
 - [GlobalAIAssistant.tsx](file://frontend/src/components/GlobalAIAssistant.tsx)
 - [api.ts](file://frontend/src/services/api.ts)
 - [adminApi.ts](file://frontend/src/services/adminApi.ts)
 - [index.ts (types)](file://frontend/src/types/index.ts)
 - [claims.ts (routes)](file://backend/src/routes/claims.ts)
+- [garage.ts (routes)](file://backend/src/routes/garage.ts)
 - [admin.ts (routes)](file://backend/src/routes/admin.ts)
 - [damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
 - [repairEstimateService.ts](file://backend/src/services/repairEstimateService.ts)
@@ -25,6 +27,7 @@
 - Enhanced damage assessment error handling with contextual guidance and manual retry options
 - Implemented better visual feedback for re-analysis processes after image modifications
 - Upgraded error message clarity with actionable information for users
+- **Updated**: Estimate date display now shows actual estimate dates with fallback to submission timestamps for better context
 
 ## Table of Contents
 1. Introduction
@@ -38,7 +41,7 @@
 9. Conclusion
 
 ## Introduction
-This document explains the ClaimDetailPage, which provides a comprehensive view and management experience for an individual insurance claim. It covers how incident details, vehicle information, damage assessment results with enhanced error handling and real-time polling, repair estimates with integrated garage comparison, current status with timeline tracking, documents, chat-based communication, approval workflow integration, and admin notes display are shown and managed. The page now features significantly improved error handling with sophisticated retry mechanisms, better visual indicators for AI processing status, more informative error messages when damage analysis fails, and enhanced user feedback throughout all AI-powered operations. It also documents data fetching patterns, error handling for missing or invalid claim data, navigation behavior, and real-time-like updates via polling mechanisms.
+This document explains the ClaimDetailPage, which provides a comprehensive view and management experience for an individual insurance claim. It covers how incident details, vehicle information, damage assessment results with enhanced error handling and real-time polling, repair estimates with integrated garage comparison, current status with timeline tracking, documents, chat-based communication, approval workflow integration, and admin notes display are shown and managed. The page now features significantly improved error handling with sophisticated retry mechanisms, better visual indicators for AI processing status, more informative error messages when damage analysis fails, and enhanced user feedback throughout all AI-powered operations. It also documents data fetching patterns, error handling for missing or invalid claim data, navigation behavior, and real-time-like updates via polling mechanisms. The system now provides better context for estimate timing by displaying actual estimate dates when available, falling back to submission timestamps for older estimates without explicit estimate dates.
 
 ## Project Structure
 The ClaimDetailPage is part of a React frontend that communicates with an Express backend. The page fetches claim data, triggers AI analysis with enhanced error handling and real-time polling, manages garage selection, handles image uploads with automatic re-analysis, uploads documents, verifies documents, manages a chat conversation, and displays admin notes from insurance reviewers. The backend exposes REST endpoints to read/update claims, run AI services, persist related entities such as images, documents, assessments, estimates, payouts, chat messages, and admin notes. All monetary values are consistently formatted with Sri Lankan Rupees (Rs.) prefixes and proper thousands separators.
@@ -48,6 +51,7 @@ graph TB
 subgraph "Frontend"
 CDP["ClaimDetailPage.tsx"]
 ACDP["AdminClaimDetailPage.tsx"]
+GCP["GarageClaimDetailPage.tsx"]
 GAA["GlobalAIAssistant.tsx"]
 GEU["garageEstimate.ts"]
 API["api.ts (Axios client)"]
@@ -57,6 +61,7 @@ end
 subgraph "Backend"
 ROUTES["claims.ts routes"]
 AROUTES["admin.ts routes"]
+GROUTES["garage.ts routes"]
 DAST["damageAnalysisService.ts"]
 RES["repairEstimateService.ts"]
 DVS["documentVerificationService.ts"]
@@ -64,10 +69,12 @@ CAS["claimAssistantService.ts"]
 end
 CDP --> API
 ACDP --> AAPI
+GCP --> API
 GAA --> API
 CDP --> GEU
 API --> ROUTES
 AAPI --> AROUTES
+API --> GROUTES
 ROUTES --> DAST
 ROUTES --> RES
 ROUTES --> DVS
@@ -76,30 +83,36 @@ AROUTES --> DAST
 AROUTES --> RES
 AROUTES --> DVS
 AROUTES --> CAS
+GROUTES --> RES
 CDP --> TYPES
 ACDP --> TYPES
+GCP --> TYPES
 GAA --> TYPES
 GEU --> TYPES
 ```
 
 **Diagram sources**
-- [ClaimDetailPage.tsx:1-821](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L821)
-- [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
+- [ClaimDetailPage.tsx:1-777](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L777)
+- [AdminClaimDetailPage.tsx:1-593](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L593)
+- [GarageClaimDetailPage.tsx:1-250](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L1-L250)
 - [GlobalAIAssistant.tsx:1-157](file://frontend/src/components/GlobalAIAssistant.tsx#L1-L157)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 - [adminApi.ts:1-27](file://frontend/src/services/adminApi.ts#L1-L27)
 - [claims.ts:1-532](file://backend/src/routes/claims.ts#L1-L532)
+- [garage.ts:1-163](file://backend/src/routes/garage.ts#L1-L163)
 - [admin.ts:1-239](file://backend/src/routes/admin.ts#L1-L239)
 
 **Section sources**
-- [ClaimDetailPage.tsx:1-821](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L821)
-- [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
+- [ClaimDetailPage.tsx:1-777](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L777)
+- [AdminClaimDetailPage.tsx:1-593](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L593)
+- [GarageClaimDetailPage.tsx:1-250](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L1-L250)
 - [GlobalAIAssistant.tsx:1-157](file://frontend/src/components/GlobalAIAssistant.tsx#L1-L157)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 - [adminApi.ts:1-27](file://frontend/src/services/adminApi.ts#L1-L27)
 - [claims.ts:1-532](file://backend/src/routes/claims.ts#L1-L532)
+- [garage.ts:1-163](file://backend/src/routes/garage.ts#L1-L163)
 - [admin.ts:1-239](file://backend/src/routes/admin.ts#L1-L239)
 
 ## Core Components
@@ -126,6 +139,7 @@ Key behaviors:
 - Displays all monetary values with consistent Sri Lankan Rupees formatting.
 - Shows admin notes with categorized badges and formatted timestamps.
 - Provides access to AI assistance through global floating assistant instead of inline suggestions.
+- **Enhanced estimate date display**: shows actual estimate dates when available, with fallback to submission timestamps for better context about when estimates were intended to apply.
 
 **Section sources**
 - [ClaimDetailPage.tsx:9-119](file://frontend/src/pages/ClaimDetailPage.tsx#L9-L119)
@@ -134,6 +148,7 @@ Key behaviors:
 - [ClaimDetailPage.tsx:368-417](file://frontend/src/pages/ClaimDetailPage.tsx#L368-L417)
 - [ClaimDetailPage.tsx:419-465](file://frontend/src/pages/ClaimDetailPage.tsx#L419-L465)
 - [AdminClaimDetailPage.tsx:245-304](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L245-L304)
+- [GarageClaimDetailPage.tsx:185-216](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L185-L216)
 - [GlobalAIAssistant.tsx:16-157](file://frontend/src/components/GlobalAIAssistant.tsx#L16-L157)
 - [api.ts:11-37](file://frontend/src/services/api.ts#L11-L37)
 
@@ -153,6 +168,7 @@ participant F as "ClaimDetailPage.tsx"
 participant GA as "GlobalAIAssistant.tsx"
 participant A as "api.ts"
 participant R as "claims.ts"
+participant GR as "garage.ts"
 participant S1 as "damageAnalysisService.ts"
 participant S2 as "repairEstimateService.ts"
 participant S3 as "documentVerificationService.ts"
@@ -200,12 +216,14 @@ GA-->>U : Display AI response
 **Diagram sources**
 - [ClaimDetailPage.tsx:37-58](file://frontend/src/pages/ClaimDetailPage.tsx#L37-L58)
 - [ClaimDetailPage.tsx:112-117](file://frontend/src/pages/ClaimDetailPage.tsx#L112-L117)
+- [GarageClaimDetailPage.tsx:29-43](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L29-L43)
 - [GlobalAIAssistant.tsx:29-43](file://frontend/src/components/GlobalAIAssistant.tsx#L29-L43)
 - [claims.ts:104-134](file://backend/src/routes/claims.ts#L104-L134)
 - [claims.ts:270-288](file://backend/src/routes/claims.ts#L270-L288)
+- [garage.ts:100-163](file://backend/src/routes/garage.ts#L100-L163)
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
 - [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
-- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-L107)
+- [documentVerificationService.ts:41-107](file://backend/src/services/documentVerificationService.ts#L41-107)
 - [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
 
 ## Detailed Component Analysis
@@ -326,6 +344,27 @@ Comparison features:
 **Section sources**
 - [ClaimDetailPage.tsx:291-347](file://frontend/src/pages/ClaimDetailPage.tsx#L291-L347)
 - [garageEstimate.ts:17-48](file://frontend/src/utils/garageEstimate.ts#L17-L48)
+
+### Enhanced Estimate Date Display with Fallback Logic
+**Updated** Estimate date display now shows actual estimate dates when available, with fallback to submission timestamps for better context about when estimates were intended to apply versus when they were actually submitted.
+
+- **Primary display**: Shows `estimateDate` when explicitly set by the garage
+- **Fallback behavior**: Falls back to `submittedAt` for older estimates without explicit estimate dates
+- **Consistent formatting**: Both dates use the same formatting approach with `toLocaleDateString()`
+- **Better context**: Provides clearer understanding of when estimates were meant to apply vs. when they were processed
+
+Implementation details:
+- Frontend displays: `{new Date(claim.garageEstimate.estimateDate ?? claim.garageEstimate.submittedAt).toLocaleDateString()}`
+- Backend stores `estimateDate` when garage specifies it during estimate submission
+- For legacy estimates without explicit dates, falls back to `submittedAt` timestamp
+- Applied consistently across user, admin, and garage interfaces
+
+**Section sources**
+- [ClaimDetailPage.tsx:321-324](file://frontend/src/pages/ClaimDetailPage.tsx#L321-L324)
+- [AdminClaimDetailPage.tsx:399-402](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L399-L402)
+- [GarageClaimDetailPage.tsx:199-202](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L199-L202)
+- [garage.ts:106-115](file://backend/src/routes/garage.ts#L106-L115)
+- [index.ts:244-247](file://frontend/src/types/index.ts#L244-L247)
 
 ### Monetary Value Formatting with Sri Lankan Rupees
 **Updated** Enhanced with comprehensive Sri Lankan Rupees (Rs.) formatting throughout all monetary displays, including garage estimates.
@@ -532,6 +571,9 @@ Implementation:
 - AdminClaimDetailPage depends on:
   - adminApi.ts for admin-specific HTTP requests and authentication.
   - Same types for consistency across user and admin interfaces.
+- GarageClaimDetailPage depends on:
+  - garageApi.ts for garage-specific operations and authentication.
+  - Enhanced estimate date handling with fallback logic.
 - GlobalAIAssistant depends on:
   - api.ts for general chat functionality.
   - Independent state management for chat history.
@@ -548,10 +590,12 @@ Implementation:
 graph LR
 CDP["ClaimDetailPage.tsx"] --> API["api.ts"]
 ACDP["AdminClaimDetailPage.tsx"] --> AAPI["adminApi.ts"]
+GCP["GarageClaimDetailPage.tsx"] --> GAR["garageApi.ts"]
 GAA["GlobalAIAssistant.tsx"] --> API
 CDP --> GEU["garageEstimate.ts"]
 API --> ROUTES["claims.ts"]
 AAPI --> AROUTES["admin.ts"]
+GAR --> GROUTES["garage.ts"]
 ROUTES --> DAST["damageAnalysisService.ts"]
 ROUTES --> RES["repairEstimateService.ts"]
 ROUTES --> DVS["documentVerificationService.ts"]
@@ -560,33 +604,39 @@ AROUTES --> DAST
 AROUTES --> RES
 AROUTES --> DVS
 AROUTES --> CAS
+GROUTES --> RES
 CDP --> TYPES["Types (index.ts)"]
 ACDP --> TYPES
+GCP --> TYPES
 GAA --> TYPES
 GEU --> TYPES
 ```
 
 **Diagram sources**
-- [ClaimDetailPage.tsx:1-821](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L821)
-- [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
+- [ClaimDetailPage.tsx:1-777](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L777)
+- [AdminClaimDetailPage.tsx:1-593](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L593)
+- [GarageClaimDetailPage.tsx:1-250](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L1-L250)
 - [GlobalAIAssistant.tsx:1-157](file://frontend/src/components/GlobalAIAssistant.tsx#L1-L157)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 - [adminApi.ts:1-27](file://frontend/src/services/adminApi.ts#L1-L27)
 - [claims.ts:1-532](file://backend/src/routes/claims.ts#L1-L532)
+- [garage.ts:1-163](file://backend/src/routes/garage.ts#L1-L163)
 - [admin.ts:1-239](file://backend/src/routes/admin.ts#L1-L239)
-- [index.ts:1-219](file://frontend/src/types/index.ts#L1-L219)
+- [index.ts:1-284](file://frontend/src/types/index.ts#L1-L284)
 
 **Section sources**
-- [ClaimDetailPage.tsx:1-821](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L821)
-- [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
+- [ClaimDetailPage.tsx:1-777](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L777)
+- [AdminClaimDetailPage.tsx:1-593](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L593)
+- [GarageClaimDetailPage.tsx:1-250](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L1-L250)
 - [GlobalAIAssistant.tsx:1-157](file://frontend/src/components/GlobalAIAssistant.tsx#L1-L157)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 - [adminApi.ts:1-27](file://frontend/src/services/adminApi.ts#L1-L27)
 - [claims.ts:1-532](file://backend/src/routes/claims.ts#L1-L532)
+- [garage.ts:1-163](file://backend/src/routes/garage.ts#L1-L163)
 - [admin.ts:1-239](file://backend/src/routes/admin.ts#L1-L239)
-- [index.ts:1-219](file://frontend/src/types/index.ts#L1-L219)
+- [index.ts:1-284](file://frontend/src/types/index.ts#L1-L284)
 
 ## Performance Considerations
 - Re-fetching after mutations avoids stale UI but may cause multiple network calls; consider batching or optimistic updates where appropriate.
@@ -599,6 +649,7 @@ GEU --> TYPES
 - Global AI Assistant maintains separate state to avoid interfering with claim page performance.
 - **Garage estimate normalization**: Efficient parsing and calculation of garage estimate totals using utility functions
 - **Enhanced error handling**: Improved error recovery mechanisms reduce unnecessary retry attempts and improve user experience
+- **Optimized date display**: Efficient fallback logic for estimate dates minimizes computational overhead
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -637,6 +688,11 @@ Common issues and resolutions:
   - Check that claim is not in DRAFT status
   - Monitor console for any API errors during re-analysis
   - Verify enhanced error handling provides appropriate feedback
+- **Estimate date display issues**:
+  - Verify that `estimateDate` is properly stored in the database when set by garages
+  - Check fallback to `submittedAt` for older estimates without explicit dates
+  - Ensure date formatting works correctly across different locales
+  - Confirm that null/undefined values are handled gracefully in the fallback logic
 
 Relevant flows:
 - Error handling in frontend catches failures and alerts users; navigation occurs on claim fetch failure.
@@ -645,18 +701,21 @@ Relevant flows:
 - Currency formatting is applied consistently across all monetary displays.
 - Global AI Assistant handles its own error states independently from claim operations.
 - **Enhanced error handling**: Improved error messages for garage operations and assessment processes with sophisticated retry mechanisms
+- **Improved estimate date handling**: Better context provided through actual estimate dates with reliable fallback to submission timestamps
 
 **Section sources**
 - [ClaimDetailPage.tsx:27-33](file://frontend/src/pages/ClaimDetailPage.tsx#L27-L33)
 - [ClaimDetailPage.tsx:60-80](file://frontend/src/pages/ClaimDetailPage.tsx#L60-L80)
 - [ClaimDetailPage.tsx:37-58](file://frontend/src/pages/ClaimDetailPage.tsx#L37-L58)
+- [GarageClaimDetailPage.tsx:199-202](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L199-L202)
 - [GlobalAIAssistant.tsx:29-43](file://frontend/src/components/GlobalAIAssistant.tsx#L29-L43)
 - [api.ts:26-37](file://frontend/src/services/api.ts#L26-L37)
 - [claims.ts:175-200](file://backend/src/routes/claims.ts#L175-L200)
 - [claims.ts:316-353](file://backend/src/routes/claims.ts#L316-L353)
+- [garage.ts:106-115](file://backend/src/routes/garage.ts#L106-L115)
 - [damageAnalysisService.ts:85-103](file://backend/src/services/damageAnalysisService.ts#L85-L103)
 - [documentVerificationService.ts:78-94](file://backend/src/services/documentVerificationService.ts#L78-L94)
 - [admin.ts:183-208](file://backend/src/routes/admin.ts#L183-L208)
 
 ## Conclusion
-The ClaimDetailPage delivers a robust, user-friendly interface for managing individual claims with comprehensive Sri Lankan Rupees formatting throughout all monetary displays. The recent enhancements include significantly improved error handling with sophisticated retry mechanisms and countdown timers, better visual indicators for AI processing status with clear loading states and progress feedback, more informative error messages when damage analysis fails with actionable guidance, and enhanced user feedback throughout all AI-powered operations. The system now features intelligent auto-retry functionality that automatically attempts recovery from AI service failures, sophisticated polling mechanisms with timeout protection, and enhanced visual feedback for re-analysis processes after image modifications. The removal of inline AI suggestions has streamlined the user experience, focusing on core claim management features while providing access to AI assistance through a more flexible global floating assistant. The enhanced error handling ensures graceful degradation and clear user feedback, while the sophisticated retry mechanisms provide resilience against temporary AI service failures. Data consistency is maintained through explicit re-fetching after mutations and intelligent polling strategies, while the improved error handling ensures users always have clear guidance on next steps when issues occur. The system now provides a professional, localized experience for Sri Lankan insurance claim management with culturally appropriate currency formatting, enhanced AI reliability through sophisticated error handling, and improved user experience during AI processing operations.
+The ClaimDetailPage delivers a robust, user-friendly interface for managing individual claims with comprehensive Sri Lankan Rupees formatting throughout all monetary displays. The recent enhancements include significantly improved error handling with sophisticated retry mechanisms and countdown timers, better visual indicators for AI processing status with clear loading states and progress feedback, more informative error messages when damage analysis fails with actionable guidance, and enhanced user feedback throughout all AI-powered operations. The system now features intelligent auto-retry functionality that automatically attempts recovery from AI service failures, sophisticated polling mechanisms with timeout protection, and enhanced visual feedback for re-analysis processes after image modifications. The removal of inline AI suggestions has streamlined the user experience, focusing on core claim management features while providing access to AI assistance through a more flexible global floating assistant. The enhanced error handling ensures graceful degradation and clear user feedback, while the sophisticated retry mechanisms provide resilience against temporary AI service failures. Data consistency is maintained through explicit re-fetching after mutations and intelligent polling strategies, while the improved error handling ensures users always have clear guidance on next steps when issues occur. The system now provides a professional, localized experience for Sri Lankan insurance claim management with culturally appropriate currency formatting, enhanced AI reliability through sophisticated error handling, improved user experience during AI processing operations, and better context for estimate timing through actual estimate dates with reliable fallback to submission timestamps for older estimates.
