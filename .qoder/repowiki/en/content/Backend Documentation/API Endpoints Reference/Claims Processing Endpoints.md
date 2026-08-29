@@ -1,7 +1,3 @@
-</think>
-
-Based on my analysis of the codebase, I can see significant enhancements to the claims API endpoints with improved garage assignment workflow, better status transitions, and enhanced document verification capabilities. Let me now create the updated documentation:
-
 # Claims Processing Endpoints
 
 <cite>
@@ -15,6 +11,7 @@ Based on my analysis of the codebase, I can see significant enhancements to the 
 - [documentVerificationService.ts](file://backend/src/services/documentVerificationService.ts)
 - [claimAssistantService.ts](file://backend/src/services/claimAssistantService.ts)
 - [upload.ts](file://backend/src/middleware/upload.ts)
+- [errorHandler.ts](file://backend/src/middleware/errorHandler.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
 - [types/index.ts](file://backend/src/types/index.ts)
 </cite>
@@ -26,6 +23,7 @@ Based on my analysis of the codebase, I can see significant enhancements to the 
 - Added enhanced document verification capabilities with improved AI-powered validation
 - Expanded admin endpoints with comprehensive note management system
 - Integrated garage-specific endpoints for estimate submission and claim management
+- **Updated error handling with improved classification distinguishing between known preconditions (400 Bad Request) and AI service failures (502 Bad Gateway)**
 - Updated data models to support garage relationships and enhanced workflow tracking
 
 ## Table of Contents
@@ -41,7 +39,7 @@ Based on my analysis of the codebase, I can see significant enhancements to the 
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for claims processing endpoints in the Smart Vehicle Insurance Claim System. It covers claim submission, status tracking, image and document uploads, AI-powered damage assessment, repair estimate generation, document verification, chat assistance, administrative note management, and enhanced garage assignment workflows. The system now supports a complete claims lifecycle from submission through garage review and estimation to final resolution, with robust state management and audit trails.
+This document provides comprehensive API documentation for claims processing endpoints in the Smart Vehicle Insurance Claim System. It covers claim submission, status tracking, image and document uploads, AI-powered damage assessment, repair estimate generation, document verification, chat assistance, administrative note management, and enhanced garage assignment workflows. The system now supports a complete claims lifecycle from submission through garage review and estimation to final resolution, with robust state management, audit trails, and **improved error classification for better client-side user feedback**.
 
 ## Project Structure
 The backend exposes RESTful APIs under /api with specialized route modules:
@@ -82,6 +80,7 @@ Garage --> GarageEstimates["Garage Estimates"]
 - **Garage Integration**: Dedicated endpoints for garage claim review, estimate submission, and workflow management
 - **Administrative Controls**: Comprehensive note management, status control, document approval/rejection, and garage management
 - **Enhanced Data Models**: Support for garage relationships, improved status tracking, and comprehensive audit trails
+- **Improved Error Classification**: Enhanced error handling that distinguishes between known preconditions (400 Bad Request) and AI service failures (502 Bad Gateway) for better client-side user feedback
 
 **Section sources**
 - [claims.ts:17-532](file://backend/src/routes/claims.ts#L17-L532)
@@ -96,6 +95,7 @@ The enhanced claims API orchestrates multiple services and stakeholders to autom
 - **Document Verification**: AI-powered validation with admin override capabilities
 - **Chat Assistance**: Contextual guidance throughout the entire claim lifecycle
 - **Administrative Oversight**: Comprehensive note-taking, status management, and audit trails
+- **Enhanced Error Handling**: Intelligent error classification providing actionable feedback to clients
 
 ```mermaid
 sequenceDiagram
@@ -196,12 +196,16 @@ Base path: /api/claims (requires authentication)
   - Form fields: document (multipart), documentType (LICENSE|REGISTRATION|ACCIDENT_REPORT|REPAIR_ESTIMATE)
   - Response: created document record with PENDING verification status
 
-#### AI-Powered Features
+#### AI-Powered Features with Enhanced Error Handling
 - **Trigger AI Damage Analysis**
   - Method: POST
   - Path: /api/claims/:id/analyze
   - Response: damage analysis result with severity assessment
-  
+  - **Enhanced Error Handling**: 
+    - Returns 400 Bad Request for known preconditions (missing images, invalid claim)
+    - Returns 502 Bad Gateway for AI service failures with retryable error messages
+    - Provides actionable error messages for client-side handling
+
 - **Generate Repair Estimate**
   - Method: POST
   - Path: /api/claims/:id/estimate
@@ -218,6 +222,8 @@ Base path: /api/claims (requires authentication)
 - **Chat Messages**
   - GET /api/claims/:id/chat: returns chat history
   - POST /api/claims/:id/chat: sends message and receives assistant response
+
+**Updated** Enhanced error classification now distinguishes between client errors (400) and server/AI service errors (502) for better user experience
 
 **Section sources**
 - [claims.ts:17-532](file://backend/src/routes/claims.ts#L17-L532)
@@ -365,6 +371,7 @@ The enhanced claims module depends on:
 - **AI Services**: Damage analysis, document verification, and chat assistance with fallback mechanisms
 - **Authentication**: Multi-role authentication (user, admin, garage) with appropriate middleware
 - **Status Management**: Complex state transitions with validation rules
+- **Enhanced Error Handling**: Improved error classification for better client-side feedback
 
 ```mermaid
 graph LR
@@ -398,6 +405,7 @@ Garage --> GarageEstimates["Garage Estimate Management"]
 - **Caching**: Static cost tables and frequently accessed metadata cached where applicable
 - **Garage Workflows**: Efficient filtering and sorting for garage-specific claim lists
 - **Note Management**: Lightweight text operations with minimal performance impact
+- **Error Handling**: Reduced unnecessary retries through intelligent error classification
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -408,6 +416,9 @@ Common issues and resolutions:
 - **Status Transitions**: Validate current status allows requested transition; ensure prerequisites are met
 - **Document Verification**: Check file accessibility; verify AI service connectivity; use admin override when needed
 - **Note Management**: Ensure claim exists before creating notes; validate content requirements; verify admin authentication
+- **Error Classification**: Use 400 errors for client-side corrections and 502 errors for temporary AI service issues
+
+**Updated** Enhanced error handling now provides better differentiation between fixable client errors (400) and temporary AI service failures (502) for improved user experience
 
 Operational tips:
 - Use health endpoint to verify service connectivity and database status
@@ -421,7 +432,7 @@ Operational tips:
 - [documentVerificationService.ts:76-92](file://backend/src/services/documentVerificationService.ts#L76-L92)
 
 ## Conclusion
-The enhanced claims processing API provides a comprehensive, automated workflow from submission to resolution, integrating AI-powered damage assessment, repair estimate generation, document verification, contextual chat assistance, administrative note management, and sophisticated garage assignment workflows. The system now supports a complete multi-stakeholder process involving users, garages, and administrators with robust state management, audit trails, and operational controls. The enhanced architecture balances automation with human oversight to ensure accuracy and compliance while maintaining detailed tracking throughout the entire claims lifecycle.
+The enhanced claims processing API provides a comprehensive, automated workflow from submission to resolution, integrating AI-powered damage assessment, repair estimate generation, document verification, contextual chat assistance, administrative note management, and sophisticated garage assignment workflows. The system now supports a complete multi-stakeholder process involving users, garages, and administrators with robust state management, audit trails, operational controls, and **improved error classification for better client-side user feedback**. The enhanced architecture balances automation with human oversight to ensure accuracy and compliance while maintaining detailed tracking throughout the entire claims lifecycle.
 
 ## Appendices
 
@@ -436,7 +447,7 @@ The enhanced claims processing API provides a comprehensive, automated workflow 
   - POST /api/claims/:id/submit
   - POST /api/claims/:id/images
   - DELETE /api/claims/:id/images/:imageId
-  - POST /api/claims/:id/analyze
+  - POST /api/claims/:id/analyze *(Enhanced Error Handling)*
   - POST /api/claims/:id/estimate
   - POST /api/claims/:id/documents
   - GET /api/claims/:id/documents
@@ -614,4 +625,56 @@ API-->>A : Updated claim
 **Section sources**
 - [garage.ts:11-136](file://backend/src/routes/garage.ts#L11-L136)
 - [admin.ts:81-127](file://backend/src/routes/admin.ts#L81-L127)
-</docs>
+
+### Enhanced Error Classification System
+
+**Updated** The system now implements intelligent error classification to provide better client-side user feedback:
+
+#### Known Preconditions (400 Bad Request)
+These errors indicate client-side issues that can be immediately corrected:
+- Missing required fields or invalid data formats
+- Invalid claim IDs or resource not found
+- Business rule violations (e.g., submitting without images, editing non-draft claims)
+- Invalid garage assignments or status transitions
+- Missing prerequisite conditions (e.g., damage assessment required before estimate)
+
+#### AI Service Failures (502 Bad Gateway)
+These errors indicate temporary AI service issues that can be retried:
+- AI model unavailability or timeout
+- Network connectivity issues with external AI services
+- Temporary service degradation or maintenance
+- Rate limiting or quota exceeded scenarios
+
+#### Error Handling Implementation
+The enhanced error handling in the damage analysis endpoint demonstrates this approach:
+
+```typescript
+// Enhanced error handling in claims.ts
+router.post('/:id/analyze', async (req: AuthRequest, res: Response) => {
+  try {
+    // ... validation and processing
+    const assessment = await analyzeDamage(param(req, 'id'));
+    res.json(assessment);
+  } catch (error) {
+    console.error('Analyze damage error:', error);
+    // Known preconditions surface as actionable 400s; anything else is an AI-side
+    // hiccup the user can retry (the cascade has already exhausted the models).
+    const message = error instanceof Error ? error.message : '';
+    if (message.includes('images')) {
+      res.status(400).json({ error: message });
+      return;
+    }
+    res.status(502).json({ error: 'AI damage analysis failed. Please try again in a moment.' });
+  }
+});
+```
+
+**Benefits:**
+- **Better User Experience**: Clients can differentiate between fixable errors and temporary issues
+- **Reduced Support Load**: Clear error messages guide users to resolve issues independently
+- **Improved Retry Logic**: Clients can implement smart retry strategies for 502 errors
+- **Enhanced Monitoring**: Better categorization of errors for analytics and alerting
+
+**Section sources**
+- [claims.ts:374-399](file://backend/src/routes/claims.ts#L374-L399)
+- [errorHandler.ts:1-28](file://backend/src/middleware/errorHandler.ts#L1-L28)

@@ -1,1 +1,0 @@
-Full-stack vehicle insurance claim platform with user, garage, and admin portals for filing claims, uploading documents, AI-assisted damage assessment, and insurer review workflows.

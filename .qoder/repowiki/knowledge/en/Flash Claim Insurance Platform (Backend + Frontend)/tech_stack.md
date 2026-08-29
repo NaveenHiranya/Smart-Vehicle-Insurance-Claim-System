@@ -1,1 +1,0 @@
-Express 5 + TypeScript backend with Prisma ORM over SQLite (dev `dev.db`) / PostgreSQL (prod); JWT auth via `jsonwebtoken`; bcryptjs for password hashing; Multer for file uploads; Google Generative AI (`@google/generative-ai`) for AI services; Zod for runtime validation. Frontend is React 19 + Vite + Tailwind CSS 4 + react-dropzone for uploads, with Oxlint for linting.

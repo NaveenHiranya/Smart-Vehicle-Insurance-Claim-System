@@ -6,3 +6,8 @@ buildCommand = "cd backend && npm install && npm run build"
 startCommand = "cd backend && npx prisma db push && node dist/index.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+[environments.production]
+# sharp requires Node >= 20.9 — pin the runtime for the Nixpacks build and deploy
+NODE_VERSION = "22.17.0"
+NIXPACKS_NODE_VERSION = "22.17.0"

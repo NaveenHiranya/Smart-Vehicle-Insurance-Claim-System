@@ -1,0 +1,1 @@
+Express + TypeScript on the backend with Prisma ORM against a SQLite dev database (`prisma/dev.db`); JWT authentication via `jsonwebtoken`; frontend is a Vite + React SPA using Tailwind CSS and Lucide icons, deployed to Vercel (`vercel.json`).

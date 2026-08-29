@@ -27,6 +27,8 @@
 - Added coverage percentage calculation engine for payouts
 - Integrated policy templates with admin management interface
 - Updated payout calculation to use coverage percentages from templates
+- **NEW**: Implemented automatic policy template seeding system that runs during server startup
+- **NEW**: Added idempotent and non-blocking template seeding behavior for production environments
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -63,6 +65,7 @@ Service_Damage["services/damageAnalysisService.ts"]
 Service_Estimate["services/repairEstimateService.ts"]
 Service_Payout["services/payoutService.ts"]
 DB["Prisma Schema (schema.prisma)"]
+Server["Server Startup (index.ts)"]
 end
 FE_Policies --> FE_API
 FE_Admin --> FE_API
@@ -79,6 +82,7 @@ Routes_Claims --> Service_Damage
 Service_Damage --> Service_Estimate
 Service_Estimate --> Service_Payout
 Service_Template --> DB
+Server --> Service_Template
 ```
 
 **Diagram sources**
@@ -93,6 +97,7 @@ Service_Template --> DB
 - [repairEstimateService.ts:1-199](file://backend/src/services/repairEstimateService.ts#L1-L199)
 - [payoutService.ts:1-67](file://backend/src/services/payoutService.ts#L1-L67)
 - [schema.prisma:52-86](file://backend/prisma/schema.prisma#L52-L86)
+- [index.ts:67-78](file://backend/src/index.ts#L67-L78)
 
 **Section sources**
 - [schema.prisma:10-86](file://backend/prisma/schema.prisma#L10-L86)
@@ -111,12 +116,14 @@ Service_Template --> DB
 - **Enhanced Policy CRUD**: Traditional policy management with template-based creation
 - **Coverage Percentage Engine**: Dynamic payout calculation based on plan coverage percentages
 - **Claims Integration**: Claims automatically linked to active policies with coverage-aware payout calculation
+- **Automatic Template Seeding**: Built-in templates are created automatically during server startup
 
 Key responsibilities:
 - Templates: Define standard insurance plans with coverage parameters
 - Policies: Store individual policy instances linked to templates or custom configurations
 - Payout Calculation: Apply deductibles and coverage percentages to determine claim payouts
 - Admin Management: Create, edit, activate/deactivate policy templates
+- Server Initialization: Ensure built-in templates exist in every environment
 
 **Section sources**
 - [schema.prisma:52-86](file://backend/prisma/schema.prisma#L52-L86)
@@ -161,17 +168,18 @@ CL-->>UI : Claim + coverage-aware payout
 
 ## Detailed Component Analysis
 
-### Policy Template System
-**Updated** Added comprehensive policy template system with four built-in insurance plans that are automatically seeded on startup.
+### Automatic Template Seeding System
+**Updated** Added comprehensive policy template seeding system that runs automatically during server startup, ensuring built-in insurance plan templates exist in every environment with idempotent and non-blocking behavior.
 
 - **Built-in Plans**: 
   - Full Comprehensive: 100% coverage, Rs. 25,000 deductible, Rs. 85,000 annual fee
   - Standard Comprehensive: 80% coverage, Rs. 50,000 deductible, Rs. 55,000 annual fee  
   - Third Party Plus: 50% coverage, Rs. 75,000 deductible, Rs. 28,000 annual fee
   - Third Party Only: 30% coverage, Rs. 100,000 deductible, Rs. 15,000 annual fee
-- **Template Management**: Admins can create, edit, activate/deactivate, and delete policy templates
-- **Automatic Seeding**: Default templates are created on server startup using idempotent seeding
-- **Coverage Percentages**: Each template defines the percentage of repair costs covered after deductible
+- **Idempotent Seeding**: Skips existing templates matched by name + coverage type, preventing duplicate entries
+- **Non-Blocking Startup**: Seeding runs in try-catch block, never blocks server startup on failure
+- **Production Ready**: Ensures fresh environments (including production) always have default templates available
+- **Admin Override Safe**: Never overwrites admin-created edits or modifications to existing templates
 
 ```mermaid
 flowchart TD
@@ -182,6 +190,9 @@ Check -- Yes --> Skip["Skip existing templates"]
 Create --> Log["Log created count"]
 Skip --> Ready["System ready"]
 Log --> Ready
+Ready --> Error{"Seeding failed?"}
+Error -- Yes --> Continue["Continue startup"]
+Error -- No --> Continue
 ```
 
 **Diagram sources**
@@ -347,6 +358,7 @@ Finalize --> Store["Store InsurancePayout"]
 - **Coverage Dependencies**: Payout calculation depends on policy.coveragePercent field
 - **Admin Dependencies**: Template management requires admin authentication and CRUD operations
 - **Frontend Dependencies**: Policy pages depend on template APIs and activation endpoints
+- **Startup Dependencies**: Server initialization depends on template seeding service
 
 ```mermaid
 graph LR
@@ -358,6 +370,7 @@ Pol --> Template["policyTemplateSeeder.ts"]
 Template --> DB
 Pol --> Payout["payoutService.ts"]
 Payout --> DB
+Index["index.ts"] --> Template
 ```
 
 **Diagram sources**
@@ -367,6 +380,7 @@ Payout --> DB
 - [policyTemplateSeeder.ts:1-56](file://backend/src/services/policyTemplateSeeder.ts#L1-L56)
 - [payoutService.ts:1-67](file://backend/src/services/payoutService.ts#L1-L67)
 - [schema.prisma:52-86](file://backend/prisma/schema.prisma#L52-L86)
+- [index.ts:67-78](file://backend/src/index.ts#L67-L78)
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
@@ -380,6 +394,7 @@ Payout --> DB
 - **Coverage Calculation Optimization**: Coverage percentage calculations are lightweight but should be batched for multiple claims
 - **Template Seeding Efficiency**: Idempotent seeding prevents unnecessary database operations on startup
 - **Policy Lookup Optimization**: Include template relationships efficiently to avoid N+1 queries
+- **Startup Performance**: Template seeding runs asynchronously and doesn't block server startup
 
 [No sources needed since this section provides general guidance]
 
@@ -391,14 +406,16 @@ Payout --> DB
 - **Template Activation Failures**: Check template validity and user permissions
 - **Payout Calculation Issues**: Verify policy has valid coveragePercent and deductible values
 - **Template Seeding Problems**: Check database connectivity and seed script execution
+- **Startup Issues**: Template seeding failures don't block server startup due to error handling
 
 **Section sources**
 - [policies.ts:28-40](file://backend/src/routes/policies.ts#L28-L40)
 - [admin.ts:175-181](file://backend/src/routes/admin.ts#L175-L181)
 - [payoutService.ts:28-35](file://backend/src/services/payoutService.ts#L28-L35)
+- [index.ts:70-74](file://backend/src/index.ts#L70-L74)
 
 ## Conclusion
-The enhanced policy management system now provides a comprehensive solution for insurance policy administration through template-based plan management, automated activation workflows, and coverage-aware payout calculations. The system supports both traditional policy creation and modern template-based approaches, enabling flexible policy management while maintaining consistency through standardized templates. The integration of coverage percentages allows for nuanced claim processing that reflects actual insurance policy terms.
+The enhanced policy management system now provides a comprehensive solution for insurance policy administration through template-based plan management, automated activation workflows, and coverage-aware payout calculations. The system supports both traditional policy creation and modern template-based approaches, enabling flexible policy management while maintaining consistency through standardized templates. The integration of coverage percentages allows for nuanced claim processing that reflects actual insurance policy terms. The automatic template seeding system ensures that built-in insurance plans are always available across all environments, providing a seamless user experience from deployment to production.
 
 [No sources needed since this section summarizes without analyzing specific files]
 

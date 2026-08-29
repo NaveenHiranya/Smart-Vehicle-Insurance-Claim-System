@@ -1,0 +1,6 @@
+- Every admin route is wrapped with `router.use(adminAuthMiddleware)` at the router level rather than per-handler, enforcing a single authorization boundary for the entire `/api/admin` namespace.
+- Route handlers extract URL parameters via a local `param(req, name)` helper instead of reading `req.params` directly, keeping parameter access consistent across the file.
+- Input validation is performed inline inside each handler, returning early with `{ status: 400, error: '...' }` for malformed numbers, dates, or enums before any Prisma mutation.
+- Prisma queries use explicit `select`/`include` projections to return only the fields needed by the admin UI, avoiding over-fetching related entities.
+- Error handling follows a try/catch around each handler body that logs the error and responds with `{ status: 500, error: 'Failed to ...' }`, keeping error shape uniform.
+- Filterable list endpoints accept comma-separated query strings (e.g. `?status=A,B,C`) and convert them into Prisma `in` clauses, enabling multi-select filtering without extra endpoints.

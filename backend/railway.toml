@@ -9,3 +9,6 @@ restartPolicyMaxRetries = 3
 
 [environments.production]
 PORT = "5000"
+# sharp requires Node >= 20.9 — pin the runtime for the Nixpacks build and deploy
+NODE_VERSION = "22.17.0"
+NIXPACKS_NODE_VERSION = "22.17.0"

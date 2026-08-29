@@ -19,12 +19,12 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced garage selection modal with improved user interface and better visual feedback
-- Implemented real-time damage assessment polling with automatic background updates
-- Added re-analysis triggers that automatically run after image uploads or deletions
-- Integrated comprehensive garage estimate comparison display showing AI vs garage estimates
-- Improved progress tracking with garage-specific steps including garage selection and assessment phases
-- Enhanced error handling for garage operations and assessment processes
+- Enhanced error handling with sophisticated retry mechanisms and user-friendly error messages
+- Improved visual indicators for AI processing status with clear loading states and progress feedback
+- Added intelligent auto-retry functionality for failed AI analysis with countdown timers
+- Enhanced damage assessment error handling with contextual guidance and manual retry options
+- Implemented better visual feedback for re-analysis processes after image modifications
+- Upgraded error message clarity with actionable information for users
 
 ## Table of Contents
 1. Introduction
@@ -38,10 +38,10 @@
 9. Conclusion
 
 ## Introduction
-This document explains the ClaimDetailPage, which provides a comprehensive view and management experience for an individual insurance claim. It covers how incident details, vehicle information, damage assessment results with real-time polling, repair estimates with integrated garage comparison, current status with timeline tracking, documents, chat-based communication, approval workflow integration, and admin notes display are shown and managed. The page now features enhanced garage selection capabilities, automatic re-analysis after image modifications, and comprehensive estimate comparison between AI-generated and garage-provided assessments. It also documents data fetching patterns, error handling for missing or invalid claim data, navigation behavior, and real-time-like updates via polling mechanisms.
+This document explains the ClaimDetailPage, which provides a comprehensive view and management experience for an individual insurance claim. It covers how incident details, vehicle information, damage assessment results with enhanced error handling and real-time polling, repair estimates with integrated garage comparison, current status with timeline tracking, documents, chat-based communication, approval workflow integration, and admin notes display are shown and managed. The page now features significantly improved error handling with sophisticated retry mechanisms, better visual indicators for AI processing status, more informative error messages when damage analysis fails, and enhanced user feedback throughout all AI-powered operations. It also documents data fetching patterns, error handling for missing or invalid claim data, navigation behavior, and real-time-like updates via polling mechanisms.
 
 ## Project Structure
-The ClaimDetailPage is part of a React frontend that communicates with an Express backend. The page fetches claim data, triggers AI analysis with real-time polling, manages garage selection, handles image uploads with automatic re-analysis, uploads documents, verifies documents, manages a chat conversation, and displays admin notes from insurance reviewers. The backend exposes REST endpoints to read/update claims, run AI services, persist related entities such as images, documents, assessments, estimates, payouts, chat messages, and admin notes. All monetary values are consistently formatted with Sri Lankan Rupees (Rs.) prefixes and proper thousands separators.
+The ClaimDetailPage is part of a React frontend that communicates with an Express backend. The page fetches claim data, triggers AI analysis with enhanced error handling and real-time polling, manages garage selection, handles image uploads with automatic re-analysis, uploads documents, verifies documents, manages a chat conversation, and displays admin notes from insurance reviewers. The backend exposes REST endpoints to read/update claims, run AI services, persist related entities such as images, documents, assessments, estimates, payouts, chat messages, and admin notes. All monetary values are consistently formatted with Sri Lankan Rupees (Rs.) prefixes and proper thousands separators.
 
 ```mermaid
 graph TB
@@ -83,7 +83,7 @@ GEU --> TYPES
 ```
 
 **Diagram sources**
-- [ClaimDetailPage.tsx:1-713](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L713)
+- [ClaimDetailPage.tsx:1-821](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L821)
 - [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
 - [GlobalAIAssistant.tsx:1-157](file://frontend/src/components/GlobalAIAssistant.tsx#L1-L157)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
@@ -93,7 +93,7 @@ GEU --> TYPES
 - [admin.ts:1-239](file://backend/src/routes/admin.ts#L1-L239)
 
 **Section sources**
-- [ClaimDetailPage.tsx:1-713](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L713)
+- [ClaimDetailPage.tsx:1-821](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L821)
 - [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
 - [GlobalAIAssistant.tsx:1-157](file://frontend/src/components/GlobalAIAssistant.tsx#L1-L157)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
@@ -106,7 +106,7 @@ GEU --> TYPES
 - Claim detail display: incident info, vehicle make/model/year, location/date, status badge, safety warning when severe damage is detected.
 - **Enhanced garage selection**: improved modal interface with visual feedback, address display, and change capabilities.
 - Images gallery: shows uploaded full-vehicle and close-up damage photos with delete functionality.
-- **Real-time damage assessment**: displays severity, drivability assessment, and itemized damages with automatic polling and re-analysis triggers.
+- **Enhanced real-time damage assessment**: displays severity, drivability assessment, and itemized damages with sophisticated error handling, automatic polling, re-analysis triggers, and improved visual feedback.
 - **Integrated estimate comparison**: shows both AI and garage estimates side-by-side with detailed breakdowns and currency formatting.
 - **Repair estimate**: shows parts/labor totals with Sri Lankan Rupees formatting, estimated days, and line items with proper currency display.
 - **Insurance payout**: shows deductible, covered amounts, and estimated payouts in Rs. format.
@@ -118,8 +118,9 @@ GEU --> TYPES
 
 Key behaviors:
 - Fetches claim details on mount and refreshes after mutations.
-- **Real-time polling**: automatically polls for damage assessment results until they appear.
-- **Automatic re-analysis**: triggers re-analysis after image uploads or deletions.
+- **Enhanced real-time polling**: automatically polls for damage assessment results until they appear with sophisticated timeout handling.
+- **Intelligent re-analysis**: triggers re-analysis after image uploads or deletions with improved error handling.
+- **Advanced error handling**: implements retry mechanisms with countdown timers and user-friendly error messages.
 - Navigates back to claims listing if claim not found.
 - Uses axios interceptors to attach auth tokens and handle 401 redirects.
 - Displays all monetary values with consistent Sri Lankan Rupees formatting.
@@ -139,7 +140,7 @@ Key behaviors:
 ## Architecture Overview
 The ClaimDetailPage follows a client-server architecture with clear separation of concerns:
 - Frontend UI orchestrates user interactions and renders rich claim context including admin notes with proper currency formatting.
-- **Enhanced polling mechanism**: implements background polling for damage assessment results and automatic re-analysis triggers.
+- **Enhanced polling mechanism**: implements background polling for damage assessment results with sophisticated error handling and automatic retry logic.
 - Backend routes enforce authentication and delegate to specialized services.
 - Services integrate with AI models to analyze damage, generate estimates, verify documents, and power the chat assistant.
 - Data persistence uses Prisma to store claims, images, documents, assessments, estimates, payouts, chat messages, and admin notes.
@@ -162,7 +163,7 @@ A->>R : GET /claims/ : id
 R-->>A : Claim + relations + adminNotes
 A-->>F : Claim data with Rs. formatted values
 F->>F : Render sections including admin notes and currency
-Note over F : Background polling starts for assessment
+Note over F : Background polling starts for assessment with enhanced error handling
 loop Real-time polling (every 5s, max 2min)
 F->>A : GET /claims/ : id (polling)
 A->>R : GET /claims/ : id
@@ -174,14 +175,14 @@ F->>A : POST/DELETE /claims/ : id/images
 A->>R : Handle image operation
 R-->>A : Success
 A-->>F : Updated claim
-F->>F : Trigger re-analysis
+F->>F : Trigger re-analysis with error handling
 F->>A : POST /claims/ : id/analyze
 A->>R : POST /claims/ : id/analyze
 R->>S1 : analyzeDamage()
-S1-->>R : Assessment result
-R-->>A : Assessment
-A-->>F : Success
-Note over F : Re-analysis polling starts
+S1-->>R : Assessment result or error
+R-->>A : Assessment or error response
+A-->>F : Success or enhanced error with retry info
+Note over F : Re-analysis polling starts with improved error handling
 loop Re-analysis polling (every 5s, max 3min)
 F->>A : GET /claims/ : id (polling)
 A->>R : GET /claims/ : id
@@ -209,68 +210,101 @@ GA-->>U : Display AI response
 
 ## Detailed Component Analysis
 
-### Enhanced Garage Selection Modal
-**Updated** Significantly improved garage selection interface with better visual feedback and user experience.
+### Enhanced Error Handling and Retry Mechanisms
+**Updated** Significantly improved error handling with sophisticated retry mechanisms and user-friendly error messages.
 
-- **Improved modal design**: Full-screen overlay with smooth animations and better layout
-- **Visual selection indicators**: Radio buttons with highlighted borders and check marks for selected garages
-- **Enhanced garage information display**: Shows name, address, city, and phone number with map pin icons
-- **Smart loading states**: Loading indicator while fetching available garages
-- **Contextual actions**: Dynamic button text changes based on whether changing existing garage or selecting new one
-- **Validation and error handling**: Prevents saving without selection and handles network errors gracefully
-
-Implementation details:
-- Modal opens with `openGarageModal()` function that pre-populates current garage selection
-- Garages are fetched from `/claims/garages` endpoint only when needed (on first open)
-- Selection state managed with `garagePick` state variable
-- Save operation calls PATCH `/claims/:id/garage` with garageId
-- Automatic claim refresh after successful garage selection/change
-
-**Section sources**
-- [ClaimDetailPage.tsx:60-80](file://frontend/src/pages/ClaimDetailPage.tsx#L60-L80)
-- [ClaimDetailPage.tsx:673-709](file://frontend/src/pages/ClaimDetailPage.tsx#L673-L709)
-- [claims.ts:175-200](file://backend/src/routes/claims.ts#L175-L200)
-
-### Real-Time Damage Assessment Polling
-**Updated** Implemented sophisticated polling mechanism for automatic damage assessment updates.
-
-- **Background polling**: Automatically polls every 5 seconds for up to 2 minutes after claim submission
-- **Smart polling conditions**: Only activates when claim is submitted, has images, and no assessment exists
-- **Polling timeout**: Stops polling after 2 minutes to prevent unnecessary network requests
-- **Visual feedback**: Shows spinning animation and helpful messages during polling process
-- **State management**: Uses `pollStartRef` to track polling start time and prevent multiple intervals
-
-Processing logic:
-- Polling starts immediately when claim becomes non-DRAFT status with images but no assessment
-- Each poll fetches updated claim data to check for assessment completion
-- Polling stops when assessment appears or timeout is reached
-- Clean interval cleanup prevents memory leaks
-
-**Section sources**
-- [ClaimDetailPage.tsx:37-46](file://frontend/src/pages/ClaimDetailPage.tsx#L37-L46)
-- [ClaimDetailPage.tsx:409-413](file://frontend/src/pages/ClaimDetailPage.tsx#L409-L413)
-
-### Automatic Re-Analysis After Image Edits
-**Updated** Added intelligent re-analysis triggers that automatically update damage assessments when images are modified.
-
-- **Image change detection**: Monitors image uploads and deletions to trigger re-analysis
-- **Conditional re-analysis**: Only triggers when claim is not in DRAFT status or already has assessment
-- **Background processing**: Runs re-analysis in background with automatic polling until new assessment arrives
-- **User feedback**: Shows clear messaging about ongoing re-analysis process
-- **Time-limited polling**: Polls for up to 3 minutes for new assessment results
+- **Automatic retry system**: Implements intelligent retry logic that automatically attempts to re-analyze up to twice when AI analysis fails
+- **Countdown timers**: Shows real-time countdown indicating when automatic retry will occur
+- **Contextual error messages**: Provides specific, actionable error messages based on failure types
+- **Visual error indicators**: Uses prominent red alert boxes with clear messaging and retry buttons
+- **Retryable vs non-retryable errors**: Distinguishes between temporary failures (retryable) and permanent issues (non-retryable)
 
 Implementation details:
-- `triggerReanalysis()` function sets timestamp and calls analyze endpoint
-- `reanalyzing` state computed based on timestamp and assessment timing
-- Separate polling mechanism from initial assessment polling
-- Visual indicator shows "Photos changed — AI is re-analyzing" message
-- Automatic cleanup when re-analysis completes or times out
+- `analyzeError` state tracks error details including message and retryability
+- `retryIn` countdown timer shows time remaining before automatic retry
+- `retryCountRef` tracks number of automatic retry attempts (max 2)
+- Manual retry button always available for immediate action
+- Error messages provide clear guidance: "AI is not working correctly right now" with specific details
 
 **Section sources**
-- [ClaimDetailPage.tsx:48-58](file://frontend/src/pages/ClaimDetailPage.tsx#L48-L58)
-- [ClaimDetailPage.tsx:112-117](file://frontend/src/pages/ClaimDetailPage.tsx#L112-L117)
-- [ClaimDetailPage.tsx:137-144](file://frontend/src/pages/ClaimDetailPage.tsx#L137-L144)
-- [ClaimDetailPage.tsx:377-382](file://frontend/src/pages/ClaimDetailPage.tsx#L377-L382)
+- [ClaimDetailPage.tsx:25-28](file://frontend/src/pages/ClaimDetailPage.tsx#L25-L28)
+- [ClaimDetailPage.tsx:94-129](file://frontend/src/pages/ClaimDetailPage.tsx#L94-L129)
+- [ClaimDetailPage.tsx:428-445](file://frontend/src/pages/ClaimDetailPage.tsx#L428-L445)
+
+### Enhanced Visual Indicators for AI Processing Status
+**Updated** Significantly improved visual feedback for all AI processing operations with clearer status indicators.
+
+- **Multi-state processing indicators**: Distinct visual states for initial analysis, re-analysis, and error conditions
+- **Animated loading states**: Spinning icons and progress indicators for ongoing AI operations
+- **Color-coded status messages**: Blue for processing, red for errors, green for success
+- **Contextual messaging**: Clear explanations of what's happening at each stage
+- **Progressive disclosure**: Shows different levels of detail based on processing state
+
+Processing states:
+- **Initial analysis**: "AI is analyzing your photos. This may take a minute — results will appear here automatically."
+- **Re-analysis**: "Photos changed — AI is re-analyzing and updating the estimate. Results will appear here automatically."
+- **Error state**: Prominent error banner with retry option and automatic retry countdown
+- **Success state**: Full damage assessment display with severity indicators
+
+**Section sources**
+- [ClaimDetailPage.tsx:417-480](file://frontend/src/pages/ClaimDetailPage.tsx#L417-L480)
+
+### Intelligent Auto-Retry with Countdown Timers
+**Updated** Sophisticated retry mechanism that automatically attempts recovery from AI service failures.
+
+- **Smart retry logic**: Automatically retries failed analysis up to twice with 30-second intervals
+- **Countdown visualization**: Shows real-time countdown ("Re-analyzing automatically in 30s…")
+- **Manual override**: Users can immediately retry without waiting for automatic retry
+- **Retry budget management**: Prevents excessive retry attempts to avoid overwhelming the AI service
+- **State preservation**: Maintains user context and previous analysis state during retry process
+
+Implementation details:
+- `retryCountRef` tracks number of automatic retry attempts
+- `retryIn` countdown timer decrements every second
+- Automatic retry triggered after 30 seconds for retryable errors
+- Manual retry resets the retry counter and provides immediate feedback
+- Error state persists until successful completion or retry budget exhausted
+
+**Section sources**
+- [ClaimDetailPage.tsx:117-129](file://frontend/src/pages/ClaimDetailPage.tsx#L117-L129)
+- [ClaimDetailPage.tsx:434-438](file://frontend/src/pages/ClaimDetailPage.tsx#L434-L438)
+
+### Enhanced Damage Assessment Error Messages
+**Updated** More informative and actionable error messages when damage analysis fails.
+
+- **Contextual error messaging**: Specific messages based on error type and context
+- **User guidance**: Clear instructions on what users can do to resolve issues
+- **Technical transparency**: Hints about potential causes without exposing internal details
+- **Action-oriented design**: Each error message includes appropriate next steps
+
+Error message examples:
+- **Service unavailable**: "AI analysis did not complete — the AI service may be unavailable right now."
+- **General failure**: "AI analysis failed — the AI service may be unavailable right now."
+- **Re-analysis failure**: "AI re-analysis failed — the previous assessment is still shown."
+- **Timeout**: "AI analysis did not complete — the AI service may be unavailable right now."
+
+**Section sources**
+- [ClaimDetailPage.tsx:52-54](file://frontend/src/pages/ClaimDetailPage.tsx#L52-L54)
+- [ClaimDetailPage.tsx:109-113](file://frontend/src/pages/ClaimDetailPage.tsx#L109-L113)
+- [ClaimDetailPage.tsx:158-161](file://frontend/src/pages/ClaimDetailPage.tsx#L158-L161)
+
+### Enhanced Progress Checklist with Garage Integration
+**Updated** Expanded progress tracking to include garage-specific milestones and assessment phases.
+
+- **Garage selection step**: Added "Garage selected" milestone in progress tracking
+- **Garage assessment step**: Includes "Garage assessment" phase after garage selection
+- **Issue detection**: Highlights problematic steps with red indicators and XCircle icons
+- **Visual hierarchy**: Clear distinction between completed, pending, and problematic steps
+- **Contextual guidance**: Clock icons indicate pending steps requiring attention
+
+Progress flow:
+- Claim created → Vehicle photos uploaded → Claim submitted → AI damage assessment complete → Repair estimate generated → **Garage selected** → **Garage assessment** → Documents uploaded → Documents approved → Claim approved → Claim completed
+- Each step includes boolean completion status and optional issue flag
+- Conditional rendering based on claim state and related entities
+
+**Section sources**
+- [ClaimDetailPage.tsx:170-197](file://frontend/src/pages/ClaimDetailPage.tsx#L170-L197)
+- [ClaimDetailPage.tsx:247-270](file://frontend/src/pages/ClaimDetailPage.tsx#L247-L270)
 
 ### Integrated Garage Estimate Comparison Display
 **Updated** Comprehensive comparison interface showing both AI-generated and garage-provided estimates side by side.
@@ -292,24 +326,6 @@ Comparison features:
 **Section sources**
 - [ClaimDetailPage.tsx:291-347](file://frontend/src/pages/ClaimDetailPage.tsx#L291-L347)
 - [garageEstimate.ts:17-48](file://frontend/src/utils/garageEstimate.ts#L17-L48)
-
-### Enhanced Progress Checklist with Garage Integration
-**Updated** Expanded progress tracking to include garage-specific milestones and assessment phases.
-
-- **Garage selection step**: Added "Garage selected" milestone in progress tracking
-- **Garage assessment step**: Includes "Garage assessment" phase after garage selection
-- **Issue detection**: Highlights problematic steps with red indicators and XCircle icons
-- **Visual hierarchy**: Clear distinction between completed, pending, and problematic steps
-- **Contextual guidance**: Clock icons indicate pending steps requiring attention
-
-Progress flow:
-- Claim created → Vehicle photos uploaded → Claim submitted → AI damage assessment complete → Repair estimate generated → **Garage selected** → **Garage assessment** → Documents uploaded → Documents approved → Claim approved → Claim completed
-- Each step includes boolean completion status and optional issue flag
-- Conditional rendering based on claim state and related entities
-
-**Section sources**
-- [ClaimDetailPage.tsx:170-197](file://frontend/src/pages/ClaimDetailPage.tsx#L170-L197)
-- [ClaimDetailPage.tsx:247-270](file://frontend/src/pages/ClaimDetailPage.tsx#L247-L270)
 
 ### Monetary Value Formatting with Sri Lankan Rupees
 **Updated** Enhanced with comprehensive Sri Lankan Rupees (Rs.) formatting throughout all monetary displays, including garage estimates.
@@ -359,19 +375,20 @@ Implementation details:
 - [AdminClaimDetailPage.tsx:275-304](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L275-L304)
 - [index.ts:122-129](file://frontend/src/types/index.ts#L122-L129)
 
-### Damage Assessment Results with Real-Time Updates
-**Updated** Enhanced with real-time polling and automatic re-analysis capabilities.
+### Enhanced Damage Assessment Results with Real-Time Updates
+**Updated** Enhanced with sophisticated error handling, real-time polling, and automatic re-analysis capabilities.
 
 - Displays overall severity, drivability assessment, and list of damages with type, severity, location, and description.
-- **Real-time polling**: Automatically polls for assessment results every 5 seconds until they appear
-- **Re-analysis triggers**: Automatically triggers re-analysis when images are uploaded or deleted
-- **Visual feedback**: Shows spinning animations and helpful messages during processing
+- **Enhanced real-time polling**: Automatically polls for assessment results every 5 seconds until they appear with sophisticated timeout handling
+- **Intelligent re-analysis triggers**: Automatically triggers re-analysis when images are uploaded or deleted with improved error handling
+- **Advanced visual feedback**: Shows spinning animations, helpful messages, and error states during processing
+- **Robust error handling**: Implements retry mechanisms with countdown timers and user-friendly error messages
 - Supports manual re-analysis by calling POST /claims/:id/analyze
 
 Processing logic:
 - Backend service reads claim images, sends them to AI model, parses JSON output, persists assessment, updates image annotations, and auto-generates repair estimate with Sri Lankan Rupees formatting.
-- Frontend implements sophisticated polling mechanism with timeout protection
-- Automatic re-analysis ensures assessment stays current with image changes
+- Frontend implements sophisticated polling mechanism with timeout protection and enhanced error handling
+- Automatic re-analysis ensures assessment stays current with image changes while providing clear user feedback
 
 **Section sources**
 - [ClaimDetailPage.tsx:37-58](file://frontend/src/pages/ClaimDetailPage.tsx#L37-L58)
@@ -483,12 +500,13 @@ Implementation:
 - [GlobalAIAssistant.tsx:16-157](file://frontend/src/components/GlobalAIAssistant.tsx#L16-L157)
 
 ### Enhanced Real-Time Updates and Refresh Strategy
-**Updated** Enhanced with sophisticated polling mechanisms for real-time updates.
+**Updated** Enhanced with sophisticated polling mechanisms and improved error handling for real-time updates.
 
 - After each mutation (analyze, upload, verify, chat), the page calls GET /claims/:id to refresh the latest state.
-- **Real-time polling**: Automatically polls every 5 seconds for up to 2 minutes when damage assessment is pending
-- **Re-analysis polling**: Triggers separate polling mechanism when images are modified
-- This pattern ensures consistent UI without WebSockets while providing near real-time updates.
+- **Enhanced real-time polling**: Automatically polls every 5 seconds for up to 2 minutes when damage assessment is pending with sophisticated timeout handling
+- **Intelligent re-analysis polling**: Triggers separate polling mechanism when images are modified with improved error handling
+- **Advanced error recovery**: Implements retry mechanisms with countdown timers and user feedback
+- This pattern ensures consistent UI without WebSockets while providing near real-time updates with robust error handling.
 - Currency formatting is maintained across all refresh operations.
 
 **Section sources**
@@ -549,7 +567,7 @@ GEU --> TYPES
 ```
 
 **Diagram sources**
-- [ClaimDetailPage.tsx:1-713](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L713)
+- [ClaimDetailPage.tsx:1-821](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L821)
 - [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
 - [GlobalAIAssistant.tsx:1-157](file://frontend/src/components/GlobalAIAssistant.tsx#L1-L157)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
@@ -560,7 +578,7 @@ GEU --> TYPES
 - [index.ts:1-219](file://frontend/src/types/index.ts#L1-L219)
 
 **Section sources**
-- [ClaimDetailPage.tsx:1-713](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L713)
+- [ClaimDetailPage.tsx:1-821](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L821)
 - [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
 - [GlobalAIAssistant.tsx:1-157](file://frontend/src/components/GlobalAIAssistant.tsx#L1-L157)
 - [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
@@ -572,7 +590,7 @@ GEU --> TYPES
 
 ## Performance Considerations
 - Re-fetching after mutations avoids stale UI but may cause multiple network calls; consider batching or optimistic updates where appropriate.
-- **Enhanced polling optimization**: Implements smart polling with timeouts to prevent excessive network requests
+- **Enhanced polling optimization**: Implements smart polling with timeouts to prevent excessive network requests and sophisticated error handling
 - Image loading can be optimized with lazy loading and proper sizing.
 - AI operations (analysis, verification, chat) can be slow; keep disabled states and spinners to improve perceived performance.
 - Avoid unnecessary re-renders by memoizing derived lists (already used for todoSteps and suggestions).
@@ -580,6 +598,7 @@ GEU --> TYPES
 - Admin notes display is lightweight and doesn't significantly impact performance due to simple conditional rendering.
 - Global AI Assistant maintains separate state to avoid interfering with claim page performance.
 - **Garage estimate normalization**: Efficient parsing and calculation of garage estimate totals using utility functions
+- **Enhanced error handling**: Improved error recovery mechanisms reduce unnecessary retry attempts and improve user experience
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -603,18 +622,21 @@ Common issues and resolutions:
 - Global AI Assistant not responding:
   - Check network connectivity to `/general-chat` endpoint.
   - Verify authentication token is present for chat requests.
-- **Garage selection issues**:
-  - Verify garage availability and approval status in backend
-  - Check network connectivity to `/claims/garages` endpoint
-  - Ensure proper error handling for garage selection failures
+- **Enhanced error handling for AI analysis**:
+  - Check for automatic retry countdown timers indicating background retry attempts
+  - Verify error messages provide clear guidance on next steps
+  - Monitor retry budget (maximum 2 automatic retries)
+  - Use manual retry button when automatic retries are exhausted
 - **Polling not working**:
   - Verify claim status is not DRAFT and has images uploaded
   - Check network connectivity and response times
   - Ensure polling timeout limits are not exceeded
+  - Monitor enhanced error states for timeout scenarios
 - **Re-analysis not triggering**:
   - Verify image upload/delete operations are successful
   - Check that claim is not in DRAFT status
   - Monitor console for any API errors during re-analysis
+  - Verify enhanced error handling provides appropriate feedback
 
 Relevant flows:
 - Error handling in frontend catches failures and alerts users; navigation occurs on claim fetch failure.
@@ -622,7 +644,7 @@ Relevant flows:
 - Admin notes are fetched as part of the standard claim data retrieval process.
 - Currency formatting is applied consistently across all monetary displays.
 - Global AI Assistant handles its own error states independently from claim operations.
-- **Enhanced error handling**: Improved error messages for garage operations and assessment processes
+- **Enhanced error handling**: Improved error messages for garage operations and assessment processes with sophisticated retry mechanisms
 
 **Section sources**
 - [ClaimDetailPage.tsx:27-33](file://frontend/src/pages/ClaimDetailPage.tsx#L27-L33)
@@ -637,4 +659,4 @@ Relevant flows:
 - [admin.ts:183-208](file://backend/src/routes/admin.ts#L183-L208)
 
 ## Conclusion
-The ClaimDetailPage delivers a robust, user-friendly interface for managing individual claims with comprehensive Sri Lankan Rupees formatting throughout all monetary displays. The recent enhancements include sophisticated garage selection capabilities with improved user interface, real-time damage assessment polling that automatically updates results, intelligent re-analysis triggers that respond to image modifications, and integrated garage estimate comparison displays that provide transparent cost analysis. The system now features enhanced progress tracking with garage-specific milestones, improved error handling for complex workflows, and better visual feedback during processing operations. The removal of inline AI suggestions has streamlined the user experience, focusing on core claim management features while providing access to AI assistance through a more flexible global floating assistant. The enhanced polling mechanisms ensure near real-time updates without WebSocket complexity, while the garage integration provides comprehensive cost transparency between AI-generated and professional garage estimates. Data consistency is maintained through explicit re-fetching after mutations and intelligent polling strategies, while error handling ensures graceful degradation and clear user feedback. The system now provides a professional, localized experience for Sri Lankan insurance claim management with culturally appropriate currency formatting, enhanced garage collaboration features, and improved AI accessibility.
+The ClaimDetailPage delivers a robust, user-friendly interface for managing individual claims with comprehensive Sri Lankan Rupees formatting throughout all monetary displays. The recent enhancements include significantly improved error handling with sophisticated retry mechanisms and countdown timers, better visual indicators for AI processing status with clear loading states and progress feedback, more informative error messages when damage analysis fails with actionable guidance, and enhanced user feedback throughout all AI-powered operations. The system now features intelligent auto-retry functionality that automatically attempts recovery from AI service failures, sophisticated polling mechanisms with timeout protection, and enhanced visual feedback for re-analysis processes after image modifications. The removal of inline AI suggestions has streamlined the user experience, focusing on core claim management features while providing access to AI assistance through a more flexible global floating assistant. The enhanced error handling ensures graceful degradation and clear user feedback, while the sophisticated retry mechanisms provide resilience against temporary AI service failures. Data consistency is maintained through explicit re-fetching after mutations and intelligent polling strategies, while the improved error handling ensures users always have clear guidance on next steps when issues occur. The system now provides a professional, localized experience for Sri Lankan insurance claim management with culturally appropriate currency formatting, enhanced AI reliability through sophisticated error handling, and improved user experience during AI processing operations.

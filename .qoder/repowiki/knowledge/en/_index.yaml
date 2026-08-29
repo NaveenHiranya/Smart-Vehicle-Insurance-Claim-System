@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-08-29T09:01:15Z"
+exported_at: "2026-08-29T10:00:49Z"
 modules:
     "":
-        dir_name: Flash Claim Insurance Platform (Backend + Frontend)
-        title: Flash Claim Insurance Platform (Backend + Frontend)
+        dir_name: Admin Dashboard & Insurance Operations Backend
+        title: Admin Dashboard & Insurance Operations Backend
         scope: []
         source_files: []
         children: []

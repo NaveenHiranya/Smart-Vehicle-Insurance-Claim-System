@@ -1,6 +1,0 @@
-- Each Express route group lives in its own `routes/*.ts` file and is mounted under a namespaced path (`/api/auth`, `/api/admin`, `/api/garage`, etc.) from `index.ts`.
-- Role-based access control is enforced per-route via dedicated middleware functions (`auth.ts`, `adminAuth.ts`, `garageAuth.ts`) that decode the Bearer JWT, look up the user, and attach it to `req.userId` before calling `next()`.
-- Admin-only routes apply `router.use(adminAuthMiddleware)` at the router level so every handler implicitly requires an `isAdmin` user.
-- Database mutations wrap each handler in try/catch and return a uniform `{ error: '...' }` JSON body with appropriate HTTP status codes instead of throwing.
-- Input validation is performed inline in route handlers — numeric fields are coerced via `Number()` and rejected with 400 errors when `Number.isNaN` or out-of-range; string fields are trimmed and nullified when empty.
-- Frontend routes are grouped by role using dedicated layout components (`Layout`, `AdminLayout`, `GarageLayout`) and protected by corresponding route guards (`ProtectedRoute`, `AdminProtectedRoute`, `GarageProtectedRoute`) declared in `App.tsx`.

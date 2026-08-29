@@ -1,0 +1,1 @@
+Express.js admin API and React admin UI that let insurance operators manage users, vehicles, claims, documents, policy templates, and garages with JWT-protected routes.
