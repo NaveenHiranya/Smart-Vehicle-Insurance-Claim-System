@@ -26,13 +26,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white border-r border-gray-200 fixed h-full">
-        <div className="p-6 border-b border-gray-200">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <Shield className="h-8 w-8 text-primary-600" />
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white border-r border-gray-100 fixed h-full">
+        <div className="p-6 border-b border-gray-100">
+          <Link to="/dashboard" className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-white shadow-md shadow-primary-600/25">
+              <Shield className="h-5 w-5" />
+            </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Flash Claim</h1>
-              <p className="text-xs text-gray-500">Smart Claims</p>
+              <h1 className="text-lg font-bold tracking-tight text-gray-900">Flash Claim</h1>
+              <p className="text-[11px] font-medium text-primary-600">Smart Claims</p>
             </div>
           </Link>
         </div>
@@ -45,10 +47,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-primary-50 text-primary-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/25'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
                 <Icon className="h-5 w-5" />
@@ -58,21 +60,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-              <span className="text-sm font-medium text-primary-700">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </span>
+        <div className="p-4 border-t border-gray-100">
+          <div className="mb-2 flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-sm font-semibold text-white">
+              {user?.firstName?.[0]}{user?.lastName?.[0]}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user?.firstName} {user?.lastName}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-gray-900">{user?.firstName} {user?.lastName}</p>
+              <p className="truncate text-xs text-gray-500">{user?.email}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 w-full transition-colors"
+            className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 w-full"
           >
             <LogOut className="h-5 w-5" />
             Sign Out
@@ -81,13 +81,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 py-3">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 border-b border-gray-100 bg-white/90 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <Shield className="h-7 w-7 text-primary-600" />
-            <span className="text-lg font-bold text-gray-900">Flash Claim</span>
+          <Link to="/dashboard" className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-white shadow-md shadow-primary-600/25">
+              <Shield className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="block text-base font-bold leading-tight text-gray-900">Flash Claim</span>
+              <span className="block text-[10px] font-medium text-primary-600">Smart Claims</span>
+            </div>
           </Link>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-gray-100">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="rounded-xl p-2 text-gray-600 hover:bg-gray-100">
             {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
@@ -98,10 +103,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="lg:hidden fixed inset-0 z-40">
           <div className="fixed inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
           <aside className="fixed left-0 top-0 bottom-0 w-72 bg-white z-50 shadow-xl">
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <Link to="/dashboard" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
-                  <Shield className="h-8 w-8 text-primary-600" />
+                <Link to="/dashboard" className="flex items-center gap-2.5" onClick={() => setSidebarOpen(false)}>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-white shadow-md shadow-primary-600/25">
+                    <Shield className="h-5 w-5" />
+                  </div>
                   <span className="text-lg font-bold text-gray-900">Flash Claim</span>
                 </Link>
                 <button onClick={() => setSidebarOpen(false)} className="p-2">
@@ -118,10 +125,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     key={item.path}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/25'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
                     }`}
                   >
                     <Icon className="h-5 w-5" />
@@ -130,10 +137,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
-            <div className="p-4 border-t border-gray-200 mt-auto">
+            <div className="p-4 border-t border-gray-100 mt-auto">
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 w-full"
+                className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 w-full"
               >
                 <LogOut className="h-5 w-5" />
                 Sign Out
@@ -151,7 +158,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-30">
         <div className="flex justify-around py-2">
           {navItems.slice(0, 4).map((item) => {
             const Icon = item.icon;
@@ -160,12 +167,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex flex-col items-center gap-1 px-3 py-1 ${
-                  isActive ? 'text-primary-600' : 'text-gray-500'
+                className={`relative flex flex-col items-center gap-1 rounded-xl px-3 py-1 transition ${
+                  isActive ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
+                {isActive && <span className="absolute -top-2 h-1 w-6 rounded-full bg-primary-600" />}
                 <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
               </Link>
             );
           })}

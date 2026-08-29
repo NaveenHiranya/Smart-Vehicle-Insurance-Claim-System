@@ -13,12 +13,12 @@
 
 ## Update Summary
 **Changes Made**
-- Updated status color coding system with new GARAGE_REVIEW (orange) and GARAGE_ESTIMATED (purple) statuses
-- Enhanced mobile responsiveness with improved responsive typography and spacing
-- Improved visual consistency across all dashboard components
-- Updated grid layouts for better mobile experience
-- Enhanced loading states with spinner animations
-- Refined empty state handling with better user guidance
+- Added comprehensive 'My Vehicles' section displaying each vehicle's insurance status, verification state, and claim availability
+- Implemented visual indicators using checkmarks, warning signs, and error icons for vehicle verification status
+- Enhanced vehicle cards with insurance policy information, active/expired status, and claim availability controls
+- Updated vehicle count statistics to reflect the new vehicle management system
+- Improved responsive grid layouts for vehicle display across different screen sizes
+- Enhanced empty state handling for vehicles with clear call-to-action prompts
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -33,6 +33,7 @@
 
 ## Introduction
 The Dashboard page is the authenticated user's landing area, providing a comprehensive overview of their insurance activity with enhanced mobile responsiveness and improved visual design. It displays:
+- **My Vehicles Section**: A dedicated section showing each registered vehicle with detailed insurance status, verification state, and claim availability using visual indicators
 - Statistics cards for vehicle count, active claims, and total claims with real-time data fetching
 - A recent claims list showing the latest five claims with enhanced status indicators and navigation links
 - Quick action buttons to file new claims or add vehicles with improved visual hierarchy
@@ -64,7 +65,7 @@ API --> CRT
 ```
 
 **Diagram sources**
-- [DashboardPage.tsx:1-144](file://frontend/src/pages/DashboardPage.tsx#L1-L144)
+- [DashboardPage.tsx:1-228](file://frontend/src/pages/DashboardPage.tsx#L1-L228)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 - [index.ts (types):12-204](file://frontend/src/types/index.ts#L12-L204)
 - [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
@@ -73,7 +74,7 @@ API --> CRT
 - [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 **Section sources**
-- [DashboardPage.tsx:1-144](file://frontend/src/pages/DashboardPage.tsx#L1-L144)
+- [DashboardPage.tsx:1-228](file://frontend/src/pages/DashboardPage.tsx#L1-L228)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 - [index.ts (types):12-204](file://frontend/src/types/index.ts#L12-L204)
 - [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
@@ -85,14 +86,16 @@ API --> CRT
 - **Enhanced Data Fetching**: Uses Promise.all to fetch vehicles and claims in parallel from /api/vehicles and /api/claims with improved error handling
 - **Advanced State Management**: Tracks vehicles, claims, and loading state with sophisticated UI updates when data arrives or errors occur
 - **Updated Status Color Coding**: Maps claim statuses to Tailwind classes with new orange (GARAGE_REVIEW) and purple (GARAGE_ESTIMATED) colors for consistent visual indicators
-- **Responsive Recent Claims**: Displays up to five most recent claims with vehicle info, incident date/location, and clickable status badges optimized for mobile
+- **Comprehensive My Vehicles Section**: Displays each vehicle with insurance policy details, verification status indicators, and conditional claim filing capabilities
+- **Responsive Recent Claims**: Lists up to five most recent claims with vehicle info, incident date/location, and clickable status badges optimized for mobile
 - **Improved Quick Actions**: Links to create a new claim and register a new vehicle with enhanced visual hierarchy and touch-friendly sizing
 - **Mobile-First Layout Integration**: Renders within the authenticated Layout that provides responsive navigation and user controls
 
 **Section sources**
 - [DashboardPage.tsx:14-27](file://frontend/src/pages/DashboardPage.tsx#L14-L27)
 - [DashboardPage.tsx:29-38](file://frontend/src/pages/DashboardPage.tsx#L29-L38)
-- [DashboardPage.tsx:48-141](file://frontend/src/pages/DashboardPage.tsx#L48-L141)
+- [DashboardPage.tsx:58-139](file://frontend/src/pages/DashboardPage.tsx#L58-L139)
+- [DashboardPage.tsx:141-224](file://frontend/src/pages/DashboardPage.tsx#L141-L224)
 - [Layout.tsx:26-180](file://frontend/src/components/Layout.tsx#L26-L180)
 
 ## Architecture Overview
@@ -153,6 +156,54 @@ Render --> End(["Done"])
 - [DashboardPage.tsx:14-27](file://frontend/src/pages/DashboardPage.tsx#L14-L27)
 - [DashboardPage.tsx:40-46](file://frontend/src/pages/DashboardPage.tsx#L40-L46)
 
+### Comprehensive My Vehicles Section
+**New Feature** - The dashboard now includes a dedicated "My Vehicles" section that provides detailed information about each registered vehicle:
+
+- **Vehicle Cards**: Each vehicle is displayed in a card format showing make, model, year, and license plate
+- **Verification Status Indicators**: Visual indicators show verification state using:
+  - Checkmark icon (green) for VERIFIED vehicles
+  - Warning icon (amber) for PENDING verification
+  - Error icon (red) for REJECTED vehicles
+- **Insurance Policy Display**: Shows current insurance status with:
+  - Active insurance (green shield icon)
+  - Expired insurance (warning triangle icon)
+  - No insurance (warning triangle icon)
+- **Policy Number Display**: Shows the associated policy number when available
+- **Conditional Claim Filing**: 
+  - Active "New Claim" button only for verified vehicles
+  - Disabled "Claim Unavailable" state for unverified vehicles with tooltip explanation
+- **Responsive Grid Layout**: Uses `grid-cols-1 sm:grid-cols-2` for optimal display across screen sizes
+- **Empty State Handling**: When no vehicles exist, shows helpful message and link to add vehicle
+
+```mermaid
+flowchart TD
+LoadVehicles["Load vehicles"] --> HasVehicles{"Any vehicles?"}
+HasVehicles --> |No| EmptyState["Show empty state with 'Add Vehicle' prompt"]
+HasVehicles --> |Yes| MapVehicles["Map vehicles to cards"]
+MapVehicles --> CheckVerification{"Check verification status"}
+CheckVerification --> Verified["VERIFIED: Show green checkmark"]
+CheckVerification --> Pending["PENDING: Show amber warning"]
+CheckVerification --> Rejected["REJECTED: Show red error"]
+Verified --> CheckInsurance{"Check insurance status"}
+Pending --> CheckInsurance
+Rejected --> CheckInsurance
+CheckInsurance --> Active["Active: Green shield + New Claim button"]
+CheckInsurance --> Expired["Expired: Amber warning + disabled claim"]
+CheckInsurance --> None["No insurance: Gray warning + disabled claim"]
+Active --> End(["Display vehicle card"])
+Expired --> End
+None --> End
+EmptyState --> End
+```
+
+**Diagram sources**
+- [DashboardPage.tsx:58-139](file://frontend/src/pages/DashboardPage.tsx#L58-L139)
+- [vehicles.ts:96-113](file://backend/src/routes/vehicles.ts#L96-L113)
+
+**Section sources**
+- [DashboardPage.tsx:58-139](file://frontend/src/pages/DashboardPage.tsx#L58-L139)
+- [vehicles.ts:96-113](file://backend/src/routes/vehicles.ts#L96-L113)
+
 ### Responsive Statistics Cards
 - **Vehicle Count**: Displays the length of the vehicles array with responsive typography
 - **Active Claims**: Counts claims whose status is not COMPLETED or REJECTED with mobile-optimized layout
@@ -160,7 +211,7 @@ Render --> End(["Done"])
 - **Enhanced Grid Layout**: Uses responsive Tailwind grid (`grid-cols-3` with `sm:gap-4`) to adapt across screen sizes
 
 **Section sources**
-- [DashboardPage.tsx:57-82](file://frontend/src/pages/DashboardPage.tsx#L57-L82)
+- [DashboardPage.tsx:141-166](file://frontend/src/pages/DashboardPage.tsx#L141-L166)
 
 ### Enhanced Recent Claims Section
 - **Responsive List**: Lists up to five most recent claims, ordered by creation time on the backend
@@ -180,11 +231,11 @@ Nav --> End
 ```
 
 **Diagram sources**
-- [DashboardPage.tsx:104-141](file://frontend/src/pages/DashboardPage.tsx#L104-L141)
+- [DashboardPage.tsx:188-224](file://frontend/src/pages/DashboardPage.tsx#L188-L224)
 - [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 **Section sources**
-- [DashboardPage.tsx:104-141](file://frontend/src/pages/DashboardPage.tsx#L104-L141)
+- [DashboardPage.tsx:188-224](file://frontend/src/pages/DashboardPage.tsx#L188-L224)
 - [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 ### Improved Quick Action Buttons
@@ -193,7 +244,7 @@ Nav --> End
 - **Enhanced Design**: Styled as prominent cards with icons, descriptions, and improved hover states for better user interaction
 
 **Section sources**
-- [DashboardPage.tsx:84-103](file://frontend/src/pages/DashboardPage.tsx#L84-L103)
+- [DashboardPage.tsx:168-186](file://frontend/src/pages/DashboardPage.tsx#L168-L186)
 
 ### Updated Status Color Coding System
 - **Enhanced Status Mapping**: Maps each claim status to distinct background/text color combinations for readability
@@ -201,7 +252,7 @@ Nav --> End
 - **Fallback Styling**: Maintains fallback styling for unknown statuses to ensure consistent appearance
 
 **Section sources**
-- [DashboardPage.tsx:29-38](file://frontend/src/pages/DashboardPage.tsx#L29-L38)
+- [DashboardPage.tsx:30-39](file://frontend/src/pages/DashboardPage.tsx#L30-L39)
 
 ### Mobile-First Navigation Integration
 - **Responsive Layout**: The Dashboard renders inside the Layout component which provides:
@@ -237,7 +288,7 @@ API --> CRT["claims.ts"]
 ```
 
 **Diagram sources**
-- [DashboardPage.tsx:1-144](file://frontend/src/pages/DashboardPage.tsx#L1-L144)
+- [DashboardPage.tsx:1-228](file://frontend/src/pages/DashboardPage.tsx#L1-L228)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 - [index.ts (types):12-204](file://frontend/src/types/index.ts#L12-L204)
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
@@ -246,7 +297,7 @@ API --> CRT["claims.ts"]
 - [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 **Section sources**
-- [DashboardPage.tsx:1-144](file://frontend/src/pages/DashboardPage.tsx#L1-L144)
+- [DashboardPage.tsx:1-228](file://frontend/src/pages/DashboardPage.tsx#L1-L228)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
 - [index.ts (types):12-204](file://frontend/src/types/index.ts#L12-L204)
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
@@ -261,6 +312,7 @@ API --> CRT["claims.ts"]
 - **Pagination Consideration**: For large datasets, consider pagination or virtualization for the claims list
 - **Caching Strategy**: Consider caching strategies (e.g., React Query or SWR) to avoid redundant network calls on re-renders
 - **Image Optimization**: Ensure vehicle images and thumbnails are optimized if added later
+- **Vehicle Card Efficiency**: Vehicle cards are optimized to minimize re-renders and use efficient conditional rendering
 
 ## Troubleshooting Guide
 - **No Data Shown**: Check browser console for errors; verify that both /api/vehicles and /api/claims return arrays
@@ -268,12 +320,16 @@ API --> CRT["claims.ts"]
 - **Incorrect Status Colors**: Verify claim status values match expected enum values; enhanced fallback styling applies for unknown statuses
 - **Empty State Appears Unexpectedly**: Confirm backend returns at least one claim; check ordering and filters
 - **Mobile Display Issues**: Test on various screen sizes to ensure responsive layout works correctly
+- **Vehicle Verification Issues**: Ensure vehicles have proper verification status; check backend verification workflow
+- **Insurance Policy Problems**: Verify insurance policies are properly linked to vehicles and have valid dates
+- **Claim Filing Restrictions**: Check that vehicles are verified before attempting to file claims
 
 **Section sources**
 - [api.ts:26-37](file://frontend/src/services/api.ts#L26-L37)
 - [DashboardPage.tsx:14-27](file://frontend/src/pages/DashboardPage.tsx#L14-L27)
-- [DashboardPage.tsx:29-38](file://frontend/src/pages/DashboardPage.tsx#L29-L38)
-- [DashboardPage.tsx:104-141](file://frontend/src/pages/DashboardPage.tsx#L104-L141)
+- [DashboardPage.tsx:30-39](file://frontend/src/pages/DashboardPage.tsx#L30-L39)
+- [DashboardPage.tsx:58-139](file://frontend/src/pages/DashboardPage.tsx#L58-L139)
+- [DashboardPage.tsx:188-224](file://frontend/src/pages/DashboardPage.tsx#L188-L224)
 
 ## Conclusion
-The Dashboard page delivers a comprehensive, mobile-responsive overview of a user's vehicles and claims with enhanced visual design and improved user experience. It leverages parallel data fetching, robust loading and empty states, updated status visualization with new garage-related colors, and seamless navigation integration. Its modular design makes it easy to extend with additional statistics, filters, or performance optimizations as the application grows, while maintaining excellent mobile responsiveness and visual consistency across all devices.
+The Dashboard page delivers a comprehensive, mobile-responsive overview of a user's vehicles and claims with enhanced visual design and improved user experience. The newly added "My Vehicles" section provides detailed vehicle management capabilities with clear visual indicators for insurance status, verification state, and claim availability. It leverages parallel data fetching, robust loading and empty states, updated status visualization with new garage-related colors, and seamless navigation integration. Its modular design makes it easy to extend with additional statistics, filters, or performance optimizations as the application grows, while maintaining excellent mobile responsiveness and visual consistency across all devices.

@@ -593,6 +593,45 @@ router.patch('/claims/:id/status', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// PATCH /api/admin/claims/:id/final-value — the insurer sets the final claimable amount for
+// a claim; once set it overrides the computed estimate shown to the customer
+router.patch('/claims/:id/final-value', async (req: AuthRequest, res: Response) => {
+  try {
+    const { finalClaimableValue } = req.body;
+    const claimId = param(req, 'id');
+    const claim = await prisma.claim.findUnique({ where: { id: claimId } });
+    if (!claim) {
+      res.status(404).json({ error: 'Claim not found.' });
+      return;
+    }
+
+    // null / empty string clears the final value so the computed estimate applies again
+    if (finalClaimableValue === null || finalClaimableValue === '') {
+      const updated = await prisma.claim.update({
+        where: { id: claimId },
+        data: { finalClaimableValue: null, finalValueSetAt: null },
+      });
+      res.json(updated);
+      return;
+    }
+
+    const value = Number(finalClaimableValue);
+    if (Number.isNaN(value) || value < 0) {
+      res.status(400).json({ error: 'Final claimable value must be a non-negative number.' });
+      return;
+    }
+
+    const updated = await prisma.claim.update({
+      where: { id: claimId },
+      data: { finalClaimableValue: Math.round(value), finalValueSetAt: new Date() },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin final claimable value error:', error);
+    res.status(500).json({ error: 'Failed to set final claimable value.' });
+  }
+});
+
 // POST /api/admin/claims/:id/analyze — re-run the AI damage analysis
 router.post('/claims/:id/analyze', async (req: AuthRequest, res: Response) => {
   try {

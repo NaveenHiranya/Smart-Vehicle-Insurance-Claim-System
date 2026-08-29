@@ -121,6 +121,9 @@ model Claim {
   incidentDescription String
   weatherConditions   String?
   hasPoliceReport     Boolean     @default(false)
+  // Final claimable amount (LKR) confirmed by the insurer — overrides the computed estimate once set
+  finalClaimableValue Float?
+  finalValueSetAt     DateTime?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 

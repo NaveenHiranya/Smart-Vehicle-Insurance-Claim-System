@@ -21,11 +21,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added new claim re-analysis endpoint (POST /api/admin/claims/:id/analyze) for re-running AI damage analysis on existing claims
-- Added new claim deletion endpoint (DELETE /api/admin/claims/:id) with comprehensive file cleanup functionality
-- Enhanced error handling for both endpoints with proper status codes and user-friendly messages
-- Updated frontend integration with re-analysis button and delete confirmation workflow
-- Added comprehensive file system cleanup when deleting claims to remove associated images and documents
+- Removed user policy management endpoints (POST /api/admin/users/:id/policies) that allowed assigning policies directly to users
+- Added comprehensive vehicle management endpoints including GET /api/admin/vehicles for listing vehicles, PATCH /api/admin/vehicles/:id/verify for verification workflow, and POST /api/admin/vehicles/:id/policy for vehicle-specific policy management
+- Updated admin statistics to include pending vehicle counts (pendingVehicles field)
+- Enhanced vehicle verification system with status tracking and notes support
+- Implemented vehicle insurance policy management with template-based and custom policy creation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -40,10 +40,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, and analytics. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation. **Updated** Now includes advanced claim management capabilities with AI-powered re-analysis and secure deletion with file cleanup.
+This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, and analytics. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation. **Updated** Now includes enhanced vehicle management capabilities with verification workflows and vehicle-specific policy management, replacing the previous user-centric policy assignment approach.
 
 ## Project Structure
-The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive claim re-analysis and deletion workflows with integrated file management.
+The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive vehicle management workflows with verification status tracking and per-vehicle insurance policy management.
 
 ```mermaid
 graph TB
@@ -103,7 +103,7 @@ AdminRoutes --> FileSys
 
 ## Core Components
 - Admin Authorization Middleware: Validates JWT and ensures the authenticated user has admin privileges before allowing access to any admin endpoint.
-- Admin Routes: Provide endpoints for statistics, users listing, vehicle management, claims listing/detail/status updates/re-analysis/deletion, documents verification approvals/rejections, garage management operations, and policy template management.
+- Admin Routes: Provide endpoints for statistics, users listing, vehicle management with verification workflows, claims listing/detail/status updates/re-analysis/deletion, documents verification approvals/rejections, garage management operations, and policy template management.
 - Frontend Admin Services: Axios client that automatically attaches Bearer tokens from localStorage and redirects on auth errors.
 
 Key responsibilities:
@@ -112,14 +112,15 @@ Key responsibilities:
 - Expose dashboard statistics and health check endpoints.
 - **New**: Handle AI-powered claim re-analysis with comprehensive error handling.
 - **New**: Manage secure claim deletion with automatic file cleanup.
+- **Enhanced**: Comprehensive vehicle management with verification status tracking and per-vehicle insurance policy management.
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:11-773](file://backend/src/routes/admin.ts#L11-L773)
+- [admin.ts:11-865](file://backend/src/routes/admin.ts#L11-L865)
 - [adminApi.ts:7-24](file://frontend/src/services/adminApi.ts#L7-L24)
 
 ## Architecture Overview
-Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes advanced claim management workflows supporting AI-powered re-analysis and secure deletion with file system cleanup.
+Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes advanced vehicle management workflows supporting verification status tracking and per-vehicle insurance policy management with automatic payout recalculation.
 
 ```mermaid
 sequenceDiagram
@@ -143,7 +144,7 @@ DS->>DB : Save/update assessment
 DB-->>DS : Assessment saved
 DS-->>AR : Analysis result
 AR-->>FE : JSON assessment
-Note over FE,DB : New claim deletion workflow<br/>DELETE /api/admin/claims/ : id -> Cleanup files
+Note over FE,DB : Enhanced vehicle management<br/>PATCH /api/admin/vehicles/ : id/verify -> Status update
 ```
 
 **Diagram sources**
@@ -180,13 +181,14 @@ IsAdmin --> |Yes| Next["Proceed to handler"]
 
 ### Dashboard Statistics
 - Endpoint: GET /api/admin/stats
-- Purpose: Aggregate system metrics including total non-admin users, claim counts grouped by status, total documents, and pending documents count.
+- Purpose: Aggregate system metrics including total non-admin users, claim counts grouped by status, total documents, pending documents count, and **new** pending vehicle counts.
 - Response fields:
   - userCount: number
   - claimsByStatus: object mapping status to count
   - docCount: number
   - pendingDocs: number
-- Usage: Consumed by AdminDashboardPage to display overview metrics.
+  - **new** pendingVehicles: number (count of vehicles with verificationStatus = 'PENDING')
+- Usage: Consumed by AdminDashboardPage to display overview metrics including pending vehicle verification queue.
 
 ```mermaid
 sequenceDiagram
@@ -195,40 +197,36 @@ participant API as "Express App"
 participant AR as "Admin Router"
 participant DB as "Prisma Client"
 FE->>API : GET /api/admin/stats
-AR->>DB : Count users, group claims by status, count docs, count pending docs
-DB-->>AR : Aggregated stats
-AR-->>FE : { userCount, claimsByStatus, docCount, pendingDocs }
+AR->>DB : Count users, group claims by status, count docs, count pending docs, count pending vehicles
+DB-->>AR : Aggregated stats including pendingVehicles
+AR-->>FE : { userCount, claimsByStatus, docCount, pendingDocs, pendingVehicles }
 ```
 
 **Diagram sources**
-- [admin.ts:11-26](file://backend/src/routes/admin.ts#L11-L26)
-- [AdminDashboardPage.tsx:17-24](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L17-L24)
+- [admin.ts:24-39](file://backend/src/routes/admin.ts#L24-L39)
+- [AdminDashboardPage.tsx:28-86](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L28-L86)
 
 **Section sources**
-- [admin.ts:11-26](file://backend/src/routes/admin.ts#L11-L26)
-- [AdminDashboardPage.tsx:17-24](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L17-L24)
+- [admin.ts:24-39](file://backend/src/routes/admin.ts#L24-L39)
+- [AdminDashboardPage.tsx:28-86](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L28-L86)
 
 ### User Management
 - Endpoints:
   - GET /api/admin/users
   - PATCH /api/admin/users/:id
   - DELETE /api/admin/users/:id
-  - POST /api/admin/users/:id/policies
 - Purposes:
   - List all non-admin users with basic profile info, related counts (vehicles, claims), and detailed vehicle information.
   - Update user insurance records including phone, address, NIC, license type, annual fee, and joined date.
   - Delete users with cascade deletion of associated vehicles, claims, and policies.
-  - Assign insurance policies to users using built-in templates or custom configurations.
 - Request parameters:
   - PATCH /api/admin/users/:id supports partial updates with validation for numeric fields and dates.
-  - POST /api/admin/users/:id/policies accepts templateId for built-in plans or custom coverageType, deductible, coveragePercent, annualFee.
 - Response schemas:
   - List: Array of user objects including id, email, firstName, lastName, phone, address, createdAt, nic, licenseType, annualFee, joinedAt, and _count for vehicles and claims, plus detailed vehicle information.
   - Update: Updated user object with selected fields.
   - Delete: Success message.
-  - Policy Assignment: Created policy object with 201 status.
 - Usage:
-  - AdminUsersPage renders users with expandable details, edit modal for insurance records, delete confirmation with cascade warning, and policy assignment modal with built-in plan selection.
+  - AdminUsersPage renders users with expandable details, edit modal for insurance records, and delete confirmation with cascade warning.
 
 ```mermaid
 sequenceDiagram
@@ -248,41 +246,45 @@ FE->>API : DELETE /api/admin/users/ : id
 AR->>DB : Delete user with cascade
 DB-->>AR : Success
 AR-->>FE : { message : 'User deleted.' }
-FE->>API : POST /api/admin/users/ : id/policies { templateId, coverageType, deductible, coveragePercent, annualFee }
-AR->>DB : Create policy with validation and sync user annual fee
-DB-->>AR : Created policy
-AR-->>FE : Created policy (201)
 ```
 
 **Diagram sources**
-- [admin.ts:28-248](file://backend/src/routes/admin.ts#L28-L248)
+- [admin.ts:42-148](file://backend/src/routes/admin.ts#L42-L148)
 - [AdminUsersPage.tsx:10-442](file://frontend/src/pages/admin/AdminUsersPage.tsx#L10-L442)
 
 **Section sources**
-- [admin.ts:28-248](file://backend/src/routes/admin.ts#L28-L248)
+- [admin.ts:42-148](file://backend/src/routes/admin.ts#L42-L148)
 - [AdminUsersPage.tsx:10-442](file://frontend/src/pages/admin/AdminUsersPage.tsx#L10-L442)
 
 ### Vehicle Management
-**Enhanced Section** - Comprehensive vehicle administration capabilities for managing registered vehicles, their valuations, and claim payout capping.
+**Enhanced Section** - Comprehensive vehicle administration capabilities for managing registered vehicles, their valuations, verification status, and insurance policies.
 
 - Endpoints:
   - GET /api/admin/vehicles
   - POST /api/admin/vehicles
   - PATCH /api/admin/vehicles/:id/valuation
+  - **NEW** PATCH /api/admin/vehicles/:id/verify
+  - **NEW** POST /api/admin/vehicles/:id/policy
 - Purposes:
-  - View all registered vehicles with owner information, claim counts, and search/filter capabilities by user or vehicle details.
+  - View all registered vehicles with owner information, claim counts, verification status, and search/filter capabilities by user or vehicle details.
   - Create new vehicles on behalf of users with validation for required fields and data types.
   - Set vehicle valuations that cap maximum claim payouts for insurance purposes.
+  - **New**: Verify or reject vehicles with optional notes and automatic timestamping.
+  - **New**: Assign insurance policies to vehicles using built-in templates or custom configurations, with automatic verification reset and payout recalculation.
 - Request parameters:
-  - GET /api/admin/vehicles?user=userId&search=query for filtering by owner and searching vehicle/owner details.
+  - GET /api/admin/vehicles?user=userId&search=query&verification=PENDING|VERIFIED|REJECTED for filtering by owner, search terms, and verification status.
   - POST /api/admin/vehicles requires userId, make, model, year, licensePlate, color, and optional vin, mileage.
   - PATCH /api/admin/vehicles/:id/valuation accepts valuation amount or null to remove cap.
+  - **New**: PATCH /api/admin/vehicles/:id/verify accepts status (VERIFIED, REJECTED, PENDING) and optional notes.
+  - **New**: POST /api/admin/vehicles/:id/policy accepts either templateId for built-in plans or complete custom policy details.
 - Response schemas:
-  - List: Array of vehicle objects with id, userId, make, model, year, vin, licensePlate, color, mileage, valuation, createdAt, user relationship, and _count for claims.
+  - List: Array of vehicle objects with id, userId, make, model, year, vin, licensePlate, color, mileage, valuation, verificationStatus, verifiedAt, createdAt, user relationship, insurancePolicy, and _count for claims.
   - Create: Created vehicle object with 201 status.
   - Valuation: Updated vehicle object with modified valuation field.
+  - **New**: Verification returns updated vehicle with verification status and optional notes.
+  - **New**: Policy assignment returns created/updated policy with 201/200 status and resets vehicle verification to PENDING.
 - Usage:
-  - AdminVehiclesPage displays vehicles with owner information, search functionality, add vehicle modal, and valuation editing interface with real-time payout recalculation.
+  - AdminVehiclesPage displays vehicles with owner information, search functionality, add vehicle modal, valuation editing interface, verification workflow with status chips, and comprehensive policy management with template selection.
 
 ```mermaid
 sequenceDiagram
@@ -290,9 +292,9 @@ participant FE as "AdminVehiclesPage"
 participant API as "Express App"
 participant AR as "Admin Router"
 participant DB as "Prisma Client"
-FE->>API : GET /api/admin/vehicles?user=&search=
+FE->>API : GET /api/admin/vehicles?user=&search=&verification=
 AR->>DB : Find vehicles with filters and includes
-DB-->>AR : Vehicles list with owners and counts
+DB-->>AR : Vehicles list with owners, policies, and counts
 AR-->>FE : Vehicles array
 FE->>API : POST /api/admin/vehicles { userId, make, model, year, licensePlate, color }
 AR->>DB : Create vehicle with validation
@@ -302,15 +304,23 @@ FE->>API : PATCH /api/admin/vehicles/ : id/valuation { valuation }
 AR->>DB : Update vehicle valuation and recalculate payouts
 DB-->>AR : Updated vehicle
 AR-->>FE : Updated vehicle
+FE->>API : PATCH /api/admin/vehicles/ : id/verify { status, notes }
+AR->>DB : Update verification status and timestamp
+DB-->>AR : Updated vehicle
+AR-->>FE : Updated vehicle
+FE->>API : POST /api/admin/vehicles/ : id/policy { templateId or custom policy }
+AR->>DB : Create/update policy and reset verification
+DB-->>AR : Policy created/updated
+AR-->>FE : Policy (201/200)
 ```
 
 **Diagram sources**
-- [admin.ts:250-352](file://backend/src/routes/admin.ts#L250-L352)
-- [AdminVehiclesPage.tsx:31-337](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L337)
+- [admin.ts:151-330](file://backend/src/routes/admin.ts#L151-L330)
+- [AdminVehiclesPage.tsx:31-649](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L649)
 
 **Section sources**
-- [admin.ts:250-352](file://backend/src/routes/admin.ts#L250-L352)
-- [AdminVehiclesPage.tsx:31-337](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L337)
+- [admin.ts:151-330](file://backend/src/routes/admin.ts#L151-L330)
+- [AdminVehiclesPage.tsx:31-649](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L649)
 - [schema.prisma:32-50](file://backend/prisma/schema.prisma#L32-L50)
 
 ### Claims Review and Status Updates
@@ -365,13 +375,13 @@ AR-->>FE : { message : 'Claim deleted.' }
 ```
 
 **Diagram sources**
-- [admin.ts:455-600](file://backend/src/routes/admin.ts#L455-L600)
+- [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
 - [AdminClaimsPage.tsx:19-70](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L19-L70)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
 
 **Section sources**
-- [admin.ts:455-600](file://backend/src/routes/admin.ts#L455-L600)
+- [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
 - [AdminClaimsPage.tsx:19-70](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L19-L70)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 
@@ -411,11 +421,11 @@ AR-->>FE : Updated document
 ```
 
 **Diagram sources**
-- [admin.ts:602-713](file://backend/src/routes/admin.ts#L602-L713)
+- [admin.ts:695-805](file://backend/src/routes/admin.ts#L695-L805)
 - [AdminDocumentsPage.tsx:28-69](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L28-L69)
 
 **Section sources**
-- [admin.ts:602-713](file://backend/src/routes/admin.ts#L602-L713)
+- [admin.ts:695-805](file://backend/src/routes/admin.ts#L695-L805)
 - [AdminDocumentsPage.tsx:28-69](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L28-L69)
 
 ### Garage Management Operations
@@ -454,16 +464,16 @@ AR-->>FE : Updated garage
 ```
 
 **Diagram sources**
-- [admin.ts:715-770](file://backend/src/routes/admin.ts#L715-L770)
+- [admin.ts:808-862](file://backend/src/routes/admin.ts#L808-L862)
 - [AdminGaragesPage.tsx:9-26](file://frontend/src/pages/admin/AdminGaragesPage.tsx#L9-L26)
 
 **Section sources**
-- [admin.ts:715-770](file://backend/src/routes/admin.ts#L715-L770)
+- [admin.ts:808-862](file://backend/src/routes/admin.ts#L808-L862)
 - [AdminGaragesPage.tsx:9-26](file://frontend/src/pages/admin/AdminGaragesPage.tsx#L9-L26)
 - [schema.prisma:220-238](file://backend/prisma/schema.prisma#L220-L238)
 
 ### Policy Templates Management
-**New Section** - Complete CRUD operations for managing built-in insurance policy templates that users can select when purchasing policies.
+**New Section** - Complete CRUD operations for managing built-in insurance policy templates that can be assigned to vehicles.
 
 - Endpoints:
   - GET /api/admin/policy-templates
@@ -508,11 +518,11 @@ AR-->>FE : { message : 'Policy plan deleted.' }
 ```
 
 **Diagram sources**
-- [admin.ts:359-456](file://backend/src/routes/admin.ts#L359-L456)
+- [admin.ts:408-504](file://backend/src/routes/admin.ts#L408-L504)
 - [AdminPoliciesPage.tsx:19-268](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L19-L268)
 
 **Section sources**
-- [admin.ts:359-456](file://backend/src/routes/admin.ts#L359-L456)
+- [admin.ts:408-504](file://backend/src/routes/admin.ts#L408-L504)
 - [AdminPoliciesPage.tsx:19-268](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L19-L268)
 
 ### System Health Monitoring
@@ -547,8 +557,10 @@ API-->>FE : { status, service, db }
   - Admin authorization middleware for access control.
   - **New**: Damage analysis service for AI-powered claim re-analysis.
   - **New**: File system operations for claim deletion cleanup.
+  - **Enhanced**: Payout service for vehicle valuation and policy-based payout recalculation.
 - Frontend admin pages depend on:
   - adminApi axios instance which injects Authorization headers and handles auth errors.
+  - **New**: AdminVehiclesPage with comprehensive vehicle management, verification workflow, and policy assignment.
   - **New**: AdminClaimDetailPage with re-analysis and delete functionality.
 - Data models used by admin endpoints:
   - User, Vehicle, Claim, Document, DamageAssessment, RepairEstimate, InsurancePayout, ChatMessage, Garage, PolicyTemplate, InsurancePolicy.
@@ -560,6 +572,7 @@ AdminRoutes --> Prisma["Prisma Client"]
 AdminRoutes --> Models["Data Models"]
 AdminRoutes --> DamageSvc["Damage Analysis Service"]
 AdminRoutes --> FileSys["File System"]
+AdminRoutes --> PayoutSvc["Payout Service"]
 AdminPages["Admin Pages"] --> AdminAPI["adminApi"]
 AdminAPI --> AdminRoutes
 ```
@@ -596,6 +609,10 @@ AdminAPI --> AdminRoutes
 - **New**: File system operations:
   - Claim deletion removes associated files immediately to prevent orphaned data.
   - File paths are validated before deletion to prevent security issues.
+- **Enhanced**: Vehicle management performance:
+  - Vehicle verification and policy assignment trigger automatic payout recalculation for affected claims.
+  - Verification status changes are optimized with minimal database updates.
+  - Policy template selection reduces data entry overhead and ensures consistency.
 
 [No sources needed since this section provides general guidance]
 
@@ -620,10 +637,13 @@ Common issues and resolutions:
   - File cleanup occurs before database deletion to ensure consistency.
   - Missing files are handled gracefully without blocking deletion.
   - Frontend requires explicit confirmation before deletion to prevent accidental data loss.
-- Vehicle management issues:
+- **Enhanced**: Vehicle management issues:
   - Vehicle creation requires all mandatory fields (userId, make, model, year, licensePlate, color).
   - Year validation must be between 1900 and 2100.
   - Valuation must be a non-negative number or null to remove cap.
+  - Vehicle verification requires an attached insurance policy for VERIFIED status.
+  - Policy assignment resets vehicle verification to PENDING for re-review.
+  - Built-in policy templates must be active to be selectable.
 - User management issues:
   - User deletion triggers cascade deletion of vehicles, claims, and policies.
   - Annual fee must be a non-negative number.
@@ -635,10 +655,6 @@ Common issues and resolutions:
   - Template creation requires name, coverageType, deductible, coveragePercent, and annualFee.
   - Coverage percent must be between 1 and 100.
   - Deductible and annual fee must be non-negative numbers.
-- User policy assignment issues:
-  - Policy assignment requires either templateId or complete custom policy details.
-  - Built-in templates must be active to be selectable.
-  - User annual fee is automatically synced with assigned policy premium amount.
 - Garage approval workflow:
   - Garage registration requires admin approval before login is allowed.
   - Approved garages are automatically activated upon approval.
@@ -646,15 +662,15 @@ Common issues and resolutions:
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:56-770](file://backend/src/routes/admin.ts#L56-L770)
-- [admin.ts:548-600](file://backend/src/routes/admin.ts#L548-L600)
+- [admin.ts:56-865](file://backend/src/routes/admin.ts#L56-L865)
+- [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 - [garageAuth.ts:74-82](file://backend/src/routes/garageAuth.ts#L74-L82)
 
 ## Conclusion
-The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, comprehensive vehicle management with valuation controls, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. **Updated** The system now includes advanced claim management capabilities with AI-powered re-analysis for refreshing damage assessments and secure deletion with comprehensive file cleanup. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
+The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, **enhanced** vehicle management with verification workflows and per-vehicle insurance policy management, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. **Updated** The system now includes comprehensive vehicle management capabilities with verification status tracking, vehicle-specific policy assignment using built-in templates or custom entries, and automatic payout recalculation. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -663,8 +679,8 @@ The administrative endpoints provide secure, role-gated access to critical insur
 ### API Reference Summary
 
 - GET /api/admin/stats
-  - Description: Returns aggregated system statistics.
-  - Response: { userCount: number, claimsByStatus: object, docCount: number, pendingDocs: number }
+  - Description: Returns aggregated system statistics including pending vehicle counts.
+  - Response: { userCount: number, claimsByStatus: object, docCount: number, pendingDocs: number, pendingVehicles: number }
   - Access: Admin only
 
 - GET /api/admin/users
@@ -672,39 +688,52 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Response: Array of user objects with selected fields, _count for vehicles and claims, and vehicles array with claim counts.
   - Access: Admin only
 
-- **NEW** PATCH /api/admin/users/:id
+- PATCH /api/admin/users/:id
   - Description: Updates user insurance records with validation.
   - Request body: { phone?, address?, nic?, licenseType?, annualFee?, joinedAt? }
   - Response: Updated user object with selected fields.
   - Access: Admin only
 
-- **NEW** DELETE /api/admin/users/:id
+- DELETE /api/admin/users/:id
   - Description: Deletes user with cascade deletion of vehicles, claims, and policies.
   - Response: { message: 'User deleted.' }
   - Access: Admin only
 
-- **NEW** POST /api/admin/users/:id/policies
-  - Description: Assigns insurance policy to user using built-in template or custom configuration.
-  - Request body: { templateId?, coverageType?, deductible?, coveragePercent?, annualFee? }
-  - Response: Created policy object with 201 status.
-  - Access: Admin only
+- **REMOVED** POST /api/admin/users/:id/policies
+  - Description: Previously allowed assigning policies directly to users. This endpoint has been removed in favor of vehicle-focused policy management.
+  - Access: No longer available
 
 - GET /api/admin/vehicles
-  - Description: Lists all vehicles with owner information, claim counts, and search/filter capabilities.
-  - Query params: ?user=userId&search=query
-  - Response: Array of vehicle objects with user relationship and _count for claims.
+  - Description: Lists all vehicles with owner information, claim counts, verification status, and search/filter capabilities.
+  - Query params: ?user=userId&search=query&verification=PENDING|VERIFIED|REJECTED
+  - Response: Array of vehicle objects with user relationship, insurancePolicy, and _count for claims.
   - Access: Admin only
 
-- **NEW** POST /api/admin/vehicles
+- POST /api/admin/vehicles
   - Description: Creates a new vehicle on behalf of a user.
   - Request body: { userId, make, model, year, licensePlate, color, vin?, mileage? }
   - Response: Created vehicle object (201 status).
   - Access: Admin only
 
-- **NEW** PATCH /api/admin/vehicles/:id/valuation
+- PATCH /api/admin/vehicles/:id/valuation
   - Description: Sets or removes vehicle valuation that caps claim payouts.
   - Request body: { valuation: number|null }
   - Response: Updated vehicle object with valuation field.
+  - Access: Admin only
+
+- **NEW** PATCH /api/admin/vehicles/:id/verify
+  - Description: Verifies or rejects a vehicle with optional notes and automatic timestamping.
+  - Request body: { status: 'VERIFIED'|'REJECTED'|'PENDING', notes?: string }
+  - Response: Updated vehicle object with verification status and timestamp.
+  - Error handling: Returns 400 if attempting to verify without attached policy, 404 if vehicle not found.
+  - Access: Admin only
+
+- **NEW** POST /api/admin/vehicles/:id/policy
+  - Description: Adds or replaces a vehicle's insurance policy using built-in template or custom configuration.
+  - Request body: { templateId? OR { providerName, policyNumber, coverageType, deductible, premiumAmount, coveragePercent?, startDate?, endDate? } }
+  - Response: Created/updated policy object (201 for new, 200 for update).
+  - Behavior: Resets vehicle verification to PENDING and recalculates payouts for affected claims.
+  - Error handling: Returns 404 if vehicle or template not found, 400 for validation errors.
   - Access: Admin only
 
 - GET /api/admin/claims?status=&search=&user=&vehicle=
@@ -770,24 +799,24 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Response: Updated garage object with toggled isActive field.
   - Access: Admin only
 
-- **NEW** GET /api/admin/policy-templates
+- GET /api/admin/policy-templates
   - Description: Lists all policy templates with counts for associated policies.
   - Response: Array of policy template objects with _count for policies.
   - Access: Admin only
 
-- **NEW** POST /api/admin/policy-templates
+- POST /api/admin/policy-templates
   - Description: Creates a new policy template with validation.
   - Request body: { name, coverageType, description?, deductible, coveragePercent, annualFee, isActive? }
   - Response: Created policy template object (201 status).
   - Access: Admin only
 
-- **NEW** PATCH /api/admin/policy-templates/:id
+- PATCH /api/admin/policy-templates/:id
   - Description: Updates an existing policy template with selective field updates.
   - Request body: Partial template fields with validation.
   - Response: Updated policy template object.
   - Access: Admin only
 
-- **NEW** DELETE /api/admin/policy-templates/:id
+- DELETE /api/admin/policy-templates/:id
   - Description: Deletes a policy template while preserving associated policies.
   - Response: { message: 'Policy plan deleted.' }
   - Access: Admin only
@@ -798,7 +827,7 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Access: Public
 
 **Section sources**
-- [admin.ts:11-773](file://backend/src/routes/admin.ts#L11-L773)
+- [admin.ts:24-865](file://backend/src/routes/admin.ts#L24-L865)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)

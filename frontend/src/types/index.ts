@@ -256,6 +256,9 @@ export interface Claim {
   incidentDescription: string;
   weatherConditions?: string;
   hasPoliceReport: boolean;
+  // Final claimable amount (LKR) confirmed by the insurer — overrides the computed estimate once set
+  finalClaimableValue?: number | null;
+  finalValueSetAt?: string | null;
   createdAt: string;
   updatedAt: string;
   vehicle: Vehicle;

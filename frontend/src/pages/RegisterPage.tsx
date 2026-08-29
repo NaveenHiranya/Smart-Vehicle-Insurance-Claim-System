@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Shield, AlertCircle } from 'lucide-react';
+import { AlertCircle, Mail, Lock, User, Contact, Phone, ArrowRight } from 'lucide-react';
+import { AuthBrandPanel, AuthMobileBrand } from '../components/AuthBrandPanel';
 
 export function RegisterPage() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '', nic: '' });
@@ -28,86 +29,103 @@ export function RegisterPage() {
   const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
+  const inputClass =
+    'w-full rounded-xl border border-gray-200 bg-gray-50/80 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-500/10';
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-blue-100 px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <Shield className="h-10 w-10 text-primary-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Flash Claim</h1>
-          </div>
-          <p className="text-gray-600">Create your account to get started</p>
-        </div>
+    <div className="grid min-h-dvh bg-white lg:h-dvh lg:grid-cols-2">
+      <AuthBrandPanel />
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Create Account</h2>
+      {/* Form side — scrolls internally on short screens so the page always fits the display */}
+      <div className="flex flex-col px-4 py-10 sm:px-8 lg:h-dvh lg:overflow-y-auto">
+        <div className="m-auto w-full max-w-lg">
+          <AuthMobileBrand />
 
-            {error && (
-              <div className="mb-4 p-3 bg-danger-50 border border-danger-500/20 rounded-lg flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-danger-600 shrink-0 mt-0.5" />
-                <p className="text-sm text-danger-700">{error}</p>
-              </div>
-            )}
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900">Create your account</h2>
+          <p className="mt-1 text-sm text-gray-500">Register in minutes and insure your vehicles</p>
 
+          {error && (
+            <div className="mt-5 flex items-start gap-2 rounded-xl border border-danger-500/20 bg-danger-50 p-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger-600" />
+              <p className="text-sm text-danger-700">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                <input type="text" value={form.firstName} onChange={update('firstName')} required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition" />
+                <label htmlFor="firstName" className="mb-1.5 block text-sm font-medium text-gray-700">First Name</label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input id="firstName" type="text" value={form.firstName} onChange={update('firstName')} required
+                    className={`${inputClass} pl-11 pr-4`} placeholder="Kamal" />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                <input type="text" value={form.lastName} onChange={update('lastName')} required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition" />
+                <label htmlFor="lastName" className="mb-1.5 block text-sm font-medium text-gray-700">Last Name</label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input id="lastName" type="text" value={form.lastName} onChange={update('lastName')} required
+                    className={`${inputClass} pl-11 pr-4`} placeholder="Perera" />
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input type="email" value={form.email} onChange={update('email')} required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                placeholder="you@example.com" />
+              <label htmlFor="reg-email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <input id="reg-email" type="email" value={form.email} onChange={update('email')} required
+                  className={`${inputClass} pl-11 pr-4`} placeholder="you@example.com" />
+              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input type="password" value={form.password} onChange={update('password')} required minLength={6}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                placeholder="At least 6 characters" />
+              <label htmlFor="reg-password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <input id="reg-password" type="password" value={form.password} onChange={update('password')} required minLength={6}
+                  className={`${inputClass} pl-11 pr-4`} placeholder="At least 6 characters" />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">NIC</label>
-              <input type="text" value={form.nic} onChange={update('nic')} required
-                pattern="^\d{9}[vVxX]$|^\d{12}$"
-                title="9 digits followed by V/X, or 12 digits (e.g. 852345678V or 199852345678)"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                placeholder="852345678V or 199852345678" />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
-              <input type="tel" value={form.phone} onChange={update('phone')}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                placeholder="+94 77 123 4567" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="nic" className="mb-1.5 block text-sm font-medium text-gray-700">NIC</label>
+                <div className="relative">
+                  <Contact className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input id="nic" type="text" value={form.nic} onChange={update('nic')} required
+                    pattern="^\d{9}[vVxX]$|^\d{12}$"
+                    title="9 digits followed by V/X, or 12 digits (e.g. 852345678V or 199852345678)"
+                    className={`${inputClass} pl-11 pr-4`} placeholder="852345678V" />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone <span className="font-normal text-gray-400">(optional)</span></label>
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input id="phone" type="tel" value={form.phone} onChange={update('phone')}
+                    className={`${inputClass} pl-11 pr-4`} placeholder="+94 77 123 4567" />
+                </div>
+              </div>
             </div>
 
             <button type="submit" disabled={loading}
-              className="w-full bg-primary-600 text-white py-2.5 rounded-lg font-medium hover:bg-primary-700 focus:ring-4 focus:ring-primary-200 transition disabled:opacity-50">
+              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition hover:from-primary-700 hover:to-primary-800 hover:shadow-primary-700/30 focus:ring-4 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50">
               {loading ? 'Creating account...' : 'Create Account'}
+              {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
             </button>
 
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-center text-xs text-gray-400">
               After signing in, register your vehicles and choose an insurance plan for each one.
             </p>
           </form>
-        </div>
 
-        <p className="text-center text-sm text-gray-600 mt-6">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary-600 font-medium hover:text-primary-700">Sign in</Link>
-        </p>
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Already have an account?{' '}
+            <Link to="/login" className="font-semibold text-primary-600 hover:text-primary-700">Sign in</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import type { Claim, DamageItem } from '../types';
-import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Send, Shield, MessageSquare, ListTodo, CheckCircle2, Circle, Clock, XCircle, BadgeCheck, StickyNote, Camera, Wrench, X, MapPin, Info, Check, FolderOpen, Trash2 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Shield, ListTodo, CheckCircle2, Circle, Clock, XCircle, StickyNote, Camera, Wrench, X, MapPin, Info, Check, FolderOpen, Trash2 } from 'lucide-react';
 import { uploadUrl } from '../utils/uploadUrl';
 import { normalizeGarageItems, estimateTotals } from '../utils/garageEstimate';
 
@@ -12,8 +12,6 @@ export function ClaimDetailPage() {
   const [claim, setClaim] = useState<Claim | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
   const [docUploading, setDocUploading] = useState('');
   const [garageModal, setGarageModal] = useState(false);
   const [garageList, setGarageList] = useState<any[]>([]);
@@ -188,20 +186,6 @@ export function ClaimDetailPage() {
     } catch { alert('Failed to delete image'); }
   };
 
-  const handleChat = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    setChatLoading(true);
-    try {
-      await api.post(`/claims/${id}/chat`, { message: chatInput });
-      setChatInput('');
-      await fetchClaim();
-    } catch { alert('Chat failed'); }
-    finally { setChatLoading(false); }
-  };
-
-  const quickMessages = ["What's my claim status?", "Explain the estimate", "What documents do I need?"];
-
   const statusColors: Record<string, string> = {
     DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
     UNDER_REVIEW: 'bg-yellow-100 text-yellow-700', GARAGE_REVIEW: 'bg-orange-100 text-orange-700',
@@ -282,8 +266,7 @@ export function ClaimDetailPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="space-y-6">
           {/* Claim Progress Checklist */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -619,15 +602,32 @@ export function ClaimDetailPage() {
             const hasEstimate = claim.garageEstimate != null || claim.repairEstimate != null;
             const valuation = claim.vehicle?.valuation ?? null;
 
+            // Final amount confirmed by the insurer — overrides the automatic estimate once set
+            const finalValueBox = claim.finalClaimableValue != null ? (
+              <div className="mb-4 flex items-center justify-between gap-4 p-4 bg-green-600 rounded-lg">
+                <div>
+                  <p className="text-xs text-green-50 font-semibold uppercase tracking-wide">Final Claimable Value (confirmed by insurer)</p>
+                  <p className="text-xs text-green-100 mt-0.5">
+                    {claim.finalValueSetAt ? `Confirmed on ${new Date(claim.finalValueSetAt).toLocaleDateString()} — ` : ''}
+                    this is the final amount for this claim. The breakdown below shows the automatic estimate.
+                  </p>
+                </div>
+                <p className="text-2xl font-bold text-white shrink-0">Rs. {claim.finalClaimableValue.toLocaleString()}</p>
+              </div>
+            ) : null;
+
             if (!policy) {
               // Legacy claims filed before per-vehicle policies — nothing to deduct from yet
-              if (!hasEstimate) return null;
+              if (!hasEstimate && claim.finalClaimableValue == null) return null;
               return (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
                     <Shield className="h-5 w-5 text-gray-400" /> Claimable Price
                   </h2>
-                  <p className="text-sm text-gray-500">No insurance policy is linked to this claim yet. The insurance company must attach and verify a policy for this vehicle before a claimable price can be calculated.</p>
+                  {finalValueBox}
+                  {hasEstimate && (
+                    <p className="text-sm text-gray-500">No insurance policy is linked to this claim yet. The insurance company must attach and verify a policy for this vehicle before a claimable price can be calculated.</p>
+                  )}
                 </div>
               );
             }
@@ -655,6 +655,7 @@ export function ClaimDetailPage() {
                   <Info className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
                   Your claim is deducted from this policy: the deductible is subtracted from the current estimate (garage estimate once submitted), then the plan's coverage percentage is applied. The final payout is confirmed by the insurance company after review.
                 </p>
+                {finalValueBox}
                 {breakdown ? (
                   <>
                     <div className="space-y-2 mb-4">
@@ -683,7 +684,9 @@ export function ClaimDetailPage() {
                     </div>
                     <div className="flex items-center justify-between gap-4 p-4 bg-green-50 border border-green-100 rounded-lg">
                       <div>
-                        <p className="text-xs text-green-700 font-semibold uppercase tracking-wide">Claimable Price (after deductions)</p>
+                        <p className="text-xs text-green-700 font-semibold uppercase tracking-wide">
+                          {claim.finalClaimableValue != null ? 'Estimated Claimable Price' : 'Claimable Price (after deductions)'}
+                        </p>
                         <p className="text-xs text-green-600 mt-0.5">
                           {breakdown.capped && valuation != null
                             ? `Capped at vehicle valuation of Rs. ${valuation.toLocaleString()}`
@@ -729,86 +732,6 @@ export function ClaimDetailPage() {
               </div>
             </div>
           )}
-
-          {/* Documents Approved by Insurance */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <BadgeCheck className="h-5 w-5 text-primary-600" /> Documents Approved by Insurance
-            </h2>
-            {(!claim.documents || claim.documents.length === 0) ? (
-              <p className="text-sm text-gray-500">No documents uploaded yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {['LICENSE', 'REGISTRATION', 'ACCIDENT_REPORT', 'REPAIR_ESTIMATE'].map((docType) => {
-                  const doc = claim.documents?.find((d) => d.type === docType);
-                  const statusIcon = !doc
-                    ? <Circle className="h-4 w-4 text-gray-300" />
-                    : doc.verificationStatus === 'VERIFIED'
-                    ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    : doc.verificationStatus === 'ISSUES_FOUND' || doc.verificationStatus === 'UNREADABLE'
-                    ? <XCircle className="h-4 w-4 text-red-500" />
-                    : <Clock className="h-4 w-4 text-yellow-500" />;
-                  const statusLabel = !doc ? 'Not uploaded'
-                    : doc.verificationStatus === 'VERIFIED' ? 'Approved'
-                    : doc.verificationStatus === 'ISSUES_FOUND' ? 'Issues found'
-                    : doc.verificationStatus === 'UNREADABLE' ? 'Unreadable'
-                    : 'Pending review';
-                  const labelColor = !doc ? 'text-gray-400'
-                    : doc.verificationStatus === 'VERIFIED' ? 'text-green-600'
-                    : doc.verificationStatus === 'PENDING' ? 'text-yellow-600'
-                    : 'text-red-600';
-                  return (
-                    <div key={docType} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                      <div className="flex items-center gap-2">
-                        {statusIcon}
-                        <span className="text-sm text-gray-700">{docType.replace(/_/g, ' ')}</span>
-                      </div>
-                      <span className={`text-xs font-medium ${labelColor}`}>{statusLabel}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Chat Sidebar */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 sticky top-4">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary-600" /> AI Assistant</h2>
-            </div>
-            <div className="h-80 overflow-y-auto p-4 space-y-3">
-              {(!claim.chatMessages || claim.chatMessages.length === 0) && (
-                <p className="text-sm text-gray-400 text-center py-8">Ask me anything about your claim</p>
-              )}
-              {claim.chatMessages?.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.role === 'USER' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] p-3 rounded-xl text-sm ${
-                    msg.role === 'USER' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="p-3 border-t border-gray-200">
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {quickMessages.map((q) => (
-                  <button key={q} onClick={() => { setChatInput(q); }} className="text-[10px] px-2 py-1 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200">{q}</button>
-                ))}
-              </div>
-              <form onSubmit={handleChat} className="flex gap-2">
-                <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Ask about your claim..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
-                <button type="submit" disabled={chatLoading || !chatInput.trim()}
-                  className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
-                  <Send className="h-4 w-4" />
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Garage Selection Modal */}

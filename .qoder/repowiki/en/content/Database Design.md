@@ -3,24 +3,23 @@
 <cite>
 **Referenced Files in This Document**
 - [schema.prisma](file://backend/prisma/schema.prisma)
-- [seedAdmin.ts](file://backend/src/scripts/seedAdmin.ts)
-- [package.json](file://backend/package.json)
-- [auth.ts](file://backend/src/middleware/auth.ts)
-- [adminAuth.ts](file://backend/src/middleware/adminAuth.ts)
-- [garageAuth.ts](file://backend/src/middleware/garageAuth.ts)
-- [garage.ts](file://backend/src/routes/garage.ts)
-- [garageAuth.ts](file://backend/src/routes/garageAuth.ts)
 - [admin.ts](file://backend/src/routes/admin.ts)
+- [vehicles.ts](file://backend/src/routes/vehicles.ts)
 - [index.ts](file://frontend/src/types/index.ts)
-- [AdminUsersPage.tsx](file://frontend/src/pages/admin/AdminUsersPage.tsx)
+- [AdminVehiclesPage.tsx](file://frontend/src/pages/admin/AdminVehiclesPage.tsx)
+- [VehiclesPage.tsx](file://frontend/src/pages/VehiclesPage.tsx)
+- [DashboardPage.tsx](file://frontend/src/pages/DashboardPage.tsx)
+- [PoliciesPage.tsx](file://frontend/src/pages/PoliciesPage.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Extended User model with five new fields for insurance company administrative workflow: nic (National Identity Card number), licenseType (driving license class), annualFee (annual insurance fee in LKR), and joinedAt (user registration date)
-- Updated admin API endpoints to support reading and updating the new user fields
-- Enhanced frontend admin interface with forms for managing insurance company records
-- Added validation and type definitions for the new fields across the application stack
+- Added VehicleVerification enum (PENDING, VERIFIED, REJECTED) for vehicle and policy validation workflow
+- Enhanced Vehicle model with verificationStatus, verifiedAt, and verificationNotes fields for insurance company verification process
+- Updated InsurancePolicy model with unique vehicleId field creating one-to-one relationship between vehicles and policies
+- Implemented comprehensive vehicle verification workflow through admin API endpoints
+- Added frontend interfaces and UI components for displaying and managing vehicle verification status
+- Updated claim submission logic to require VERIFIED vehicles before claims can be filed
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -41,6 +40,8 @@
 ## Introduction
 This document provides comprehensive data model documentation for the Prisma ORM schema used by the Smart Vehicle Insurance Claim System. It details all entity relationships, field definitions, constraints, indexes, validation rules enforced at the database level, and operational guidance including migrations, seeding, backup/recovery, and security considerations. The system models users, vehicles, insurance policies, claims, damage assessments, repair estimates, garage assignments, garage estimates, payouts, documents, images, and chat messages to support end-to-end claim processing with integrated garage workflow capabilities and enhanced insurance company administrative features.
 
+**Updated** The data model now includes a comprehensive vehicle verification workflow that ensures vehicles and their associated insurance policies are validated by the insurance company before claims can be submitted.
+
 ## Project Structure
 The data model is defined in a single Prisma schema file. Supporting scripts provide admin seeding and environment configuration via package scripts. Authentication middleware enforces access control patterns that influence how data is accessed and updated, including specialized garage authentication for repair shop workflows and enhanced administrative capabilities for insurance company operations.
 
@@ -57,45 +58,39 @@ G --> B
 J["Garage Routes<br/>backend/src/routes/garage.ts"] --> G
 K["Garage Auth Routes<br/>backend/src/routes/garageAuth.ts"] --> G
 L["Admin Routes<br/>backend/src/routes/admin.ts"] --> G
-M["Frontend Admin UI<br/>frontend/src/pages/admin/AdminUsersPage.tsx"] --> G
+M["Frontend Admin UI<br/>frontend/src/pages/admin/AdminVehiclesPage.tsx"] --> G
+N["Vehicle Verification Workflow<br/>frontend/src/pages/VehiclesPage.tsx"] --> G
 ```
 
 **Diagram sources**
-- [schema.prisma:1-282](file://backend/prisma/schema.prisma#L1-L282)
-- [seedAdmin.ts:1-39](file://backend/src/scripts/seedAdmin.ts#L1-L39)
-- [package.json:6-13](file://backend/package.json#L6-L13)
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [garageAuth.ts:1-31](file://backend/src/middleware/garageAuth.ts#L1-L31)
-- [garage.ts:1-136](file://backend/src/routes/garage.ts#L1-L136)
-- [garageAuth.ts:1-135](file://backend/src/routes/garageAuth.ts#L1-L135)
-- [admin.ts:1-591](file://backend/src/routes/admin.ts#L1-L591)
-- [AdminUsersPage.tsx:1-250](file://frontend/src/pages/admin/AdminUsersPage.tsx#L1-L250)
+- [schema.prisma:1-299](file://backend/prisma/schema.prisma#L1-L299)
+- [admin.ts:186-225](file://backend/src/routes/admin.ts#L186-L225)
+- [AdminVehiclesPage.tsx:160-177](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L160-L177)
+- [VehiclesPage.tsx:1-31](file://frontend/src/pages/VehiclesPage.tsx#L1-L31)
 
 **Section sources**
-- [schema.prisma:1-282](file://backend/prisma/schema.prisma#L1-L282)
-- [package.json:6-13](file://backend/package.json#L6-L13)
+- [schema.prisma:1-299](file://backend/prisma/schema.prisma#L1-L299)
 
 ## Core Components
 The core data model centers on the following entities:
 - **User**: Represents system users with authentication, profile fields, and enhanced insurance company administrative data including NIC, license type, annual fees, and registration dates.
-- Vehicle: Owned by a user; linked to claims.
-- InsurancePolicy: Owned by a user; optionally linked to claims.
-- Garage: New entity representing repair shops with authentication and approval workflow.
-- Claim: Central entity linking user, vehicle, policy, and garage; includes status and incident metadata with enhanced workflow states.
-- DamageAssessment: One-to-one with Claim; stores AI-derived damages and severity.
-- RepairEstimate: One-to-one with Claim; references DamageAssessment; stores cost breakdown.
-- GarageEstimate: New one-to-one with Claim; stores garage-submitted repair estimates.
-- InsurancePayout: One-to-one with Claim; references RepairEstimate; stores payout calculations.
-- ClaimImage: Images attached to a Claim with type and optional annotations.
-- Document: Documents attached to a Claim with verification status.
-- ChatMessage: Conversation history associated with a Claim.
-- AdminNote: Administrative notes for claims.
+- **Vehicle**: Owned by a user; linked to claims with comprehensive verification workflow.
+- **InsurancePolicy**: Now uniquely linked to vehicles (one-to-one relationship); optionally linked to claims.
+- **Garage**: New entity representing repair shops with authentication and approval workflow.
+- **Claim**: Central entity linking user, vehicle, policy, and garage; includes status and incident metadata with enhanced workflow states.
+- **DamageAssessment**: One-to-one with Claim; stores AI-derived damages and severity.
+- **RepairEstimate**: One-to-one with Claim; references DamageAssessment; stores cost breakdown.
+- **GarageEstimate**: New one-to-one with Claim; stores garage-submitted repair estimates.
+- **InsurancePayout**: One-to-one with Claim; references RepairEstimate; stores payout calculations.
+- **ClaimImage**: Images attached to a Claim with type and optional annotations.
+- **Document**: Documents attached to a Claim with verification status.
+- **ChatMessage**: Conversation history associated with a Claim.
+- **AdminNote**: Administrative notes for claims.
 
 Key relationships and constraints:
 - User has many Vehicles, Policies, Claims.
-- Vehicle belongs to a User; has many Claims.
-- InsurancePolicy belongs to a User; has many Claims.
+- Vehicle belongs to a User; has many Claims; now has one-to-one relationship with InsurancePolicy.
+- InsurancePolicy belongs to a User; has many Claims; now uniquely linked to one Vehicle.
 - Garage has many Claims and GarageEstimates.
 - Claim belongs to a User, Vehicle, and optionally InsurancePolicy and Garage.
 - DamageAssessment, RepairEstimate, GarageEstimate, and InsurancePayout are each uniquely tied to a Claim (one-to-one).
@@ -104,30 +99,21 @@ Key relationships and constraints:
 
 Indexes and unique constraints:
 - Primary keys are UUIDs for all entities.
-- Unique constraints exist on email (User and Garage), and on claimId for ClaimImage, DamageAssessment, RepairEstimate, GarageEstimate, InsurancePayout.
+- Unique constraints exist on email (User and Garage), vehicleId (InsurancePolicy), and on claimId for ClaimImage, DamageAssessment, RepairEstimate, GarageEstimate, InsurancePayout.
 - No explicit secondary indexes are declared beyond primary keys and unique constraints.
 
 Validation rules enforced at the database level:
 - Required fields are enforced by absence of nullable markers.
-- Enumerations constrain values for ClaimStatus, ImageType, SeverityLevel, DocumentType, VerificationStatus, ChatRole.
+- Enumerations constrain values for ClaimStatus, ImageType, SeverityLevel, DocumentType, VerificationStatus, ChatRole, and VehicleVerification.
 - Default values are applied for timestamps and booleans where specified.
 
-**Updated** Enhanced User model with insurance company administrative fields (nic, licenseType, annualFee, joinedAt) to support comprehensive user management and policy administration workflows.
+**Updated** Enhanced Vehicle model with comprehensive verification workflow including VehicleVerification enum and related fields. InsurancePolicy model now has unique vehicleId constraint creating one-to-one relationship with vehicles.
 
 **Section sources**
 - [schema.prisma:10-30](file://backend/prisma/schema.prisma#L10-L30)
-- [schema.prisma:32-50](file://backend/prisma/schema.prisma#L32-L50)
-- [schema.prisma:68-86](file://backend/prisma/schema.prisma#L68-L86)
-- [schema.prisma:246-264](file://backend/prisma/schema.prisma#L246-L264)
-- [schema.prisma:99-126](file://backend/prisma/schema.prisma#L99-L126)
-- [schema.prisma:151-162](file://backend/prisma/schema.prisma#L151-L162)
-- [schema.prisma:164-178](file://backend/prisma/schema.prisma#L164-L178)
-- [schema.prisma:266-281](file://backend/prisma/schema.prisma#L266-L281)
-- [schema.prisma:180-192](file://backend/prisma/schema.prisma#L180-L192)
-- [schema.prisma:133-143](file://backend/prisma/schema.prisma#L133-L143)
-- [schema.prisma:208-218](file://backend/prisma/schema.prisma#L208-L218)
-- [schema.prisma:225-233](file://backend/prisma/schema.prisma#L225-L233)
-- [schema.prisma:235-244](file://backend/prisma/schema.prisma#L235-L244)
+- [schema.prisma:32-61](file://backend/prisma/schema.prisma#L32-L61)
+- [schema.prisma:79-100](file://backend/prisma/schema.prisma#L79-L100)
+- [schema.prisma:246-281](file://backend/prisma/schema.prisma#L246-L281)
 
 ## Architecture Overview
 The data architecture uses SQLite as the database provider with Prisma Client for type-safe queries. The schema defines strong relational integrity through foreign keys and cascade behaviors. Enums enforce domain-specific constraints at the database layer, including enhanced claim workflow states supporting garage integration and comprehensive insurance company administrative capabilities.
@@ -162,6 +148,9 @@ string color
 int mileage
 string photos
 float valuation
+enum verificationStatus
+datetime verifiedAt
+string verificationNotes
 datetime createdAt
 datetime updatedAt
 }
@@ -175,6 +164,7 @@ float deductible
 float premiumAmount
 float coveragePercent
 string templateId
+string vehicleId UK
 datetime startDate
 datetime endDate
 datetime createdAt
@@ -289,6 +279,7 @@ datetime updatedAt
 }
 USER ||--o{ VEHICLE : "owns"
 USER ||--o{ INSURANCEPOLICY : "owns"
+VEHICLE ||--|| INSURANCEPOLICY : "insures"
 USER ||--o{ CLAIM : "submits"
 VEHICLE ||--o{ CLAIM : "involved_in"
 INSURANCEPOLICY ||--o{ CLAIM : "covers"
@@ -305,7 +296,7 @@ CLAIM ||--o{ ADMINNOTE : "has"
 ```
 
 **Diagram sources**
-- [schema.prisma:10-281](file://backend/prisma/schema.prisma#L10-L281)
+- [schema.prisma:10-299](file://backend/prisma/schema.prisma#L10-L299)
 
 ## Detailed Component Analysis
 
@@ -317,10 +308,10 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - passwordHash: Stored hashed password.
   - firstName, lastName: Profile names.
   - phone, address: Optional contact details.
-  - **nic**: Optional National Identity Card number for user registration and identification.
-  - **licenseType**: Optional driving license class (e.g., A, B, B1, C) for vehicle operation authorization.
-  - **annualFee**: Optional annual insurance fee in Sri Lankan Rupees (LKR) for policy billing.
-  - **joinedAt**: Optional timestamp indicating when the user registered with the insurance company.
+  - nic: Optional National Identity Card number for user registration and identification.
+  - licenseType: Optional driving license class (e.g., A, B, B1, C) for vehicle operation authorization.
+  - annualFee: Optional annual insurance fee in Sri Lankan Rupees (LKR) for policy billing.
+  - joinedAt: Optional timestamp indicating when the user registered with the insurance company.
   - isAdmin: Boolean flag for administrative access.
   - createdAt, updatedAt: Timestamps for audit.
 - Relationships:
@@ -331,52 +322,56 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - Timestamps default to now or update automatically.
   - All new insurance company fields are optional to maintain backward compatibility.
 
-**Updated** Enhanced with four new insurance company administrative fields to support comprehensive user management, policy administration, and regulatory compliance requirements.
-
 **Section sources**
 - [schema.prisma:10-30](file://backend/prisma/schema.prisma#L10-L30)
 
 ### Vehicle Model
-- Purpose: Represents vehicles owned by users.
+- Purpose: Represents vehicles owned by users with comprehensive verification workflow.
 - Key fields:
   - id: UUID primary key.
   - userId: Foreign key to User with cascade delete.
   - make, model, year, licensePlate, color: Identifying attributes.
   - vin, mileage: Optional identifiers and usage metrics.
   - photos: JSON array stored as string; defaults to empty array.
-  - **valuation**: Optional vehicle value in LKR set by insurance company to cap claim payouts.
+  - valuation: Optional vehicle value in LKR set by insurance company to cap claim payouts.
+  - **verificationStatus**: VehicleVerification enum (PENDING, VERIFIED, REJECTED) controlling claim eligibility.
+  - **verifiedAt**: Optional timestamp when vehicle was verified.
+  - **verificationNotes**: Optional notes from insurance company regarding verification decision.
   - createdAt, updatedAt: Timestamps.
 - Relationships:
-  - Belongs to User; one-to-many with Claim.
+  - Belongs to User; one-to-many with Claim; one-to-one with InsurancePolicy.
 - Constraints:
   - onDelete Cascade ensures referential integrity when a user is removed.
+  - verificationStatus defaults to PENDING requiring insurance company approval.
 
-**Updated** Added valuation field for insurance company to set vehicle values that cap claim payouts.
+**Updated** Enhanced with comprehensive vehicle verification workflow including VehicleVerification enum and related tracking fields.
 
 **Section sources**
-- [schema.prisma:32-50](file://backend/prisma/schema.prisma#L32-L50)
+- [schema.prisma:32-61](file://backend/prisma/schema.prisma#L32-L61)
 
 ### InsurancePolicy Model
-- Purpose: Captures insurance coverage details per user.
+- Purpose: Captures insurance coverage details uniquely linked to specific vehicles.
 - Key fields:
   - id: UUID primary key.
   - userId: Foreign key to User with cascade delete.
   - providerName, policyNumber, coverageType: Policy metadata.
   - deductible, premiumAmount: Numeric financial fields.
-  - **coveragePercent**: Percentage of remaining cost covered after deductible (defaults to 100%).
-  - **templateId**: Optional reference to built-in policy templates.
+  - coveragePercent: Percentage of remaining cost covered after deductible (defaults to 100%).
+  - templateId: Optional reference to built-in policy templates.
+  - **vehicleId**: Unique foreign key to Vehicle with cascade delete creating one-to-one relationship.
   - startDate, endDate: Coverage period.
   - createdAt, updatedAt: Timestamps.
 - Relationships:
-  - Belongs to User; one-to-many with Claim.
+  - Belongs to User; one-to-one with Vehicle; one-to-many with Claim.
   - Optional relationship to PolicyTemplate.
 - Constraints:
-  - onDelete Cascade ensures referential integrity when a user is removed.
+  - onDelete Cascade ensures referential integrity when a user or vehicle is removed.
+  - vehicleId is unique ensuring one policy per vehicle.
 
-**Updated** Enhanced with coverage percentage and template support for standardized policy management.
+**Updated** Enhanced with unique vehicleId field creating one-to-one relationship between vehicles and policies, replacing previous user-level policy structure.
 
 **Section sources**
-- [schema.prisma:68-86](file://backend/prisma/schema.prisma#L68-L86)
+- [schema.prisma:79-100](file://backend/prisma/schema.prisma#L79-L100)
 
 ### Garage Model
 - Purpose: Represents repair shops with authentication and approval workflow.
@@ -399,10 +394,8 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - isApproved requires admin approval before garage can log in.
   - isActive controls account availability.
 
-**Updated** New model added to support repair shop integration with authentication and approval workflow.
-
 **Section sources**
-- [schema.prisma:246-264](file://backend/prisma/schema.prisma#L246-L264)
+- [schema.prisma:263-281](file://backend/prisma/schema.prisma#L263-L281)
 
 ### Claim Model
 - Purpose: Central record of an insurance claim event with enhanced workflow support.
@@ -411,7 +404,6 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - userId: Foreign key to User with cascade delete.
   - vehicleId: Foreign key to Vehicle with cascade delete.
   - policyId: Optional foreign key to InsurancePolicy with SetNull behavior.
-  - **garageId**: Optional foreign key to Garage with SetNull behavior for garage assignment.
   - status: Enum constrained to predefined lifecycle states including garage workflow states.
   - incidentDate, incidentLocation, incidentDescription: Incident details.
   - weatherConditions: Optional context.
@@ -424,10 +416,21 @@ CLAIM ||--o{ ADMINNOTE : "has"
 - Constraints:
   - onDelete Cascade for User and Vehicle; SetNull for Policy and Garage to preserve claim records if deleted.
 
-**Updated** Enhanced with garage assignment capability and expanded claim status workflow states.
+**Section sources**
+- [schema.prisma:113-143](file://backend/prisma/schema.prisma#L113-L143)
+
+### VehicleVerification Enum
+- Purpose: Defines the verification status workflow for vehicles and their associated insurance policies.
+- Values:
+  - **PENDING**: Default state when vehicle is first created; requires insurance company review.
+  - **VERIFIED**: Vehicle and policy have been approved by insurance company; claims can be filed.
+  - **REJECTED**: Vehicle or policy failed verification; requires correction and resubmission.
+- Usage: Controls whether vehicles are eligible for claim submission and displays appropriate UI feedback.
+
+**New** Comprehensive vehicle verification workflow ensuring insurance company oversight of vehicle registrations and policies.
 
 **Section sources**
-- [schema.prisma:99-126](file://backend/prisma/schema.prisma#L99-L126)
+- [schema.prisma:57-61](file://backend/prisma/schema.prisma#L57-L61)
 
 ### DamageAssessment Model
 - Purpose: Stores AI-assessed damages and severity for a claim.
@@ -445,7 +448,7 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - claimId is unique to ensure single assessment per claim.
 
 **Section sources**
-- [schema.prisma:151-162](file://backend/prisma/schema.prisma#L151-L162)
+- [schema.prisma:168-179](file://backend/prisma/schema.prisma#L168-L179)
 
 ### RepairEstimate Model
 - Purpose: Provides detailed repair cost estimation for a claim.
@@ -463,7 +466,7 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - claimId and damageAssessmentId are unique to maintain strict linkage.
 
 **Section sources**
-- [schema.prisma:164-178](file://backend/prisma/schema.prisma#L164-L178)
+- [schema.prisma:181-195](file://backend/prisma/schema.prisma#L181-L195)
 
 ### GarageEstimate Model
 - Purpose: Stores repair estimates submitted by garages for assigned claims.
@@ -483,10 +486,8 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - claimId is unique to ensure single garage estimate per claim.
   - onDelete Cascade ensures cleanup when related records are deleted.
 
-**Updated** New model added to support garage-submitted repair estimates with full audit trail.
-
 **Section sources**
-- [schema.prisma:266-281](file://backend/prisma/schema.prisma#L266-L281)
+- [schema.prisma:283-299](file://backend/prisma/schema.prisma#L283-L299)
 
 ### InsurancePayout Model
 - Purpose: Records payout calculations based on repair estimates and deductibles.
@@ -503,7 +504,7 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - claimId and repairEstimateId are unique to ensure single payout per claim/estimate.
 
 **Section sources**
-- [schema.prisma:180-192](file://backend/prisma/schema.prisma#L180-L192)
+- [schema.prisma:197-209](file://backend/prisma/schema.prisma#L197-L209)
 
 ### ClaimImage Model
 - Purpose: Stores image attachments related to claims.
@@ -521,7 +522,7 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - onDelete Cascade preserves referential integrity.
 
 **Section sources**
-- [schema.prisma:133-143](file://backend/prisma/schema.prisma#L133-L143)
+- [schema.prisma:150-160](file://backend/prisma/schema.prisma#L150-L160)
 
 ### Document Model
 - Purpose: Stores supporting documents for claims with verification status.
@@ -539,7 +540,7 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - onDelete Cascade ensures cleanup when claims are removed.
 
 **Section sources**
-- [schema.prisma:208-218](file://backend/prisma/schema.prisma#L208-L218)
+- [schema.prisma:225-235](file://backend/prisma/schema.prisma#L225-L235)
 
 ### ChatMessage Model
 - Purpose: Maintains conversation history for a claim.
@@ -555,7 +556,7 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - onDelete Cascade maintains consistency.
 
 **Section sources**
-- [schema.prisma:225-233](file://backend/prisma/schema.prisma#L225-L233)
+- [schema.prisma:242-250](file://backend/prisma/schema.prisma#L242-L250)
 
 ### AdminNote Model
 - Purpose: Stores administrative notes for claims with categorization.
@@ -571,11 +572,12 @@ CLAIM ||--o{ ADMINNOTE : "has"
   - onDelete Cascade ensures cleanup when claims are removed.
 
 **Section sources**
-- [schema.prisma:235-244](file://backend/prisma/schema.prisma#L235-L244)
+- [schema.prisma:252-261](file://backend/prisma/schema.prisma#L252-L261)
 
 ## Dependency Analysis
-The data model exhibits clear hierarchical dependencies with enhanced insurance company administrative capabilities:
-- User is the root entity for Vehicle and InsurancePolicy, now with enhanced administrative data.
+The data model exhibits clear hierarchical dependencies with enhanced vehicle verification workflow:
+- User is the root entity for Vehicle and InsurancePolicy.
+- Vehicle now has one-to-one relationship with InsurancePolicy through unique vehicleId constraint.
 - Garage is an independent entity with its own authentication and approval workflow.
 - Claim depends on User, Vehicle, and optionally InsurancePolicy and Garage.
 - DamageAssessment, RepairEstimate, GarageEstimate, and InsurancePayout depend on Claim.
@@ -583,8 +585,9 @@ The data model exhibits clear hierarchical dependencies with enhanced insurance 
 
 ```mermaid
 graph LR
-User["User<br/>(Enhanced with NIC, License Type, Annual Fee, Join Date)"] --> Vehicle["Vehicle<br/>(with Valuation)"]
-User --> Policy["InsurancePolicy<br/>(with Coverage %)"]
+User["User<br/>(Enhanced with NIC, License Type, Annual Fee, Join Date)"] --> Vehicle["Vehicle<br/>(with Verification Workflow)"]
+User --> Policy["InsurancePolicy<br/>(Unique Vehicle Link)"]
+Vehicle --> Policy["One-to-One Relationship"]
 User --> Claim["Claim"]
 Garage["Garage"] --> Claim["assigned_to"]
 Garage --> GarageEstimate["submits"]
@@ -601,15 +604,15 @@ Claim --> AdminNote["has"]
 ```
 
 **Diagram sources**
-- [schema.prisma:10-281](file://backend/prisma/schema.prisma#L10-L281)
+- [schema.prisma:10-299](file://backend/prisma/schema.prisma#L10-L299)
 
 **Section sources**
-- [schema.prisma:10-281](file://backend/prisma/schema.prisma#L10-L281)
+- [schema.prisma:10-299](file://backend/prisma/schema.prisma#L10-L299)
 
 ## Performance Considerations
 - Indexing strategy:
   - Primary keys are indexed by default.
-  - Unique constraints on email (User and Garage) and claimId fields provide efficient lookups for those paths.
+  - Unique constraints on email (User and Garage), vehicleId (InsurancePolicy), and claimId fields provide efficient lookups for those paths.
   - No additional secondary indexes are declared; consider adding indexes on frequently queried columns such as userId, vehicleId, policyId, garageId, and status if query performance degrades under load.
 - Data types:
   - Use enums to restrict values and reduce validation overhead.
@@ -619,20 +622,20 @@ Claim --> AdminNote["has"]
 - Storage:
   - Photos stored as JSON arrays of strings; ensure file storage backend is optimized for large objects.
   - Specialties stored as JSON arrays for flexible skill categorization.
-  - **New insurance company fields (nic, licenseType, annualFee, joinedAt) are optional to minimize storage overhead for existing users**.
-
-[No sources needed since this section provides general guidance]
+  - **Vehicle verification fields (verificationStatus, verifiedAt, verificationNotes) are optional to minimize storage overhead for existing vehicles**.
 
 ## Data Lifecycle and Audit Trails
-Lifecycle stages with enhanced insurance company administrative workflow:
+Lifecycle stages with enhanced vehicle verification workflow:
 - Creation:
   - Users create accounts; vehicles and policies are added.
+  - **New vehicles start with verificationStatus = PENDING requiring insurance company approval**.
   - **Insurance company administrators can populate user records with NIC, license type, annual fees, and join dates**.
   - Garages register and require admin approval before becoming active.
   - Claims are created with status DRAFT and populated with incident details.
 - Updates:
   - Status transitions progress through SUBMITTED, UNDER_REVIEW, GARAGE_REVIEW, GARAGE_ESTIMATED, APPROVED, REJECTED, COMPLETED.
-  - **Administrators can update user insurance company records including NIC validation, license type assignment, and fee management**.
+  - **Administrators can verify or reject vehicles through dedicated admin endpoints with optional notes**.
+  - **Vehicle verification must be VERIFIED before claims can be filed**.
   - Claims can be assigned to garages for repair assessment.
   - DamageAssessment and RepairEstimate are generated post-submission.
   - GarageEstimate is submitted by assigned garages during GARAGE_REVIEW phase.
@@ -642,6 +645,7 @@ Lifecycle stages with enhanced insurance company administrative workflow:
   - For archival needs, introduce a soft delete flag (e.g., deletedAt) and adjust queries accordingly.
 - Audit trails:
   - createdAt and updatedAt timestamps provide basic auditability.
+  - **Vehicle verification workflow tracked through verificationStatus, verifiedAt, and verificationNotes fields**.
   - **Insurance company administrative actions tracked through dedicated admin routes and validation**.
   - Garage authentication and approval workflow tracked through isApproved and isActive flags.
   - GarageEstimate includes submittedAt timestamp for estimate submission tracking.
@@ -649,33 +653,26 @@ Lifecycle stages with enhanced insurance company administrative workflow:
 
 ```mermaid
 flowchart TD
-Start(["Claim Created"]) --> Draft["Status: DRAFT"]
-Draft --> Submitted["Submit -> Status: SUBMITTED"]
-Submitted --> Review["Under Review -> Status: UNDER_REVIEW"]
-Review --> Decision{"Decision"}
-Decision --> |Assign to Garage| GarageReview["Status: GARAGE_REVIEW"]
-Decision --> |Direct Approval| Approved["Status: APPROVED"]
-Decision --> |Reject| Rejected["Status: REJECTED"]
-GarageReview --> GarageEstimate["Garage Submits Estimate"]
-GarageEstimate --> GarageEstimated["Status: GARAGE_ESTIMATED"]
-GarageEstimated --> AdminReview["Admin Reviews Garage Estimate"]
-AdminReview --> Approved
-Approved --> FinalEstimate["Generate RepairEstimate"]
-FinalEstimate --> Payout["Calculate InsurancePayout"]
-Payout --> Completed["Status: COMPLETED"]
-Rejected --> End(["End"])
-Completed --> End
+Start(["Vehicle Created"]) --> Pending["Status: PENDING"]
+Pending --> AdminReview["Insurance Company Review"]
+AdminReview --> Decision{"Decision"}
+Decision --> |Verify| Verified["Status: VERIFIED<br/>Set verifiedAt timestamp"]
+Decision --> |Reject| Rejected["Status: REJECTED<br/>Add rejection notes"]
+Verified --> ClaimsAllowed["Claims Can Be Filed"]
+Rejected --> Correction["Vehicle Requires Correction"]
+Correction --> Resubmit["Resubmit for Verification"]
+Resubmit --> AdminReview
+ClaimsAllowed --> ClaimProcess["Standard Claim Processing"]
 ```
 
 **Diagram sources**
-- [schema.prisma:88-97](file://backend/prisma/schema.prisma#L88-L97)
-- [schema.prisma:99-126](file://backend/prisma/schema.prisma#L99-L126)
-- [schema.prisma:266-281](file://backend/prisma/schema.prisma#L266-L281)
+- [schema.prisma:46-48](file://backend/prisma/schema.prisma#L46-L48)
+- [admin.ts:186-225](file://backend/src/routes/admin.ts#L186-L225)
 
 **Section sources**
-- [schema.prisma:88-97](file://backend/prisma/schema.prisma#L88-L97)
-- [schema.prisma:99-126](file://backend/prisma/schema.prisma#L99-L126)
-- [schema.prisma:266-281](file://backend/prisma/schema.prisma#L266-L281)
+- [schema.prisma:46-48](file://backend/prisma/schema.prisma#L46-L48)
+- [schema.prisma:113-143](file://backend/prisma/schema.prisma#L113-L143)
+- [admin.ts:186-225](file://backend/src/routes/admin.ts#L186-L225)
 
 ## Database Migration Strategy
 - Provider: SQLite configured in the Prisma datasource.
@@ -686,12 +683,12 @@ Completed --> End
   - Version control schema changes via migrations.
   - Test migrations in a staging environment before applying to production.
   - Back up the database prior to major schema changes.
-  - **Test insurance company administrative workflow thoroughly before deployment**.
-  - **Validate new user fields (NIC, license type, annual fees, join dates) in development environment**.
+  - **Test vehicle verification workflow thoroughly before deployment**.
+  - **Validate new vehicle fields (verificationStatus, verifiedAt, verificationNotes) in development environment**.
+  - **Ensure unique vehicleId constraint on InsurancePolicy doesn't conflict with existing data**.
 
 **Section sources**
 - [schema.prisma:5-8](file://backend/prisma/schema.prisma#L5-L8)
-- [package.json:6-13](file://backend/package.json#L6-L13)
 
 ## Seeding Procedures
 - Admin seeding script:
@@ -701,13 +698,14 @@ Completed --> End
   - Run the seed script against the development database to bootstrap administrative access.
 - Security note:
   - Replace default credentials in production with secure provisioning processes.
-- **Insurance company user seeding**:
-  - **Consider creating test user accounts with various insurance company records for development testing**.
-  - **Include users with different NIC formats, license types, annual fees, and join dates**.
-  - **Test admin API endpoints for updating user insurance company records**.
+- **Vehicle verification seeding**:
+  - **Consider creating test vehicles with different verification statuses for development testing**.
+  - **Include vehicles with various verification states (PENDING, VERIFIED, REJECTED)**.
+  - **Test admin API endpoints for vehicle verification workflow**.
+  - **Verify that claims cannot be filed for vehicles with PENDING or REJECTED status**.
 
 **Section sources**
-- [seedAdmin.ts:9-34](file://backend/src/scripts/seedAdmin.ts#L9-L34)
+- [admin.ts:186-225](file://backend/src/routes/admin.ts#L186-L225)
 
 ## Backup and Recovery
 - SQLite considerations:
@@ -719,10 +717,8 @@ Completed --> End
 - Operational tips:
   - Automate backups and retention policies.
   - Test recovery procedures periodically.
-  - **Ensure insurance company administrative data integrity during recovery**.
-  - **Verify user insurance company records (NIC, license type, annual fees) remain consistent after backup restoration**.
-
-[No sources needed since this section provides general guidance]
+  - **Ensure vehicle verification data integrity during recovery**.
+  - **Verify vehicle verification status remains consistent after backup restoration**.
 
 ## Security Considerations
 - Sensitive field protection:
@@ -746,21 +742,18 @@ Completed --> End
   - **Validate NIC format according to Sri Lankan national ID standards**.
   - **Validate license types against supported categories (A, B, C, etc.)**.
   - **Ensure annual fees are non-negative numeric values**.
-- **Insurance company workflow security**:
-  - **All insurance company administrative operations require admin authentication**.
-  - **User insurance company records can only be modified by authorized administrators**.
-  - **Sensitive personal data (NIC) handled with appropriate security measures**.
+- **Vehicle verification workflow security**:
+  - **Vehicle verification endpoints require admin authentication**.
+  - **Verification status changes are logged with timestamps and optional notes**.
+  - **Claims can only be filed for vehicles with VERIFIED status**.
+  - **Rejection reasons are captured in verificationNotes for transparency**.
 
-**Updated** Enhanced security measures for insurance company administrative workflow including NIC protection and admin-only access controls.
+**Updated** Enhanced security measures for vehicle verification workflow including admin-only access controls and verification audit trails.
 
 **Section sources**
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [garageAuth.ts:1-31](file://backend/src/middleware/garageAuth.ts#L1-L31)
-- [garageAuth.ts:1-135](file://backend/src/routes/garageAuth.ts#L1-L135)
-- [admin.ts:55-109](file://backend/src/routes/admin.ts#L55-L109)
-- [schema.prisma:10-30](file://backend/prisma/schema.prisma#L10-L30)
-- [schema.prisma:246-264](file://backend/prisma/schema.prisma#L246-L264)
+- [admin.ts:186-225](file://backend/src/routes/admin.ts#L186-L225)
+- [schema.prisma:46-48](file://backend/prisma/schema.prisma#L46-L48)
+- [schema.prisma:57-61](file://backend/prisma/schema.prisma#L57-L61)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -770,34 +763,32 @@ Common issues and resolutions:
   - Check garage account approval status and active status for garage authentication issues.
 - Admin access denied:
   - Confirm user has isAdmin flag set and token is valid.
-  - **Verify admin authentication middleware is properly configured for insurance company operations**.
-- **Insurance company administrative issues**:
-  - **Ensure admin routes are properly secured and accessible only to authenticated admins**.
-  - **Validate input data for new user fields (NIC format, license types, annual fees)**.
-  - **Check database schema includes all new insurance company fields**.
-- **User field validation errors**:
-  - **Verify NIC format matches Sri Lankan national ID standards**.
-  - **Ensure license types are from supported list (A, B, C, etc.)**.
-  - **Validate annual fees are non-negative numeric values**.
-  - **Check joinedAt dates are properly formatted and valid**.
+  - **Verify admin authentication middleware is properly configured for vehicle verification operations**.
+- **Vehicle verification issues**:
+  - **Ensure admin routes for vehicle verification are properly secured and accessible only to authenticated admins**.
+  - **Validate input data for verification status changes (VERIFIED, REJECTED, PENDING)**.
+  - **Check database schema includes all new vehicle verification fields**.
+  - **Verify that unique vehicleId constraint on InsurancePolicy is properly enforced**.
+- **Vehicle status validation errors**:
+  - **Ensure vehicles start with PENDING verification status by default**.
+  - **Verify that claims cannot be filed for vehicles with PENDING or REJECTED status**.
+  - **Check that verification notes are properly captured and displayed**.
+  - **Ensure verifiedAt timestamps are set correctly when vehicles are verified**.
 - Data integrity errors:
   - Check foreign key constraints and cascade behaviors when deleting records.
   - Validate enum values match schema definitions.
   - Ensure garage assignments are valid before updating claim status to GARAGE_REVIEW.
+  - **Verify that vehicle-policy relationships are maintained correctly with unique vehicleId constraint**.
 - Migration conflicts:
   - Roll back migrations carefully and reapply changes in a controlled manner.
-  - **Test insurance company administrative migrations thoroughly in development environment**.
-  - **Validate new user fields work correctly with existing data**.
+  - **Test vehicle verification migrations thoroughly in development environment**.
+  - **Validate new vehicle fields work correctly with existing data**.
 
-**Updated** Added insurance company administrative troubleshooting scenarios including user field validation and admin access issues.
+**Updated** Added vehicle verification troubleshooting scenarios including status validation and admin access issues.
 
 **Section sources**
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [garageAuth.ts:1-31](file://backend/src/middleware/garageAuth.ts#L1-L31)
-- [garage.ts:1-136](file://backend/src/routes/garage.ts#L1-L136)
-- [admin.ts:55-109](file://backend/src/routes/admin.ts#L55-L109)
-- [schema.prisma:88-281](file://backend/prisma/schema.prisma#L88-L281)
+- [admin.ts:186-225](file://backend/src/routes/admin.ts#L186-L225)
+- [schema.prisma:46-61](file://backend/prisma/schema.prisma#L46-L61)
 
 ## Conclusion
-The Prisma schema defines a robust, well-constrained data model tailored for vehicle insurance claim processing with comprehensive garage integration capabilities and enhanced insurance company administrative features. Strong relationships, enums, timestamps, and enhanced workflow states provide reliability and auditability. The addition of insurance company administrative fields (NIC, license type, annual fees, join dates) enables comprehensive user management and policy administration. The integration of Garage and GarageEstimate models supports repair shop collaboration throughout the claim lifecycle, from assignment through estimate submission. To enhance scalability and compliance, consider adding indexes, implementing soft deletes, and strengthening backup and security procedures. Migrations and seeding scripts streamline development workflows, while specialized middleware ensures secure access to sensitive data for users, admins, and garages alike. The enhanced administrative capabilities provide insurance companies with the tools needed to manage user records, validate identities, and maintain accurate policy billing information.
+The Prisma schema defines a robust, well-constrained data model tailored for vehicle insurance claim processing with comprehensive garage integration capabilities and enhanced insurance company administrative features. Strong relationships, enums, timestamps, and enhanced workflow states provide reliability and auditability. The addition of comprehensive vehicle verification workflow with VehicleVerification enum enables insurance companies to validate vehicles and their associated policies before claims can be filed. The unique vehicleId constraint on InsurancePolicy creates a clean one-to-one relationship between vehicles and policies, improving data integrity and simplifying policy management. The integration of Garage and GarageEstimate models supports repair shop collaboration throughout the claim lifecycle, from assignment through estimate submission. To enhance scalability and compliance, consider adding indexes, implementing soft deletes, and strengthening backup and security procedures. Migrations and seeding scripts streamline development workflows, while specialized middleware ensures secure access to sensitive data for users, admins, and garages alike. The enhanced vehicle verification capabilities provide insurance companies with the tools needed to maintain quality control over vehicle registrations and policy associations while ensuring only verified vehicles can participate in the claims process.

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw, CircleDollarSign, ChevronDown } from 'lucide-react';
 import { uploadUrl } from '../../utils/uploadUrl';
 import { normalizeGarageItems, estimateTotals } from '../../utils/garageEstimate';
 
@@ -34,12 +34,16 @@ export function AdminClaimDetailPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState('');
   const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [finalValueDraft, setFinalValueDraft] = useState('');
+  const [finalValueSaving, setFinalValueSaving] = useState(false);
+  const [finalValueError, setFinalValueError] = useState('');
 
   const fetchClaim = () =>
     adminApi.get(`/claims/${id}`).then((r) => {
       setClaim(r.data);
       setNewStatus(r.data.status);
+      setFinalValueDraft(r.data.finalClaimableValue != null ? String(r.data.finalClaimableValue) : '');
     }).finally(() => setLoading(false));
 
   useEffect(() => { fetchClaim(); }, [id]);
@@ -62,6 +66,26 @@ export function AdminClaimDetailPage() {
       await fetchClaim();
     } catch { alert('Failed to update status'); }
     finally { setStatusSaving(false); }
+  };
+
+  // Sets (or clears) the insurer's final claimable value — the confirmed payout for this claim
+  const handleSetFinalValue = async (clear: boolean) => {
+    const raw = finalValueDraft.trim();
+    if (!clear) {
+      const value = Number(raw);
+      if (raw === '' || Number.isNaN(value) || value < 0) {
+        setFinalValueError('Enter a non-negative amount.');
+        return;
+      }
+    }
+    setFinalValueSaving(true);
+    setFinalValueError('');
+    try {
+      await adminApi.patch(`/claims/${id}/final-value`, clear ? { finalClaimableValue: null } : { finalClaimableValue: Number(raw) });
+      await fetchClaim();
+    } catch (err: any) {
+      setFinalValueError(err.response?.data?.error || 'Failed to set final claimable value.');
+    } finally { setFinalValueSaving(false); }
   };
 
   const handleApproveDoc = async (docId: string) => {
@@ -121,12 +145,26 @@ export function AdminClaimDetailPage() {
     } catch {
       alert('Failed to delete claim');
       setDeleting(false);
-      setConfirmDelete(false);
     }
   };
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-400"></div></div>;
   if (!claim) return null;
+
+  // Menu entries for the single blue Claim Actions dropdown (replaces the old colored button row)
+  const actionItems: { icon: typeof ThumbsUp; label: string; disabled: boolean; title?: string; action: () => void }[] = [
+    { icon: ThumbsUp, label: claim.status === 'APPROVED' ? 'Already Approved' : 'Approve Claim', disabled: statusSaving || claim.status === 'APPROVED', action: () => handleQuickStatus('APPROVED') },
+    { icon: ThumbsDown, label: claim.status === 'REJECTED' ? 'Already Rejected' : 'Reject Claim', disabled: statusSaving || claim.status === 'REJECTED', action: () => handleQuickStatus('REJECTED') },
+    { icon: Clock, label: 'Mark Under Review', disabled: statusSaving || claim.status === 'UNDER_REVIEW', action: () => handleQuickStatus('UNDER_REVIEW') },
+    { icon: CheckCircle, label: 'Mark Completed', disabled: statusSaving || claim.status === 'COMPLETED', action: () => handleQuickStatus('COMPLETED') },
+    {
+      icon: RefreshCw,
+      label: analyzing ? 'Analyzing...' : 'Re-analyze Damage',
+      disabled: analyzing || claim.images?.length === 0,
+      title: claim.images?.length === 0 ? 'No images to analyze' : "Re-run the AI damage analysis on this claim's photos",
+      action: handleReanalyze,
+    },
+  ];
 
   return (
     <div className="w-full">
@@ -147,75 +185,46 @@ export function AdminClaimDetailPage() {
         </div>
         <p className="text-sm text-gray-600 mb-5">{claim.incidentDescription}</p>
 
-        {/* Quick action buttons */}
-        <div className="flex flex-wrap gap-2 mb-4">
+        {/* Claim Actions — one blue dropdown instead of a row of colored buttons */}
+        <div className="relative mb-4">
           <button
-            onClick={() => handleQuickStatus('APPROVED')}
-            disabled={statusSaving || claim.status === 'APPROVED'}
-            className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-40 transition shadow-sm"
+            onClick={() => setActionsOpen((v) => !v)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold hover:bg-primary-700 transition shadow-sm"
           >
-            <ThumbsUp className="h-4 w-4" />
-            {claim.status === 'APPROVED' ? 'Already Approved' : 'Approve Claim'}
+            <Shield className="h-4 w-4" /> Claim Actions
+            <ChevronDown className={`h-4 w-4 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
           </button>
-          <button
-            onClick={() => handleQuickStatus('REJECTED')}
-            disabled={statusSaving || claim.status === 'REJECTED'}
-            className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-40 transition shadow-sm"
-          >
-            <ThumbsDown className="h-4 w-4" />
-            {claim.status === 'REJECTED' ? 'Already Rejected' : 'Reject Claim'}
-          </button>
-          <button
-            onClick={() => handleQuickStatus('UNDER_REVIEW')}
-            disabled={statusSaving || claim.status === 'UNDER_REVIEW'}
-            className="flex items-center gap-2 px-5 py-2.5 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 disabled:opacity-40 transition shadow-sm"
-          >
-            <Clock className="h-4 w-4" />
-            Mark Under Review
-          </button>
-          <button
-            onClick={() => handleQuickStatus('COMPLETED')}
-            disabled={statusSaving || claim.status === 'COMPLETED'}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 transition shadow-sm"
-          >
-            <CheckCircle className="h-4 w-4" />
-            Mark Completed
-          </button>
-          <button
-            onClick={handleReanalyze}
-            disabled={analyzing || claim.images?.length === 0}
-            title={claim.images?.length === 0 ? 'No images to analyze' : "Re-run the AI damage analysis on this claim's photos"}
-            className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-40 transition shadow-sm"
-          >
-            <RefreshCw className={`h-4 w-4 ${analyzing ? 'animate-spin' : ''}`} />
-            {analyzing ? 'Analyzing...' : 'Re-analyze Damage'}
-          </button>
-          {!confirmDelete ? (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-red-600 border border-red-300 rounded-lg text-sm font-semibold hover:bg-red-50 transition shadow-sm"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete Claim
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-red-600 font-medium">Delete claim and all its data permanently?</span>
-              <button
-                onClick={handleDeleteClaim}
-                disabled={deleting}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleting ? 'Deleting...' : 'Yes, delete'}
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                disabled={deleting}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium"
-              >
-                Cancel
-              </button>
-            </div>
+          {actionsOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
+              <div className="absolute left-0 z-20 mt-2 w-64 rounded-xl border border-primary-100 bg-white py-1.5 shadow-lg shadow-primary-600/10">
+                {actionItems.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => { setActionsOpen(false); item.action(); }}
+                    disabled={item.disabled}
+                    title={item.title}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40 transition"
+                  >
+                    <item.icon className={`h-4 w-4 shrink-0 ${item.icon === RefreshCw && analyzing ? 'animate-spin' : ''}`} />
+                    {item.label}
+                  </button>
+                ))}
+                {/* Destructive action — same blue theme, separated by a divider */}
+                <div className="my-1.5 border-t border-primary-100" />
+                <button
+                  onClick={() => {
+                    setActionsOpen(false);
+                    if (window.confirm('Delete this claim and all its data permanently?')) handleDeleteClaim();
+                  }}
+                  disabled={deleting}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40 transition"
+                >
+                  <Trash2 className="h-4 w-4 shrink-0" />
+                  {deleting ? 'Deleting...' : 'Delete Claim'}
+                </button>
+              </div>
+            </>
           )}
         </div>
 
@@ -328,6 +337,45 @@ export function AdminClaimDetailPage() {
               </div>
             );
           })()}
+          {/* Final Claimable Value — the insurer's confirmed amount; overrides the computed estimate */}
+          <div className="bg-white rounded-xl shadow-sm border border-green-300 p-5">
+            <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2 flex-wrap">
+              <CircleDollarSign className="h-4 w-4 text-green-600" /> Final Claimable Value
+              {claim.finalClaimableValue != null && (
+                <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-600 text-white">Confirmed</span>
+              )}
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              The final amount the insurer pays for this claim. Once saved it overrides the computed estimate and is shown to the customer as the confirmed payout.
+            </p>
+            {claim.finalClaimableValue != null && (
+              <div className="flex items-center justify-between p-3 bg-green-600 rounded-lg mb-3">
+                <p className="text-xs text-green-50 font-semibold uppercase tracking-wide">
+                  Final value{claim.finalValueSetAt ? ` · set ${new Date(claim.finalValueSetAt).toLocaleDateString()}` : ''}
+                </p>
+                <p className="text-xl font-bold text-white">Rs. {claim.finalClaimableValue.toLocaleString()}</p>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">Rs.</span>
+                <input type="number" min={0} value={finalValueDraft} onChange={(e) => setFinalValueDraft(e.target.value)}
+                  placeholder={claim.insurancePayout ? String(claim.insurancePayout.estimatedPayout) : '0'}
+                  className="w-40 pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+              </div>
+              <button onClick={() => handleSetFinalValue(false)} disabled={finalValueSaving}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition">
+                {finalValueSaving ? 'Saving...' : claim.finalClaimableValue != null ? 'Update Final Value' : 'Set Final Value'}
+              </button>
+              {claim.finalClaimableValue != null && (
+                <button onClick={() => handleSetFinalValue(true)} disabled={finalValueSaving}
+                  className="px-4 py-2 bg-white text-red-600 border border-red-300 rounded-lg text-sm font-semibold hover:bg-red-50 disabled:opacity-50 transition">
+                  Clear
+                </button>
+              )}
+            </div>
+            {finalValueError && <p className="text-xs text-red-600 mt-2">{finalValueError}</p>}
+          </div>
         </div>
       </div>
 
