@@ -1,19 +1,28 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
-import { MessageSquare, X, Send, Trash2, Bot } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { MessageSquare, X, Send, Trash2, Bot, ArrowRight } from 'lucide-react';
 import api from '../services/api';
+
+interface NavigationSuggestion {
+  label: string;
+  route: string;
+}
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  suggestions?: NavigationSuggestion[];
 }
 
 const QUICK_QUESTIONS = [
-  'How do I file a claim?',
-  'What documents do I need?',
-  'How does the garage estimate work?',
+  'How do I file a new claim?',
+  'What is the status of my claims?',
+  'Tell me about my vehicles and policies',
+  'How does the AI damage analysis work?',
 ];
 
 export function GlobalAIAssistant() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -34,7 +43,8 @@ export function GlobalAIAssistant() {
     setLoading(true);
     try {
       const res = await api.post('/general-chat', { message: text.trim() });
-      setMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply }]);
+      const suggestions: NavigationSuggestion[] = Array.isArray(res.data.suggestions) ? res.data.suggestions : [];
+      setMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply, suggestions }]);
     } catch {
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I could not process your request. Please try again.' }]);
     } finally {
@@ -117,6 +127,20 @@ export function GlobalAIAssistant() {
                     : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm shadow-sm'
                 }`}>
                   {msg.content}
+                  {msg.suggestions && msg.suggestions.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
+                      {msg.suggestions.map((s, j) => (
+                        <button
+                          key={j}
+                          onClick={() => { setOpen(false); navigate(s.route); }}
+                          className="flex items-center gap-1.5 w-full text-left text-xs px-2.5 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg transition"
+                        >
+                          <ArrowRight className="h-3 w-3 flex-shrink-0" />
+                          <span>{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
