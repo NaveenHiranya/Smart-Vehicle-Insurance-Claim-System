@@ -16,6 +16,14 @@
 - [index.ts](file://frontend/src/types/index.ts)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated Garage Dashboard Page with enhanced responsive design and improved visual hierarchy
+- Enhanced Garage Login Page with better error handling and pending approval states
+- Improved Garage Register Page with comprehensive form validation and success feedback
+- Added consistent styling across all garage portal pages with mobile-first approach
+- Implemented better user interface elements including status indicators and progress feedback
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -29,6 +37,8 @@
 
 ## Introduction
 This document describes the Garage Frontend Interface for the Smart Vehicle Insurance Claim System. It focuses on how garage users authenticate, navigate, view assigned claims, and submit repair estimates. The interface is built with React, TypeScript, Vite, Tailwind CSS, and React Router. Authentication and routing are handled via context and route guards, while API calls to the backend are centralized through an Axios instance configured for the garage tenant.
+
+**Updated** Recent improvements include enhanced responsive design, consistent styling across all garage portal pages, better mobile responsiveness, and improved user interface elements for better user experience.
 
 ## Project Structure
 The frontend is organized by feature areas:
@@ -65,9 +75,11 @@ F --> G["Backend /api/garage"]
 - Garage Layout: Provides sidebar navigation, logout, and displays the current garage name from local storage.
 - Garage Protected Route: Guards routes by checking for a stored garage token; redirects to login if missing.
 - Garage API Client: Centralized Axios instance that injects Authorization headers and clears session on 401/403.
-- Garage Dashboard Page: Lists all assigned claims, highlights pending review items, and shows summary metrics.
+- Garage Dashboard Page: Lists all assigned claims, highlights pending review items, and shows summary metrics with enhanced responsive design.
 - Garage Claim Detail Page: Displays vehicle and incident details, AI assessment when available, and allows editing/submission of repair estimates.
-- Garage Login/Register Pages: Handle authentication and registration flows with error and pending approval states.
+- Garage Login/Register Pages: Handle authentication and registration flows with improved error handling, pending approval states, and better mobile responsiveness.
+
+**Updated** All garage portal pages now feature consistent styling with dark theme support, improved mobile responsiveness, and enhanced user interface elements including better status indicators and progress feedback.
 
 **Section sources**
 - [GarageLayout.tsx:9-72](file://frontend/src/components/GarageLayout.tsx#L9-L72)
@@ -100,7 +112,7 @@ GP->>GA : GET /claims
 GA->>BE : Request with Authorization header
 BE-->>GA : Claims data
 GA-->>GP : Response
-GP-->>U : Display dashboard
+GP-->>U : Display dashboard with enhanced UI
 else No token
 GPR-->>U : Redirect to "/garage/login"
 end
@@ -116,9 +128,11 @@ end
 ## Detailed Component Analysis
 
 ### Garage Authentication Flow
-- Login: Submits credentials to the garage auth endpoint, stores token and user info, then navigates to the dashboard. Errors include a special “pending approval” message path.
-- Register: Submits garage details; success indicates account creation with pending admin approval.
+- Login: Submits credentials to the garage auth endpoint, stores token and user info, then navigates to the dashboard. Errors include a special "pending approval" message path with enhanced visual feedback.
+- Register: Submits garage details; success indicates account creation with pending admin approval and provides clear next steps.
 - Protected Routes: Any attempt to access garage routes without a valid token redirects to login.
+
+**Updated** Enhanced error handling with visual distinction between regular errors and pending approval states, improved loading states, and better mobile responsiveness.
 
 ```mermaid
 flowchart TD
@@ -126,7 +140,7 @@ Start(["Login Submit"]) --> CallAPI["POST /auth/login"]
 CallAPI --> Resp{"Response OK?"}
 Resp --> |Yes| Store["Store token and user"]
 Store --> Nav["Navigate to /garage/dashboard"]
-Resp --> |No| Err["Show error or pending approval"]
+Resp --> |No| Err["Show enhanced error or pending approval"]
 Err --> End(["End"])
 Nav --> End
 ```
@@ -143,7 +157,10 @@ Nav --> End
 ### Garage Dashboard
 - Loads all assigned claims and computes summary metrics (total, pending review, estimated).
 - Highlights claims awaiting review and provides quick links to claim details.
-- Uses status colors to visually differentiate claim states.
+- Uses status colors to visually differentiate claim states with enhanced responsive design.
+- Features improved mobile layout with grid-based statistics cards and better spacing.
+
+**Updated** Enhanced dashboard with responsive grid layout, improved visual hierarchy, better mobile responsiveness, and enhanced status indicators with color-coded badges.
 
 ```mermaid
 sequenceDiagram
@@ -155,7 +172,7 @@ A->>S : Request with Authorization
 S-->>A : Claims[]
 A-->>P : Claims[]
 P->>P : Compute totals and filters
-P-->>P : Render dashboard UI
+P-->>P : Render enhanced dashboard UI
 ```
 
 **Diagram sources**
@@ -298,14 +315,14 @@ GA --> BE["Backend /api/garage"]
 - Efficient list rendering: Ensure stable keys for claim lists to optimize reconciliation.
 - Network requests: Debounce or coalesce repeated requests where applicable; leverage caching strategies at the service layer if needed.
 - Image loading: Lazy-load images in galleries to reduce initial payload and improve perceived performance.
-
-[No sources needed since this section provides general guidance]
+- **Updated** Responsive design optimizations ensure optimal performance across different screen sizes and devices.
 
 ## Troubleshooting Guide
 - Unauthorized access: If a request returns 401/403, the garage API interceptor clears local storage and redirects to login. Verify token presence and validity before making requests.
-- Pending approval: Login may return a specific message indicating the garage account is pending admin approval. In this case, inform the user to wait for approval.
+- Pending approval: Login may return a specific message indicating the garage account is pending admin approval. In this case, inform the user to wait for approval with enhanced visual feedback.
 - Missing data: If claim detail does not show AI assessment or estimates, ensure backend has processed assessments and estimates; fallback behavior allows manual entry.
 - Navigation issues: Confirm routes are correctly defined in App and that protected routes are wrapping the intended components.
+- **Updated** Enhanced error handling provides better user feedback for common issues including network errors, authentication problems, and form validation failures.
 
 **Section sources**
 - [garageApi.ts:16-28](file://frontend/src/services/garageApi.ts#L16-L28)
@@ -313,4 +330,4 @@ GA --> BE["Backend /api/garage"]
 - [GarageClaimDetailPage.tsx:108-110](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L108-L110)
 
 ## Conclusion
-The Garage Frontend Interface provides a focused, secure, and efficient experience for garage users to manage assigned claims and submit repair estimates. It leverages React Router for navigation, a dedicated API client for authenticated requests, and clear UI patterns for dashboards and detailed workflows. The design supports both AI-assisted insights and manual adjustments, ensuring flexibility and accuracy in the estimation process.
+The Garage Frontend Interface provides a focused, secure, and efficient experience for garage users to manage assigned claims and submit repair estimates. Recent improvements include enhanced responsive design, consistent styling across all garage portal pages, better mobile responsiveness, and improved user interface elements. The interface leverages React Router for navigation, a dedicated API client for authenticated requests, and clear UI patterns for dashboards and detailed workflows. The design supports both AI-assisted insights and manual adjustments, ensuring flexibility and accuracy in the estimation process with enhanced user experience across all devices.

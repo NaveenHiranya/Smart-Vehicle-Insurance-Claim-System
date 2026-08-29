@@ -1,1 +1,0 @@
-Express + TypeScript backend with Prisma ORM over SQLite; JWT-based admin auth via `jsonwebtoken`; React + Vite frontend using React Router, Axios interceptors, and Tailwind CSS for the admin UI.

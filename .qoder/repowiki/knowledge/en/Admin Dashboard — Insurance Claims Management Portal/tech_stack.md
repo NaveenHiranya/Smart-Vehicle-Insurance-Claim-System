@@ -1,0 +1,1 @@
+Express 5 + TypeScript backend with Prisma ORM (schema in `prisma/schema.prisma`, SQLite dev DB `prisma/dev.db`), JSON Web Tokens for session auth, bcryptjs for password hashing, Zod for validation, and Google Generative AI SDK for AI-powered claim/document assistance. Frontend is React 19 + Vite with Tailwind CSS v4, react-router-dom v7, axios, and lucide-react icons.

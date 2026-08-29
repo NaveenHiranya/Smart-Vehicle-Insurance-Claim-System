@@ -58,7 +58,7 @@ export interface DamageItem {
   severity: SeverityLevel;
   location: string;
   description: string;
-  affectedParts: string[];
+  affectedParts?: string[];
 }
 
 export interface DamageAssessment {
@@ -156,11 +156,26 @@ export interface GarageEstimateItem {
   addedByGarage?: boolean;
 }
 
+// Current garage estimate layout: parts list + a single labor line + a single paint/materials line
+export interface GarageEstimatePart {
+  damageType: string;
+  partName: string;
+  partCost: number;
+  addedByGarage?: boolean;
+}
+
+export interface GarageEstimateItems {
+  parts: GarageEstimatePart[];
+  laborHours: number;
+  laborRate: number;
+  paintMaterials: number;
+}
+
 export interface GarageEstimate {
   id: string;
   claimId: string;
   garageId: string;
-  items: GarageEstimateItem[];
+  items: GarageEstimateItems | GarageEstimateItem[];
   totalPartsCost: number;
   totalLaborCost: number;
   totalCost: number;

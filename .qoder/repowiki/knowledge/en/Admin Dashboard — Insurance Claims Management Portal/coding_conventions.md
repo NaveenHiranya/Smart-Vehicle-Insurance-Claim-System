@@ -1,0 +1,6 @@
+- Each feature area is isolated in its own Express Router file under `src/routes/` and mounted at the application root, with route-specific middleware applied per router rather than globally.
+- Admin-only endpoints are grouped under a single `admin.ts` router that applies `adminAuthMiddleware` once at the top, so every handler implicitly requires a valid JWT plus `isAdmin: true`.
+- Error handling follows a try/catch pattern in every route handler that logs the error to console and returns a uniform `{ error: string }` JSON response with an appropriate HTTP status code.
+- Prisma queries use explicit `select` projections to limit returned fields (e.g., only id/name/email for related users) instead of returning full model objects.
+- Frontend routing separates roles via dedicated layout and protected-route components (`AdminProtectedRoute`, `GarageProtectedRoute`, `AdminLayout`, `GarageLayout`) that check localStorage tokens before rendering child pages.
+- State mutations (approve/reject document, toggle garage, update claim status) are implemented as PATCH endpoints that validate allowed values against inline allowlists before calling Prisma's `update`.

@@ -172,6 +172,62 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// PATCH /api/claims/:id/garage - Select or change the garage after claim creation
+router.patch('/:id/garage', async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await prisma.claim.findFirst({
+      where: { id: param(req, 'id'), userId: req.userId },
+      include: { garageEstimate: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: 'Claim not found.' });
+      return;
+    }
+
+    if (existing.garageEstimate) {
+      res.status(400).json({ error: 'The garage has already submitted an estimate. Please contact your insurance company to change the garage.' });
+      return;
+    }
+
+    if (['APPROVED', 'COMPLETED', 'REJECTED'].includes(existing.status)) {
+      res.status(400).json({ error: 'The garage can no longer be changed for this claim.' });
+      return;
+    }
+
+    const { garageId } = req.body;
+    if (!garageId) {
+      res.status(400).json({ error: 'Garage is required.' });
+      return;
+    }
+
+    const garage = await prisma.garage.findFirst({
+      where: { id: garageId, isActive: true, isApproved: true },
+    });
+
+    if (!garage) {
+      res.status(404).json({ error: 'Garage not found or not available.' });
+      return;
+    }
+
+    // Once the claim is submitted, a garage assignment moves it to GARAGE_REVIEW
+    const newStatus = existing.status === 'DRAFT' ? existing.status : 'GARAGE_REVIEW';
+
+    const claim = await prisma.claim.update({
+      where: { id: param(req, 'id') },
+      data: {
+        garageId,
+        ...(newStatus !== existing.status && { status: newStatus }),
+      },
+    });
+
+    res.json(claim);
+  } catch (error) {
+    console.error('Update garage error:', error);
+    res.status(500).json({ error: 'Failed to update garage.' });
+  }
+});
+
 // POST /api/claims/:id/submit
 router.post('/:id/submit', async (req: AuthRequest, res: Response) => {
   try {

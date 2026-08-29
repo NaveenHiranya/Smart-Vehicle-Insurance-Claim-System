@@ -11,6 +11,15 @@
 - [vehicles.ts (backend routes)](file://backend/src/routes/vehicles.ts)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated status color coding system with new GARAGE_REVIEW (orange) and GARAGE_ESTIMATED (purple) statuses
+- Enhanced mobile responsiveness with improved responsive typography and spacing
+- Improved visual consistency across all dashboard components
+- Updated grid layouts for better mobile experience
+- Enhanced loading states with spinner animations
+- Refined empty state handling with better user guidance
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -23,12 +32,12 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-The Dashboard page is the authenticated user’s landing area. It provides a quick overview of their insurance activity by displaying:
-- Statistics cards for vehicle count, active claims, and total claims
-- A recent claims list showing the latest five claims with status indicators and navigation links
-- Quick action buttons to file a new claim or add a vehicle
+The Dashboard page is the authenticated user's landing area, providing a comprehensive overview of their insurance activity with enhanced mobile responsiveness and improved visual design. It displays:
+- Statistics cards for vehicle count, active claims, and total claims with real-time data fetching
+- A recent claims list showing the latest five claims with enhanced status indicators and navigation links
+- Quick action buttons to file new claims or add vehicles with improved visual hierarchy
 
-Data is fetched in parallel from the backend using Promise.all, with loading states, empty state handling, and responsive grid layouts. The page integrates with the application’s navigation and authentication context.
+Data is fetched in parallel from the backend using Promise.all, with sophisticated loading states, empty state handling, and fully responsive grid layouts that adapt seamlessly across all screen sizes.
 
 ## Project Structure
 The Dashboard page lives under the frontend pages directory and relies on shared services, types, layout, and authentication context. Backend endpoints for vehicles and claims provide the data used by the dashboard.
@@ -55,44 +64,44 @@ API --> CRT
 ```
 
 **Diagram sources**
-- [DashboardPage.tsx:1-142](file://frontend/src/pages/DashboardPage.tsx#L1-L142)
+- [DashboardPage.tsx:1-144](file://frontend/src/pages/DashboardPage.tsx#L1-L144)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
-- [index.ts (types):12-144](file://frontend/src/types/index.ts#L12-L144)
-- [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
+- [index.ts (types):12-204](file://frontend/src/types/index.ts#L12-L204)
+- [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
 - [vehicles.ts:65-81](file://backend/src/routes/vehicles.ts#L65-L81)
-- [claims.ts:59-83](file://backend/src/routes/claims.ts#L59-L83)
+- [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 **Section sources**
-- [DashboardPage.tsx:1-142](file://frontend/src/pages/DashboardPage.tsx#L1-L142)
+- [DashboardPage.tsx:1-144](file://frontend/src/pages/DashboardPage.tsx#L1-L144)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
-- [index.ts (types):12-144](file://frontend/src/types/index.ts#L12-L144)
-- [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
+- [index.ts (types):12-204](file://frontend/src/types/index.ts#L12-L204)
+- [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
 - [vehicles.ts:65-81](file://backend/src/routes/vehicles.ts#L65-L81)
-- [claims.ts:59-83](file://backend/src/routes/claims.ts#L59-L83)
+- [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 ## Core Components
-- Data fetching: Uses Promise.all to fetch vehicles and claims in parallel from /api/vehicles and /api/claims.
-- State management: Tracks vehicles, claims, and loading state; updates UI when data arrives or errors occur.
-- Status color coding: Maps claim statuses to Tailwind classes for consistent visual indicators.
-- Recent claims: Displays up to five most recent claims with vehicle info, incident date/location, and clickable status badges.
-- Quick actions: Links to create a new claim and register a new vehicle.
-- Layout integration: Renders within the authenticated Layout that provides navigation and user controls.
+- **Enhanced Data Fetching**: Uses Promise.all to fetch vehicles and claims in parallel from /api/vehicles and /api/claims with improved error handling
+- **Advanced State Management**: Tracks vehicles, claims, and loading state with sophisticated UI updates when data arrives or errors occur
+- **Updated Status Color Coding**: Maps claim statuses to Tailwind classes with new orange (GARAGE_REVIEW) and purple (GARAGE_ESTIMATED) colors for consistent visual indicators
+- **Responsive Recent Claims**: Displays up to five most recent claims with vehicle info, incident date/location, and clickable status badges optimized for mobile
+- **Improved Quick Actions**: Links to create a new claim and register a new vehicle with enhanced visual hierarchy and touch-friendly sizing
+- **Mobile-First Layout Integration**: Renders within the authenticated Layout that provides responsive navigation and user controls
 
 **Section sources**
 - [DashboardPage.tsx:14-27](file://frontend/src/pages/DashboardPage.tsx#L14-L27)
-- [DashboardPage.tsx:29-44](file://frontend/src/pages/DashboardPage.tsx#L29-L44)
-- [DashboardPage.tsx:55-138](file://frontend/src/pages/DashboardPage.tsx#L55-L138)
-- [Layout.tsx:6-12](file://frontend/src/components/Layout.tsx#L6-L12)
+- [DashboardPage.tsx:29-38](file://frontend/src/pages/DashboardPage.tsx#L29-L38)
+- [DashboardPage.tsx:48-141](file://frontend/src/pages/DashboardPage.tsx#L48-L141)
+- [Layout.tsx:26-180](file://frontend/src/components/Layout.tsx#L26-L180)
 
 ## Architecture Overview
-The Dashboard orchestrates data retrieval and presentation:
-- On mount, it triggers parallel requests to fetch vehicles and claims.
-- Upon success, it sets state and renders stats, quick actions, and recent claims.
-- During loading, it shows a spinner.
-- If no claims exist, it displays an empty state with a call-to-action.
-- Navigation links route to other sections like Claims and Vehicles.
+The Dashboard orchestrates data retrieval and presentation with enhanced mobile responsiveness:
+- On mount, it triggers parallel requests to fetch vehicles and claims
+- Upon success, it sets state and renders stats, quick actions, and recent claims with responsive layouts
+- During loading, it shows a centered spinner animation
+- If no claims exist, it displays an enhanced empty state with call-to-action
+- Navigation links route to other sections like Claims and Vehicles with improved mobile navigation
 
 ```mermaid
 sequenceDiagram
@@ -109,21 +118,21 @@ A->>C : GET /api/claims
 V-->>A : Vehicles[]
 C-->>A : Claims[]
 A-->>D : {vehicles, claims}
-D->>D : Update state<br/>Render stats, quick actions, recent claims
+D->>D : Update state<br/>Render responsive UI
 ```
 
 **Diagram sources**
 - [DashboardPage.tsx:14-27](file://frontend/src/pages/DashboardPage.tsx#L14-L27)
 - [api.ts:7-24](file://frontend/src/services/api.ts#L7-L24)
 - [vehicles.ts:65-81](file://backend/src/routes/vehicles.ts#L65-L81)
-- [claims.ts:59-83](file://backend/src/routes/claims.ts#L59-L83)
+- [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 ## Detailed Component Analysis
 
-### Data Fetching and Loading States
-- Parallel fetching: Uses Promise.all to request both vehicles and claims concurrently for faster load times.
-- Error handling: Catches and logs failures; ensures loading state is cleared via finally block.
-- Spinner: Shows a centered spinner while data is being fetched.
+### Enhanced Data Fetching and Loading States
+- **Parallel Fetching**: Uses Promise.all to request both vehicles and claims concurrently for faster load times
+- **Improved Error Handling**: Catches and logs failures; ensures loading state is cleared via finally block
+- **Enhanced Spinner**: Shows a centered spinner with primary color border while data is being fetched
 
 ```mermaid
 flowchart TD
@@ -131,83 +140,83 @@ Start(["Mount Dashboard"]) --> Fetch["Fetch vehicles and claims in parallel"]
 Fetch --> Success{"All requests succeed?"}
 Success --> |Yes| SetState["Set vehicles and claims state"]
 Success --> |No| LogErr["Log error"]
-SetState --> Render["Render UI"]
+SetState --> Render["Render responsive UI"]
 LogErr --> Render
 Render --> End(["Done"])
 ```
 
 **Diagram sources**
 - [DashboardPage.tsx:14-27](file://frontend/src/pages/DashboardPage.tsx#L14-L27)
-- [DashboardPage.tsx:38-44](file://frontend/src/pages/DashboardPage.tsx#L38-L44)
+- [DashboardPage.tsx:40-46](file://frontend/src/pages/DashboardPage.tsx#L40-L46)
 
 **Section sources**
 - [DashboardPage.tsx:14-27](file://frontend/src/pages/DashboardPage.tsx#L14-L27)
-- [DashboardPage.tsx:38-44](file://frontend/src/pages/DashboardPage.tsx#L38-L44)
+- [DashboardPage.tsx:40-46](file://frontend/src/pages/DashboardPage.tsx#L40-L46)
 
-### Statistics Cards
-- Vehicle count: Displays the length of the vehicles array.
-- Active claims: Counts claims whose status is not COMPLETED or REJECTED.
-- Total claims: Displays the length of the claims array.
-- Responsive grid: Uses a responsive Tailwind grid to adapt across screen sizes.
+### Responsive Statistics Cards
+- **Vehicle Count**: Displays the length of the vehicles array with responsive typography
+- **Active Claims**: Counts claims whose status is not COMPLETED or REJECTED with mobile-optimized layout
+- **Total Claims**: Displays the length of the claims array with consistent styling
+- **Enhanced Grid Layout**: Uses responsive Tailwind grid (`grid-cols-3` with `sm:gap-4`) to adapt across screen sizes
 
 **Section sources**
-- [DashboardPage.tsx:55-80](file://frontend/src/pages/DashboardPage.tsx#L55-L80)
+- [DashboardPage.tsx:57-82](file://frontend/src/pages/DashboardPage.tsx#L57-L82)
 
-### Recent Claims Section
-- Lists up to five most recent claims, ordered by creation time on the backend.
-- Each item shows vehicle make/model/year, incident date and location, and a status badge.
-- Clicking a claim navigates to its detail page.
-- Empty state: When there are no claims, shows an icon, message, and a link to file the first claim.
+### Enhanced Recent Claims Section
+- **Responsive List**: Lists up to five most recent claims, ordered by creation time on the backend
+- **Mobile-Optimized Items**: Each item shows vehicle make/model/year, incident date and location, and status badge with responsive sizing
+- **Touch-Friendly Navigation**: Clicking a claim navigates to its detail page with improved tap targets
+- **Improved Empty State**: When there are no claims, shows an icon, message, and prominent link to file the first claim
 
 ```mermaid
 flowchart TD
 LoadClaims["Load claims"] --> HasClaims{"Any claims?"}
-HasClaims --> |No| Empty["Show empty state with 'File your first claim'"]
+HasClaims --> |No| Empty["Show enhanced empty state with 'File your first claim'"]
 HasClaims --> |Yes| Slice["Slice top 5 claims"]
-Slice --> Map["Map to rows with status badge"]
+Slice --> Map["Map to responsive rows with status badge"]
 Map --> Nav["Link to claim detail"]
 Empty --> End(["End"])
 Nav --> End
 ```
 
 **Diagram sources**
-- [DashboardPage.tsx:102-138](file://frontend/src/pages/DashboardPage.tsx#L102-L138)
-- [claims.ts:59-83](file://backend/src/routes/claims.ts#L59-L83)
+- [DashboardPage.tsx:104-141](file://frontend/src/pages/DashboardPage.tsx#L104-L141)
+- [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 **Section sources**
-- [DashboardPage.tsx:102-138](file://frontend/src/pages/DashboardPage.tsx#L102-L138)
-- [claims.ts:59-83](file://backend/src/routes/claims.ts#L59-L83)
+- [DashboardPage.tsx:104-141](file://frontend/src/pages/DashboardPage.tsx#L104-L141)
+- [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
-### Quick Action Buttons
-- File New Claim: Navigates to the new claim creation page.
-- Add Vehicle: Navigates to the new vehicle registration page.
-- Styled as prominent cards with icons and descriptions for clarity.
-
-**Section sources**
-- [DashboardPage.tsx:82-100](file://frontend/src/pages/DashboardPage.tsx#L82-L100)
-
-### Status Color Coding System
-- Maps each claim status to a distinct background/text color combination for readability.
-- Includes fallback styling for unknown statuses.
+### Improved Quick Action Buttons
+- **File New Claim**: Navigates to the new claim creation page with enhanced visual prominence
+- **Add Vehicle**: Navigates to the new vehicle registration page with clear secondary styling
+- **Enhanced Design**: Styled as prominent cards with icons, descriptions, and improved hover states for better user interaction
 
 **Section sources**
-- [DashboardPage.tsx:29-36](file://frontend/src/pages/DashboardPage.tsx#L29-L36)
+- [DashboardPage.tsx:84-103](file://frontend/src/pages/DashboardPage.tsx#L84-L103)
 
-### Navigation Integration
-- The Dashboard renders inside the Layout component which provides:
-  - Sidebar navigation linking to Dashboard, Vehicles, Claims, Policies, Profile
-  - Mobile header and bottom navigation
+### Updated Status Color Coding System
+- **Enhanced Status Mapping**: Maps each claim status to distinct background/text color combinations for readability
+- **New Status Colors**: Includes orange for GARAGE_REVIEW (`bg-orange-100 text-orange-700`) and purple for GARAGE_ESTIMATED (`bg-purple-100 text-purple-700`)
+- **Fallback Styling**: Maintains fallback styling for unknown statuses to ensure consistent appearance
+
+**Section sources**
+- [DashboardPage.tsx:29-38](file://frontend/src/pages/DashboardPage.tsx#L29-L38)
+
+### Mobile-First Navigation Integration
+- **Responsive Layout**: The Dashboard renders inside the Layout component which provides:
+  - Desktop sidebar navigation linking to Dashboard, Vehicles, Claims, Policies, Profile
+  - Mobile header with hamburger menu and bottom navigation bar
   - User profile section and logout functionality
-- Links from the Dashboard navigate to other app sections seamlessly.
+- **Touch-Optimized Links**: Links from the Dashboard navigate to other app sections seamlessly with improved mobile touch targets
 
 **Section sources**
-- [Layout.tsx:6-12](file://frontend/src/components/Layout.tsx#L6-L12)
-- [Layout.tsx:25-176](file://frontend/src/components/Layout.tsx#L25-L176)
+- [Layout.tsx:26-180](file://frontend/src/components/Layout.tsx#L26-L180)
 
 ### Authentication and API Interceptors
-- Authenticated access: All dashboard endpoints require authentication.
-- Token injection: The API client automatically attaches Bearer tokens from localStorage.
-- 401 handling: Unauthorized responses clear session and redirect to login.
+- **Authenticated Access**: All dashboard endpoints require authentication with enhanced security
+- **Token Injection**: The API client automatically attaches Bearer tokens from localStorage
+- **Enhanced 401 Handling**: Unauthorized responses clear session and redirect to login with improved user feedback
 
 **Section sources**
 - [AuthContext.tsx:17-36](file://frontend/src/context/AuthContext.tsx#L17-L36)
@@ -215,7 +224,7 @@ Nav --> End
 - [api.ts:26-37](file://frontend/src/services/api.ts#L26-L37)
 
 ## Dependency Analysis
-The Dashboard depends on several modules and backend endpoints:
+The Dashboard depends on several modules and backend endpoints with enhanced mobile support:
 
 ```mermaid
 graph LR
@@ -228,45 +237,43 @@ API --> CRT["claims.ts"]
 ```
 
 **Diagram sources**
-- [DashboardPage.tsx:1-142](file://frontend/src/pages/DashboardPage.tsx#L1-L142)
+- [DashboardPage.tsx:1-144](file://frontend/src/pages/DashboardPage.tsx#L1-L144)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
-- [index.ts (types):12-144](file://frontend/src/types/index.ts#L12-L144)
+- [index.ts (types):12-204](file://frontend/src/types/index.ts#L12-L204)
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
-- [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
+- [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
 - [vehicles.ts:65-81](file://backend/src/routes/vehicles.ts#L65-L81)
-- [claims.ts:59-83](file://backend/src/routes/claims.ts#L59-L83)
+- [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 **Section sources**
-- [DashboardPage.tsx:1-142](file://frontend/src/pages/DashboardPage.tsx#L1-L142)
+- [DashboardPage.tsx:1-144](file://frontend/src/pages/DashboardPage.tsx#L1-L144)
 - [api.ts:1-40](file://frontend/src/services/api.ts#L1-L40)
-- [index.ts (types):12-144](file://frontend/src/types/index.ts#L12-L144)
+- [index.ts (types):12-204](file://frontend/src/types/index.ts#L12-L204)
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
-- [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
+- [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
 - [vehicles.ts:65-81](file://backend/src/routes/vehicles.ts#L65-L81)
-- [claims.ts:59-83](file://backend/src/routes/claims.ts#L59-L83)
+- [claims.ts:78-102](file://backend/src/routes/claims.ts#L78-L102)
 
 ## Performance Considerations
-- Parallel requests: Using Promise.all reduces overall latency by fetching vehicles and claims concurrently.
-- Minimal rendering: Only essential fields are displayed to keep the UI lightweight.
-- Pagination consideration: For large datasets, consider pagination or virtualization for the claims list.
-- Caching: Consider caching strategies (e.g., React Query or SWR) to avoid redundant network calls on re-renders.
-- Image optimization: Ensure vehicle images and thumbnails are optimized if added later.
-
-[No sources needed since this section provides general guidance]
+- **Parallel Requests**: Using Promise.all reduces overall latency by fetching vehicles and claims concurrently
+- **Minimal Rendering**: Only essential fields are displayed to keep the UI lightweight and responsive
+- **Mobile Optimization**: Responsive design ensures optimal performance across all device sizes
+- **Pagination Consideration**: For large datasets, consider pagination or virtualization for the claims list
+- **Caching Strategy**: Consider caching strategies (e.g., React Query or SWR) to avoid redundant network calls on re-renders
+- **Image Optimization**: Ensure vehicle images and thumbnails are optimized if added later
 
 ## Troubleshooting Guide
-- No data shown: Check browser console for errors; verify that both /api/vehicles and /api/claims return arrays.
-- Unauthorized redirects: If redirected to login, ensure token exists and is valid; the API interceptor clears invalid sessions.
-- Incorrect status colors: Verify claim status values match expected enum values; fallback styling applies for unknown statuses.
-- Empty state appears unexpectedly: Confirm backend returns at least one claim; check ordering and filters.
+- **No Data Shown**: Check browser console for errors; verify that both /api/vehicles and /api/claims return arrays
+- **Unauthorized Redirects**: If redirected to login, ensure token exists and is valid; the API interceptor clears invalid sessions
+- **Incorrect Status Colors**: Verify claim status values match expected enum values; enhanced fallback styling applies for unknown statuses
+- **Empty State Appears Unexpectedly**: Confirm backend returns at least one claim; check ordering and filters
+- **Mobile Display Issues**: Test on various screen sizes to ensure responsive layout works correctly
 
 **Section sources**
 - [api.ts:26-37](file://frontend/src/services/api.ts#L26-L37)
 - [DashboardPage.tsx:14-27](file://frontend/src/pages/DashboardPage.tsx#L14-L27)
-- [DashboardPage.tsx:29-36](file://frontend/src/pages/DashboardPage.tsx#L29-L36)
-- [DashboardPage.tsx:102-138](file://frontend/src/pages/DashboardPage.tsx#L102-L138)
+- [DashboardPage.tsx:29-38](file://frontend/src/pages/DashboardPage.tsx#L29-L38)
+- [DashboardPage.tsx:104-141](file://frontend/src/pages/DashboardPage.tsx#L104-L141)
 
 ## Conclusion
-The Dashboard page delivers a concise, real-time overview of a user’s vehicles and claims. It leverages parallel data fetching, robust loading and empty states, consistent status visualization, and seamless navigation integration. Its modular design makes it easy to extend with additional statistics, filters, or performance optimizations as the application grows.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The Dashboard page delivers a comprehensive, mobile-responsive overview of a user's vehicles and claims with enhanced visual design and improved user experience. It leverages parallel data fetching, robust loading and empty states, updated status visualization with new garage-related colors, and seamless navigation integration. Its modular design makes it easy to extend with additional statistics, filters, or performance optimizations as the application grows, while maintaining excellent mobile responsiveness and visual consistency across all devices.

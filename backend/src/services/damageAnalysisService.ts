@@ -4,48 +4,24 @@ import { generateContentWithFallback } from '../utils/gemini.js';
 import prisma from '../utils/prisma.js';
 import { DamageAnalysisResult } from '../types/index.js';
 
-const DAMAGE_ANALYSIS_PROMPT = `You are an expert automotive damage assessment AI. Analyze the provided vehicle images and identify any visible damage.
+const DAMAGE_ANALYSIS_PROMPT = `You are a vehicle damage assessor. Examine the images and list every visible damage: dents, scratches, cracks, broken lights, bumper/glass/wheel/panel/structural damage.
 
-For each image, carefully examine:
-- Dents, dings, and panel deformation
-- Scratches and paint damage
-- Cracks (glass, plastic, body panels)
-- Broken or damaged lights (headlights, taillights, indicators)
-- Bumper damage (cracks, misalignment, detachment)
-- Glass/windshield damage
-- Wheel/tire damage
-- Frame or structural damage
-- Any other collision-related defects
-
-For FULL VEHICLE photos, also assess:
-- Overall vehicle condition
-- General drivability assessment
-- Visible damage regions described as positions on the vehicle (front-left, rear-right, etc.)
-
-For DAMAGE CLOSEUP photos, provide detailed analysis of each specific damage area.
-
-You MUST respond with ONLY a valid JSON object in this exact format:
+Respond with ONLY a valid JSON object in this exact format:
 {
   "damages": [
     {
       "type": "dent|scratch|crack|broken_light|bumper_damage|glass_damage|panel_deformation|wheel_damage|structural_damage|other",
       "severity": "MINOR|MODERATE|SEVERE",
-      "location": "Description of where on the vehicle (e.g., front-left bumper, rear-right quarter panel)",
-      "description": "Detailed description of the damage",
-      "affectedParts": ["part1", "part2"]
+      "location": "short position, e.g. front-left bumper",
+      "description": "one short sentence"
     }
   ],
-  "drivabilityAssessment": "Assessment of whether the vehicle is safe to drive and any safety concerns",
+  "drivabilityAssessment": "one short sentence on safety to drive",
   "overallSeverity": "MINOR|MODERATE|SEVERE"
 }
 
-Severity guidelines:
-- MINOR: Cosmetic damage only, no safety concerns (small scratches, minor dents, small paint chips)
-- MODERATE: Functional damage that may affect operation but vehicle is likely drivable (dented panels, cracked bumper, damaged lights)
-- SEVERE: Safety-critical damage or major structural issues (frame damage, shattered glass, deployed airbags, wheel damage, severe body damage)
-
-If no damage is visible, return an empty damages array and set overallSeverity to "MINOR".
-Respond ONLY with the JSON object, no additional text.`;
+Severity: MINOR = cosmetic only; MODERATE = functional damage, likely drivable; SEVERE = safety-critical or structural.
+No visible damage: empty damages array, overallSeverity "MINOR". No other text.`;
 
 export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResult> {
   const claim = await prisma.claim.findUnique({
@@ -61,9 +37,17 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
     throw new Error('No images to analyze');
   }
 
+  // Image tokens dominate the cost of each analysis — cap how many are sent.
+  // Damage close-ups carry the damage detail, so they are prioritized; full-vehicle
+  // shots only fill the remaining slots (context/orientation).
+  const MAX_AI_IMAGES = 6;
+  const closeups = claim.images.filter((img) => img.type === 'DAMAGE_CLOSEUP');
+  const fulls = claim.images.filter((img) => img.type !== 'DAMAGE_CLOSEUP');
+  const selectedImages = [...closeups, ...fulls].slice(0, MAX_AI_IMAGES);
+
   // Prepare image data for Gemini
   const uploadDir = process.env.UPLOAD_DIR || './uploads';
-  const imageParts = claim.images.map((img: { filePath: string }) => {
+  const imageParts = selectedImages.map((img: { filePath: string }) => {
     const filePath = path.resolve(uploadDir, img.filePath.replace(/^\/uploads\//, ''));
     const imageData = fs.readFileSync(filePath);
     const mimeType = path.extname(filePath).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg';
@@ -78,8 +62,12 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
   const vehicleContext = `Vehicle: ${claim.vehicle.year} ${claim.vehicle.make} ${claim.vehicle.model}, Color: ${claim.vehicle.color}`;
   const fullPrompt = `${DAMAGE_ANALYSIS_PROMPT}\n\n${vehicleContext}`;
 
-  const { text: responseText, modelUsed } = await generateContentWithFallback([fullPrompt, ...imageParts]);
-  console.log(`[damageAnalysis] Used model: ${modelUsed}`);
+  // JSON response mode: guarantees a compact JSON payload with no prose/markdown
+  // wrapper — fewer output tokens, faster and cheaper.
+  const { text: responseText, modelUsed } = await generateContentWithFallback([fullPrompt, ...imageParts], {
+    responseMimeType: 'application/json',
+  });
+  console.log(`[damageAnalysis] Used model: ${modelUsed}, images: ${imageParts.length}/${claim.images.length}`);
 
   // Parse the JSON response
   let analysisResult: DamageAnalysisResult;

@@ -47,16 +47,23 @@ async function sleep(ms: number): Promise<void> {
 /**
  * Tries each model in MODEL_CASCADE order.
  * Retries once per model on retryable errors (429/503/500) with backoff.
+ * An optional generationConfig can be supplied (e.g. JSON response mode to keep
+ * outputs compact — fewer output tokens, lower cost).
  * Returns the response text and which model was actually used.
  */
 export async function generateContentWithFallback(
-  content: any[]
+  content: any[],
+  generationConfig?: Record<string, unknown>
 ): Promise<{ text: string; modelUsed: string }> {
   for (const modelName of MODEL_CASCADE) {
     const model = getModel(modelName);
     for (let attempt = 0; attempt <= MAX_RETRIES_PER_MODEL; attempt++) {
       try {
-        const result = await model.generateContent(content);
+        // generationConfig must be part of the request object, not a second argument
+        const request = generationConfig
+          ? ({ contents: content, generationConfig } as any)
+          : content;
+        const result = await model.generateContent(request);
         const text = result.response.text();
         if (modelName !== MODEL_CASCADE[0]) {
           console.log(`[gemini] Fallback used model: ${modelName}`);

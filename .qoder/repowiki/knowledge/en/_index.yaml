@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-08-28T18:08:05Z"
+exported_at: "2026-08-29T04:19:33Z"
 modules:
     "":
-        dir_name: Admin Dashboard — Claims & Garage Management
-        title: Admin Dashboard — Claims & Garage Management
+        dir_name: Admin Dashboard — Insurance Claims Management Portal
+        title: Admin Dashboard — Insurance Claims Management Portal
         scope: []
         source_files: []
         children: []

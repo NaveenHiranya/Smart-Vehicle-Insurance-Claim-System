@@ -14,7 +14,7 @@ export interface DamageItem {
   severity: 'MINOR' | 'MODERATE' | 'SEVERE';
   location: string;
   description: string;
-  affectedParts: string[];
+  affectedParts?: string[];
 }
 
 export interface DamageAnalysisResult {

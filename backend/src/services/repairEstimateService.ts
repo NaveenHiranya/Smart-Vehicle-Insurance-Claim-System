@@ -86,9 +86,10 @@ function calculateItem(damage: DamageItem): RepairEstimateItem {
   const laborCost = Math.round(laborHours * laborRate);
   const subtotal = partCost + laborCost + paintMaterials;
 
-  const partName = damage.affectedParts.length > 0
+  // affectedParts is optional (the AI may omit it to save tokens) — fall back to location + type
+  const partName = damage.affectedParts && damage.affectedParts.length > 0
     ? damage.affectedParts.join(', ')
-    : `${damage.type.replace(/_/g, ' ')} repair parts`;
+    : `${damage.location ? `${damage.location} ` : ''}${damage.type.replace(/_/g, ' ')} parts`;
 
   return {
     damageType: damage.type,

@@ -8,12 +8,21 @@
 - [policies.ts](file://backend/src/routes/policies.ts)
 - [claims.ts](file://backend/src/routes/claims.ts)
 - [admin.ts](file://backend/src/routes/admin.ts)
+- [generalChat.ts](file://backend/src/routes/generalChat.ts)
+- [gemini.ts](file://backend/src/utils/gemini.ts)
 - [auth.ts](file://backend/src/middleware/auth.ts)
 - [adminAuth.ts](file://backend/src/middleware/adminAuth.ts)
 - [errorHandler.ts](file://backend/src/middleware/errorHandler.ts)
 - [upload.ts](file://backend/src/middleware/upload.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added new General Chat API section documenting /api/general-chat endpoints
+- Updated Project Structure diagram to include new general chat routes
+- Enhanced Authentication Requirements Summary with new general chat endpoints
+- Added new architecture diagrams showing AI integration and session management
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -28,10 +37,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides a comprehensive reference for all RESTful endpoints exposed by the backend server. It covers authentication, vehicles, policies, claims, and admin endpoints with HTTP methods, URL patterns, request/response schemas, validation rules, error responses, status codes, and usage patterns such as CRUD operations, file uploads, and batch processing. It also outlines authentication requirements and versioning considerations based on the current codebase.
+This document provides a comprehensive reference for all RESTful endpoints exposed by the backend server. It covers authentication, vehicles, policies, claims, admin, and general chat endpoints with HTTP methods, URL patterns, request/response schemas, validation rules, error responses, status codes, and usage patterns such as CRUD operations, file uploads, and batch processing. It also outlines authentication requirements and versioning considerations based on the current codebase.
 
 ## Project Structure
-The Express application mounts route modules under a common base path and exposes a health check endpoint. Middleware handles CORS, JSON parsing, static uploads, and centralized error handling.
+The Express application mounts route modules under a common base path and exposes a health check endpoint. Middleware handles CORS, JSON parsing, static uploads, and centralized error handling. The system now includes a global AI assistant through the general chat module.
 
 ```mermaid
 graph TB
@@ -40,57 +49,68 @@ A --> C["/api/vehicles<br/>routes/vehicles.ts"]
 A --> D["/api/policies<br/>routes/policies.ts"]
 A --> E["/api/claims<br/>routes/claims.ts"]
 A --> F["/api/admin<br/>routes/admin.ts"]
-A --> G["/api/health<br/>Health Check"]
-A --> H["Error Handler<br/>middleware/errorHandler.ts"]
+A --> G["/api/general-chat<br/>routes/generalChat.ts"]
+A --> H["/api/garage<br/>routes/garage.ts"]
+A --> I["/api/health<br/>Health Check"]
+A --> J["Error Handler<br/>middleware/errorHandler.ts"]
+G --> K["AI Integration<br/>utils/gemini.ts"]
 ```
 
 **Diagram sources**
-- [index.ts:14-45](file://backend/src/index.ts#L14-L45)
+- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
+- [generalChat.ts:1-7](file://backend/src/routes/generalChat.ts#L1-L7)
+- [gemini.ts:1-25](file://backend/src/utils/gemini.ts#L1-L25)
 
 **Section sources**
-- [index.ts:14-45](file://backend/src/index.ts#L14-L45)
+- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
 
 ## Core Components
 - Authentication middleware validates JWT tokens and attaches user context to requests.
 - Admin middleware enforces admin role checks after token validation.
 - Upload middleware configures Multer storage, allowed MIME types, and size limits.
 - Error handler centralizes error responses using a custom AppError class.
+- **New**: Global AI assistant service with session-based conversation history and fallback model routing.
 
 Key behaviors:
 - All protected routes require a valid Bearer token.
 - Admin routes additionally require an admin user.
 - File uploads are limited to images (JPEG/PNG/WebP/JPG) up to 10MB per file.
 - Global error responses follow a consistent shape.
+- **New**: General chat endpoints maintain in-memory conversation history per user session.
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [upload.ts:17-53](file://backend/src/middleware/upload.ts#L17-L53)
 - [errorHandler.ts:3-27](file://backend/src/middleware/errorHandler.ts#L3-L27)
+- [generalChat.ts:23-24](file://backend/src/routes/generalChat.ts#L23-L24)
 
 ## Architecture Overview
-The API is organized into feature-based route modules mounted under /api. Each module applies its own authorization middleware where needed. Data persistence uses Prisma against a SQLite database defined in the schema.
+The API is organized into feature-based route modules mounted under /api. Each module applies its own authorization middleware where needed. Data persistence uses Prisma against a SQLite database defined in the schema. The system now includes AI-powered assistance through Google Gemini models with automatic fallback routing.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
 participant App as "Express App"
 participant AuthMW as "Auth Middleware"
-participant Route as "Feature Route"
-participant DB as "Prisma/SQLite"
+participant ChatRoute as "General Chat Route"
+participant Gemini as "Gemini AI Service"
+participant Session as "Session Store"
 Client->>App : HTTP Request
 App->>AuthMW : Validate JWT (if required)
 AuthMW-->>App : Next or 401/403
-App->>Route : Dispatch to handler
-Route->>DB : Read/Write data
-DB-->>Route : Result
-Route-->>Client : JSON Response
+App->>ChatRoute : Dispatch to handler
+ChatRoute->>Session : Load conversation history
+ChatRoute->>Gemini : Send message with context
+Gemini-->>ChatRoute : AI response
+ChatRoute->>Session : Update conversation history
+ChatRoute-->>Client : JSON Response
 ```
 
 **Diagram sources**
-- [index.ts:17-42](file://backend/src/index.ts#L17-L42)
-- [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
-- [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
+- [generalChat.ts:27-62](file://backend/src/routes/generalChat.ts#L27-L62)
+- [gemini.ts:97-139](file://backend/src/utils/gemini.ts#L97-L139)
 
 ## Detailed Component Analysis
 
@@ -631,8 +651,53 @@ Example usage (curl):
 - [admin.ts:11-184](file://backend/src/routes/admin.ts#L11-L184)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 
+### General Chat API (/api/general-chat)
+**New** Global AI assistant endpoints providing intelligent help for Flash Claim platform questions. These endpoints use Google Gemini AI with automatic model fallback and maintain conversation history per user session.
+
+- POST /api/general-chat
+  - Purpose: Send a message to the global AI assistant and receive an intelligent response.
+  - Auth: Required (Bearer token)
+  - Request body fields:
+    - message: string, required (the user's question or statement)
+  - Validation:
+    - Empty or missing message returns 400.
+  - Success response: 200 with AI-generated reply.
+  - Features:
+    - Maintains conversation history per user session (last 20 messages)
+    - Uses system prompt specialized for Flash Claim platform
+    - Automatic fallback between different Gemini models for reliability
+    - Context-aware responses about insurance, claims, and platform features
+  - Errors:
+    - 400: Message is required
+    - 500: Failed to get response
+
+- DELETE /api/general-chat/history
+  - Purpose: Clear the conversation history for the current user session.
+  - Auth: Required (Bearer token)
+  - Success response: 200 with confirmation.
+  - Use case: Reset conversation context when starting a new topic.
+  - Errors:
+    - 500: Server error
+
+**AI Integration Details:**
+- **Model Cascade**: Automatically tries multiple Gemini models in order of preference:
+  1. gemini-3.1-flash-lite (primary, highest rate limits)
+  2. gemini-2.5-flash (best quality)
+  3. gemini-3-flash, gemini-3.7-flash, gemini-2.5-flash-lite (fallbacks)
+- **Session Management**: In-memory conversation history stored per userId
+- **System Prompt**: Specialized for Flash Claim platform with Sri Lankan insurance context
+- **Rate Limiting**: Built-in retry logic with exponential backoff for API limits
+
+Example usage (curl):
+- Send message: curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" -d '{"message":"How do I file a claim?"}' http://localhost:5000/api/general-chat
+- Clear history: curl -X DELETE -H "Authorization: Bearer <TOKEN>" http://localhost:5000/api/general-chat/history
+
+**Section sources**
+- [generalChat.ts:26-68](file://backend/src/routes/generalChat.ts#L26-L68)
+- [gemini.ts:97-139](file://backend/src/utils/gemini.ts#L97-L139)
+
 ## Dependency Analysis
-Routes depend on middleware for authentication and upload handling, and on Prisma for data access. The schema defines core entities and relationships that influence endpoint behavior and response shapes.
+Routes depend on middleware for authentication and upload handling, and on Prisma for data access. The schema defines core entities and relationships that influence endpoint behavior and response shapes. The system now includes AI dependencies through Google Gemini services.
 
 ```mermaid
 classDiagram
@@ -697,8 +762,9 @@ Claim "1" -- "many" Document : "has"
 - Batch image upload supports up to 10 images per request; consider client-side chunking if larger batches are needed.
 - Background processing: Claim submission triggers asynchronous damage analysis; clients should poll or rely on subsequent endpoints to retrieve results.
 - Database queries include selective relations to reduce payload size; leverage query parameters (e.g., status filter) to minimize data transfer.
-
-[No sources needed since this section provides general guidance]
+- **New**: AI chat endpoints maintain in-memory conversation history (limited to 20 messages per session) to optimize performance.
+- **New**: Model cascade ensures optimal performance by trying fastest available models first with automatic fallback.
+- **New**: Rate limiting protection built into AI service calls with exponential backoff and retry logic.
 
 ## Troubleshooting Guide
 Common errors and their causes:
@@ -715,6 +781,7 @@ Error response structure:
 
 Rate limiting:
 - No explicit rate limiting is implemented in the provided codebase. If needed, integrate a rate-limiting middleware at the application level.
+- **New**: AI service calls include built-in retry logic with exponential backoff for rate-limited scenarios.
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
@@ -722,9 +789,7 @@ Rate limiting:
 - [errorHandler.ts:3-27](file://backend/src/middleware/errorHandler.ts#L3-L27)
 
 ## Conclusion
-The API provides a complete set of endpoints for managing vehicles, policies, claims, and administrative tasks. Authentication is enforced via JWT tokens, with additional admin controls for administrative functions. File uploads are supported with strict type and size constraints. The system integrates AI services for damage analysis, repair estimation, and document verification. Clients should handle standard HTTP status codes and adhere to validation rules to ensure smooth interactions.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The API provides a complete set of endpoints for managing vehicles, policies, claims, administrative tasks, and now includes a global AI assistant for intelligent user support. Authentication is enforced via JWT tokens, with additional admin controls for administrative functions. File uploads are supported with strict type and size constraints. The system integrates AI services for damage analysis, repair estimation, document verification, and conversational assistance through Google Gemini models with automatic fallback routing. Clients should handle standard HTTP status codes and adhere to validation rules to ensure smooth interactions.
 
 ## Appendices
 
@@ -738,11 +803,12 @@ The API provides a complete set of endpoints for managing vehicles, policies, cl
   - All /api/vehicles endpoints
   - All /api/policies endpoints
   - All /api/claims endpoints
+  - All /api/general-chat endpoints
 - Admin-only endpoints (Admin Bearer token required):
   - All /api/admin endpoints
 
 **Section sources**
-- [index.ts:17-42](file://backend/src/index.ts#L17-L42)
+- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 
@@ -753,5 +819,12 @@ The API provides a complete set of endpoints for managing vehicles, policies, cl
   - Maintain backward compatibility by supporting legacy versions alongside new ones until deprecation.
   - Use content negotiation or header-based versioning if necessary.
 - Ensure changes to request/response schemas are additive where possible to avoid breaking existing clients.
+
+### AI Assistant Integration Details
+- **Global Chat**: Available to all authenticated users for general platform questions
+- **Claim-Specific Chat**: Integrated within individual claim workflows for context-aware assistance
+- **Model Fallback**: Automatic switching between Gemini models based on availability and rate limits
+- **Session Management**: In-memory conversation history maintained per user session
+- **Security**: All AI endpoints require authentication to prevent unauthorized access
 
 [No sources needed since this section provides general guidance]

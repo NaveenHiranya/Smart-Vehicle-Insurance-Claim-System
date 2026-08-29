@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import type { Claim, DamageItem } from '../types';
-import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Send, Shield, MessageSquare, ListTodo, CheckCircle2, Circle, Clock, XCircle, BadgeCheck, StickyNote, Camera, Wrench } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Send, Shield, MessageSquare, ListTodo, CheckCircle2, Circle, Clock, XCircle, BadgeCheck, StickyNote, Camera, Wrench, X, MapPin, Info, Check, FolderOpen, Trash2 } from 'lucide-react';
 import { uploadUrl } from '../utils/uploadUrl';
+import { normalizeGarageItems, estimateTotals } from '../utils/garageEstimate';
 
 export function ClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,14 @@ export function ClaimDetailPage() {
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [docUploading, setDocUploading] = useState('');
+  const [garageModal, setGarageModal] = useState(false);
+  const [garageList, setGarageList] = useState<any[]>([]);
+  const [garagePick, setGaragePick] = useState('');
+  const [garageSaving, setGarageSaving] = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
+  const [newImageType, setNewImageType] = useState<'FULL_VEHICLE' | 'DAMAGE_CLOSEUP'>('FULL_VEHICLE');
+  const [reanalyzeAt, setReanalyzeAt] = useState(0);
+  const pollStartRef = useRef<number>(0);
 
   const fetchClaim = async () => {
     try {
@@ -24,6 +33,51 @@ export function ClaimDetailPage() {
   };
 
   useEffect(() => { fetchClaim(); }, [id]);
+
+  // Background AI analysis runs right after claim submission — poll until the result appears
+  const analysisPending = !!claim && claim.status !== 'DRAFT' && (claim.images?.length || 0) > 0 && !claim.damageAssessment;
+
+  useEffect(() => {
+    if (!analysisPending) { pollStartRef.current = 0; return; }
+    if (pollStartRef.current === 0) pollStartRef.current = Date.now();
+    if (Date.now() - pollStartRef.current > 120000) return; // stop polling after 2 minutes
+    const timer = setTimeout(() => { fetchClaim(); }, 5000);
+    return () => clearTimeout(timer);
+  }, [claim]);
+
+  // Re-analysis triggered after image edits — poll until a newer assessment lands
+  const reanalyzing = reanalyzeAt > 0
+    && Date.now() - reanalyzeAt <= 180000
+    && !!claim?.damageAssessment
+    && new Date(claim.damageAssessment.assessedAt).getTime() <= reanalyzeAt;
+
+  useEffect(() => {
+    if (!reanalyzing) return;
+    const timer = setTimeout(() => { fetchClaim(); }, 5000);
+    return () => clearTimeout(timer);
+  }, [reanalyzing, claim]);
+
+  const openGarageModal = () => {
+    setGaragePick(claim?.garage?.id || '');
+    setGarageModal(true);
+    if (garageList.length === 0) {
+      api.get('/claims/garages').then((r) => setGarageList(r.data)).catch(() => alert('Failed to load garages.'));
+    }
+  };
+
+  const handleGarageSave = async () => {
+    if (!garagePick || !id) return;
+    setGarageSaving(true);
+    try {
+      await api.patch(`/claims/${id}/garage`, { garageId: garagePick });
+      setGarageModal(false);
+      await fetchClaim();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to update garage.');
+    } finally {
+      setGarageSaving(false);
+    }
+  };
 
   const handleAnalyze = async () => {
     setAnalyzing(true);
@@ -53,6 +107,40 @@ export function ClaimDetailPage() {
       await api.post(`/claims/${id}/documents/${docId}/verify`);
       await fetchClaim();
     } catch { alert('Verification failed'); }
+  };
+
+  // After images change, re-run the AI assessment in the background so the damage report
+  // (and the estimate derived from it) stays in sync — visible to the user, admin and garage.
+  const triggerReanalysis = () => {
+    setReanalyzeAt(Date.now());
+    api.post(`/claims/${id}/analyze`).catch(() => setReanalyzeAt(0));
+  };
+
+  const shouldReanalyze = !!(claim && (claim.status !== 'DRAFT' || claim.damageAssessment));
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    setImgUploading(true);
+    const formData = new FormData();
+    files.forEach((f) => formData.append('images', f));
+    formData.append('imageType', newImageType);
+    try {
+      await api.post(`/claims/${id}/images`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await fetchClaim();
+      if (shouldReanalyze) triggerReanalysis();
+    } catch { alert('Upload failed'); }
+    finally { setImgUploading(false); }
+  };
+
+  const handleImageDelete = async (imageId: string) => {
+    if (!window.confirm('Delete this image?')) return;
+    try {
+      await api.delete(`/claims/${id}/images/${imageId}`);
+      await fetchClaim();
+      if (shouldReanalyze) triggerReanalysis();
+    } catch { alert('Failed to delete image'); }
   };
 
   const handleChat = async (e: FormEvent) => {
@@ -111,6 +199,14 @@ export function ClaimDetailPage() {
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div></div>;
   if (!claim) return null;
+
+  // Garage can be selected/changed until the garage submits its estimate (or the claim is finalized)
+  const canChangeGarage = !claim.garageEstimate && !['APPROVED', 'COMPLETED', 'REJECTED'].includes(claim.status);
+
+  const garageItems = claim.garageEstimate ? normalizeGarageItems(claim.garageEstimate.items) : null;
+  const garageTotals = garageItems ? estimateTotals(garageItems) : null;
+  const aiItems = claim.repairEstimate ? normalizeGarageItems(claim.repairEstimate.items) : null;
+  const aiTotals = aiItems ? estimateTotals(aiItems) : null;
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
@@ -173,32 +269,123 @@ export function ClaimDetailPage() {
             </ol>
           </div>
 
-          {/* Images */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Claim Images ({claim.images?.length || 0})</h2>
-            {claim.images?.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {claim.images.map((img) => (
-                  <div key={img.id} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
-                    <img src={uploadUrl(img.filePath)} alt="" className="w-full h-full object-cover" />
-                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white text-[10px] rounded-full">{img.type === 'FULL_VEHICLE' ? 'Full' : 'Damage'}</span>
-                  </div>
-                ))}
+          {/* Garage Selection & Garage Estimate */}
+          <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-orange-600" /> {claim.garage ? `Garage: ${claim.garage.name}` : 'Garage'}
+              </h2>
+              {canChangeGarage && (
+                <button onClick={openGarageModal}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-medium hover:bg-orange-700 transition shrink-0">
+                  <RefreshCw className="h-3.5 w-3.5" /> {claim.garage ? 'Change Garage' : 'Select Garage'}
+                </button>
+              )}
+            </div>
+            {claim.garage ? (
+              <>
+                <div className="p-3 bg-orange-50 rounded-lg mb-4">
+                  <p className="text-sm text-gray-700">{claim.garage.address}, {claim.garage.city}</p>
+                  <p className="text-sm text-gray-700">{claim.garage.phone}</p>
+                </div>
+                {claim.garageEstimate && garageItems && garageTotals ? (
+                  <>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Garage Estimate Submitted</span>
+                      <span className="text-xs text-gray-500">{new Date(claim.garageEstimate.submittedAt).toLocaleString()}</span>
+                    </div>
+                    {claim.repairEstimate && (
+                      <div className="grid grid-cols-2 gap-3 mb-4 p-3 bg-blue-50 rounded-lg">
+                        <div className="text-center">
+                          <p className="text-[10px] text-blue-600 font-medium">AI Estimate</p>
+                          <p className="text-sm font-bold text-blue-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] text-orange-600 font-medium">Garage Estimate</p>
+                          <p className="text-sm font-bold text-orange-900">Rs. {claim.garageEstimate.totalCost.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+                      <div className="bg-blue-50 rounded-lg p-3 text-center"><p className="text-xs text-blue-600 font-medium">Parts</p><p className="text-lg font-bold text-blue-900">Rs. {claim.garageEstimate.totalPartsCost.toLocaleString()}</p></div>
+                      <div className="bg-purple-50 rounded-lg p-3 text-center"><p className="text-xs text-purple-600 font-medium">Labor</p><p className="text-lg font-bold text-purple-900">Rs. {garageTotals.laborCost.toLocaleString()}</p></div>
+                      <div className="bg-sky-50 rounded-lg p-3 text-center"><p className="text-xs text-sky-600 font-medium">Paint</p><p className="text-lg font-bold text-sky-900">Rs. {garageItems.paintMaterials.toLocaleString()}</p></div>
+                      <div className="bg-orange-50 rounded-lg p-3 text-center"><p className="text-xs text-orange-600 font-medium">Total</p><p className="text-lg font-bold text-orange-900">Rs. {claim.garageEstimate.totalCost.toLocaleString()}</p></div>
+                      <div className="bg-green-50 rounded-lg p-3 text-center"><p className="text-xs text-green-600 font-medium">Est. Days</p><p className="text-lg font-bold text-green-900">{claim.garageEstimate.estimatedDays}</p></div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-gray-200 text-left text-gray-500 text-xs uppercase">
+                          <th className="pb-2">Damage Type</th><th className="pb-2">Part Name</th><th className="pb-2 text-right">Amount</th>
+                        </tr></thead>
+                        <tbody>
+                          {garageItems.parts.map((part, i) => (
+                            <tr key={i} className={`border-b border-gray-100 ${part.addedByGarage ? 'bg-orange-50' : ''}`}>
+                              <td className="py-2 capitalize">{part.damageType.replace(/_/g, ' ')}{part.addedByGarage && <span className="text-[10px] text-orange-600 ml-1">(new)</span>}</td>
+                              <td className="py-2">{part.partName}</td>
+                              <td className="py-2 text-right font-medium">Rs. {part.partCost.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                          <tr className="border-b border-gray-100 bg-purple-50">
+                            <td className="py-2 font-medium text-purple-900">Labor</td>
+                            <td className="py-2 text-gray-600">{garageItems.laborHours}h @ Rs. {garageItems.laborRate.toLocaleString()}/h</td>
+                            <td className="py-2 text-right font-medium">Rs. {garageTotals.laborCost.toLocaleString()}</td>
+                          </tr>
+                          <tr className="border-b border-gray-100 bg-sky-50">
+                            <td className="py-2 font-medium text-sky-900">Paint & Materials</td>
+                            <td></td>
+                            <td className="py-2 text-right font-medium">Rs. {garageItems.paintMaterials.toLocaleString()}</td>
+                          </tr>
+                          <tr className="font-semibold">
+                            <td className="py-2" colSpan={2}>Total</td>
+                            <td className="py-2 text-right">Rs. {garageTotals.totalCost.toLocaleString()}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    {claim.garageEstimate.notes && <p className="text-sm text-gray-600 mt-3 p-2 bg-gray-50 rounded">{claim.garageEstimate.notes}</p>}
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">Garage is reviewing the AI assessment. Their estimate will appear here once submitted.</p>
+                )}
+              </>
+            ) : (
+              <div className="p-4 bg-orange-50 border border-orange-100 rounded-lg">
+                <p className="text-sm font-medium text-gray-800">No garage selected yet</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Select a registered garage to inspect your vehicle and provide a repair estimate. You can select or change the garage at any time before the garage submits its estimate.
+                </p>
+                {canChangeGarage && (
+                  <button onClick={openGarageModal}
+                    className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition">
+                    <Wrench className="h-4 w-4" /> Select a Garage
+                  </button>
+                )}
               </div>
-            ) : <p className="text-sm text-gray-500">No images uploaded</p>}
+            )}
           </div>
 
           {/* Damage Assessment */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 gap-2">
               <h2 className="text-lg font-semibold text-gray-900">Damage Assessment</h2>
-              <button onClick={handleAnalyze} disabled={analyzing || claim.images?.length === 0}
-                className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-medium hover:bg-primary-700 disabled:opacity-50">
-                <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? 'animate-spin' : ''}`} /> {analyzing ? 'Analyzing...' : claim.damageAssessment ? 'Re-analyze' : 'Analyze'}
+              <button onClick={handleAnalyze} disabled={analyzing || analysisPending || reanalyzing || (claim.images?.length || 0) === 0}
+                className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0">
+                <RefreshCw className={`h-3.5 w-3.5 ${(analyzing || analysisPending || reanalyzing) ? 'animate-spin' : ''}`} /> {(analyzing || analysisPending || reanalyzing) ? 'Analyzing...' : claim.damageAssessment ? 'Re-analyze' : 'Analyze'}
               </button>
             </div>
+            {reanalyzing && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-3">
+                <RefreshCw className="h-4 w-4 text-blue-600 animate-spin shrink-0" />
+                <p className="text-sm text-blue-700">Photos changed — AI is re-analyzing and updating the estimate. Results will appear here automatically.</p>
+              </div>
+            )}
             {claim.damageAssessment ? (
               <>
+                <p className="text-xs text-gray-500 mb-4 flex items-start gap-1.5">
+                  <Info className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+                  This damage assessment is AI-generated from your photos. It is a preliminary indication only — the final damage will be confirmed by the garage during inspection.
+                </p>
                 <div className="flex items-center gap-2 mb-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${severityBg[claim.damageAssessment.overallSeverity]}`}>
                     Overall: {claim.damageAssessment.overallSeverity}
@@ -219,133 +406,60 @@ export function ClaimDetailPage() {
                   ))}
                 </div>
               </>
+            ) : analysisPending ? (
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-3">
+                <RefreshCw className="h-4 w-4 text-blue-600 animate-spin shrink-0" />
+                <p className="text-sm text-blue-700">AI is analyzing your photos. This may take a minute — results will appear here automatically.</p>
+              </div>
             ) : (
               <p className="text-sm text-gray-500">No damage assessment yet. Click "Analyze" to run AI damage analysis.</p>
             )}
           </div>
 
           {/* Repair Estimate */}
-          {claim.repairEstimate && (
+          {claim.repairEstimate && aiItems && aiTotals && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Repair Estimate</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                <div className="bg-blue-50 rounded-lg p-3 text-center"><p className="text-xs text-blue-600 font-medium">Parts</p><p className="text-lg font-bold text-blue-900">Rs. {claim.repairEstimate.totalPartsCost.toLocaleString()}</p></div>
-                <div className="bg-purple-50 rounded-lg p-3 text-center"><p className="text-xs text-purple-600 font-medium">Labor</p><p className="text-lg font-bold text-purple-900">Rs. {claim.repairEstimate.totalLaborCost.toLocaleString()}</p></div>
-                <div className="bg-primary-50 rounded-lg p-3 text-center"><p className="text-xs text-primary-600 font-medium">Total</p><p className="text-lg font-bold text-primary-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p></div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Repair Estimate</h2>
+              <p className="text-xs text-gray-500 mb-4 flex items-start gap-1.5">
+                <Info className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+                These values are preliminary AI estimates and are not final yet. The total may change after the garage inspects your vehicle.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+                <div className="bg-blue-50 rounded-lg p-3 text-center"><p className="text-xs text-blue-600 font-medium">Parts</p><p className="text-lg font-bold text-blue-900">Rs. {aiTotals.totalPartsCost.toLocaleString()}</p></div>
+                <div className="bg-purple-50 rounded-lg p-3 text-center"><p className="text-xs text-purple-600 font-medium">Labor</p><p className="text-lg font-bold text-purple-900">Rs. {aiTotals.laborCost.toLocaleString()}</p></div>
+                <div className="bg-sky-50 rounded-lg p-3 text-center"><p className="text-xs text-sky-600 font-medium">Paint</p><p className="text-lg font-bold text-sky-900">Rs. {aiItems.paintMaterials.toLocaleString()}</p></div>
+                <div className="bg-primary-50 rounded-lg p-3 text-center"><p className="text-xs text-primary-600 font-medium">Total</p><p className="text-lg font-bold text-primary-900">Rs. {aiTotals.totalCost.toLocaleString()}</p></div>
                 <div className="bg-green-50 rounded-lg p-3 text-center"><p className="text-xs text-green-600 font-medium">Est. Days</p><p className="text-lg font-bold text-green-900">{claim.repairEstimate.estimatedDays}</p></div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b border-gray-200 text-left text-gray-500 text-xs uppercase">
-                    <th className="pb-2">Damage Type</th><th className="pb-2">Parts</th><th className="pb-2">Labor</th><th className="pb-2 text-right">Subtotal</th>
+                    <th className="pb-2">Damage Type</th><th className="pb-2">Part Name</th><th className="pb-2 text-right">Amount</th>
                   </tr></thead>
                   <tbody>
-                    {claim.repairEstimate.items.map((item, i) => (
+                    {aiItems.parts.map((part, i) => (
                       <tr key={i} className="border-b border-gray-100">
-                        <td className="py-2 capitalize">{item.damageType.replace(/_/g, ' ')}</td>
-                        <td className="py-2">Rs. {item.partCost.toLocaleString()}</td>
-                        <td className="py-2">{item.laborHours}h @ Rs. {item.laborRate.toLocaleString()}/h</td>
-                        <td className="py-2 text-right font-medium">Rs. {item.subtotal.toLocaleString()}</td>
+                        <td className="py-2 capitalize">{part.damageType.replace(/_/g, ' ')}</td>
+                        <td className="py-2">{part.partName}</td>
+                        <td className="py-2 text-right font-medium">Rs. {part.partCost.toLocaleString()}</td>
                       </tr>
                     ))}
+                    <tr className="border-b border-gray-100 bg-purple-50">
+                      <td className="py-2 font-medium text-purple-900">Labor</td>
+                      <td className="py-2 text-gray-600">{aiItems.laborHours}h @ Rs. {aiItems.laborRate.toLocaleString()}/h</td>
+                      <td className="py-2 text-right font-medium">Rs. {aiTotals.laborCost.toLocaleString()}</td>
+                    </tr>
+                    <tr className="border-b border-gray-100 bg-sky-50">
+                      <td className="py-2 font-medium text-sky-900">Paint & Materials</td>
+                      <td></td>
+                      <td className="py-2 text-right font-medium">Rs. {aiItems.paintMaterials.toLocaleString()}</td>
+                    </tr>
+                    <tr className="font-semibold">
+                      <td className="py-2" colSpan={2}>Total</td>
+                      <td className="py-2 text-right">Rs. {aiTotals.totalCost.toLocaleString()}</td>
+                    </tr>
                   </tbody>
                 </table>
-              </div>
-            </div>
-          )}
-
-          {/* Garage Info & Garage Estimate */}
-          {claim.garage && (
-            <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Wrench className="h-5 w-5 text-orange-600" /> Garage: {claim.garage.name}
-              </h2>
-              <div className="p-3 bg-orange-50 rounded-lg mb-4">
-                <p className="text-sm text-gray-700">{claim.garage.address}, {claim.garage.city}</p>
-                <p className="text-sm text-gray-700">{claim.garage.phone}</p>
-              </div>
-              {claim.garageEstimate ? (
-                <>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Garage Estimate Submitted</span>
-                    <span className="text-xs text-gray-500">{new Date(claim.garageEstimate.submittedAt).toLocaleString()}</span>
-                  </div>
-                  {claim.repairEstimate && (
-                    <div className="grid grid-cols-2 gap-3 mb-4 p-3 bg-blue-50 rounded-lg">
-                      <div className="text-center">
-                        <p className="text-[10px] text-blue-600 font-medium">AI Estimate</p>
-                        <p className="text-sm font-bold text-blue-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[10px] text-orange-600 font-medium">Garage Estimate</p>
-                        <p className="text-sm font-bold text-orange-900">Rs. {claim.garageEstimate.totalCost.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                    <div className="bg-blue-50 rounded-lg p-3 text-center"><p className="text-xs text-blue-600 font-medium">Parts</p><p className="text-lg font-bold text-blue-900">Rs. {claim.garageEstimate.totalPartsCost.toLocaleString()}</p></div>
-                    <div className="bg-purple-50 rounded-lg p-3 text-center"><p className="text-xs text-purple-600 font-medium">Labor</p><p className="text-lg font-bold text-purple-900">Rs. {claim.garageEstimate.totalLaborCost.toLocaleString()}</p></div>
-                    <div className="bg-orange-50 rounded-lg p-3 text-center"><p className="text-xs text-orange-600 font-medium">Total</p><p className="text-lg font-bold text-orange-900">Rs. {claim.garageEstimate.totalCost.toLocaleString()}</p></div>
-                    <div className="bg-green-50 rounded-lg p-3 text-center"><p className="text-xs text-green-600 font-medium">Est. Days</p><p className="text-lg font-bold text-green-900">{claim.garageEstimate.estimatedDays}</p></div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b border-gray-200 text-left text-gray-500 text-xs uppercase">
-                        <th className="pb-2">Damage Type</th><th className="pb-2">Parts</th><th className="pb-2">Labor</th><th className="pb-2 text-right">Subtotal</th>
-                      </tr></thead>
-                      <tbody>
-                        {(claim.garageEstimate.items as any[]).map((item: any, i: number) => (
-                          <tr key={i} className={`border-b border-gray-100 ${item.addedByGarage ? 'bg-orange-50' : ''}`}>
-                            <td className="py-2 capitalize">{item.damageType.replace(/_/g, ' ')}{item.addedByGarage && <span className="text-[10px] text-orange-600 ml-1">(new)</span>}</td>
-                            <td className="py-2">Rs. {item.partCost.toLocaleString()}</td>
-                            <td className="py-2">{item.laborHours}h @ Rs. {item.laborRate.toLocaleString()}/h</td>
-                            <td className="py-2 text-right font-medium">Rs. {item.subtotal.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {claim.garageEstimate.notes && <p className="text-sm text-gray-600 mt-3 p-2 bg-gray-50 rounded">{claim.garageEstimate.notes}</p>}
-                </>
-              ) : (
-                <p className="text-sm text-gray-500">Garage is reviewing the AI assessment. Their estimate will appear here once submitted.</p>
-              )}
-            </div>
-          )}
-
-          {/* Insurance Payout */}
-          {claim.insurancePayout && (
-            <div className="bg-white rounded-xl shadow-sm border border-green-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Shield className="h-5 w-5 text-green-600" /> Insurance Payout Estimate</h2>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center"><p className="text-xs text-gray-500">Deductible</p><p className="text-xl font-bold text-gray-900">Rs. {claim.insurancePayout.deductible.toLocaleString()}</p></div>
-                <div className="text-center"><p className="text-xs text-gray-500">Covered</p><p className="text-xl font-bold text-gray-900">Rs. {claim.insurancePayout.coveredAmount.toLocaleString()}</p></div>
-                <div className="text-center"><p className="text-xs text-gray-500">Est. Payout</p><p className="text-xl font-bold text-green-600">Rs. {claim.insurancePayout.estimatedPayout.toLocaleString()}</p></div>
-              </div>
-              {claim.insurancePayout.notes && <p className="text-xs text-gray-500 mt-3">{claim.insurancePayout.notes}</p>}
-            </div>
-          )}
-
-          {/* Review Notes from Insurance */}
-          {claim.adminNotes && claim.adminNotes.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <StickyNote className="h-5 w-5 text-blue-600" /> Review Notes from Insurance
-              </h2>
-              <div className="space-y-2">
-                {claim.adminNotes.map((note) => (
-                  <div key={note.id} className="p-3 border border-blue-100 rounded-lg bg-blue-50">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase ${
-                        note.category === 'vehicle' ? 'bg-blue-200 text-blue-800' :
-                        note.category === 'document' ? 'bg-purple-200 text-purple-800' :
-                        'bg-gray-200 text-gray-700'
-                      }`}>{note.category}</span>
-                      <span className="text-xs text-gray-400">{new Date(note.createdAt).toLocaleString()}</span>
-                    </div>
-                    <p className="text-sm text-gray-700">{note.content}</p>
-                  </div>
-                ))}
               </div>
             </div>
           )}
@@ -397,6 +511,83 @@ export function ClaimDetailPage() {
               })}
             </div>
           </div>
+
+          {/* Images */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Claim Images ({claim.images?.length || 0})</h2>
+            {claim.images?.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {claim.images.map((img) => (
+                  <div key={img.id} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
+                    <img src={uploadUrl(img.filePath)} alt="" className="w-full h-full object-cover" />
+                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white text-[10px] rounded-full">{img.type === 'FULL_VEHICLE' ? 'Full' : 'Damage'}</span>
+                    <button onClick={() => handleImageDelete(img.id)} title="Delete image"
+                      className="absolute top-1.5 right-1.5 bg-black/60 text-white rounded-full p-1 hover:bg-red-600 transition">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-gray-500">No images uploaded</p>}
+
+            {/* Add photos */}
+            <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center gap-2">
+              <select value={newImageType} onChange={(e) => setNewImageType(e.target.value as 'FULL_VEHICLE' | 'DAMAGE_CLOSEUP')}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none">
+                <option value="FULL_VEHICLE">Full vehicle</option>
+                <option value="DAMAGE_CLOSEUP">Damage close-up</option>
+              </select>
+              <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition ${imgUploading ? 'bg-primary-400 text-white' : 'bg-primary-600 text-white hover:bg-primary-700'}`}>
+                <Camera className="h-4 w-4" /> {imgUploading ? 'Uploading...' : 'Take Photo'}
+                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} disabled={imgUploading} />
+              </label>
+              <label className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 cursor-pointer transition">
+                <FolderOpen className="h-4 w-4" /> Browse
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={imgUploading} />
+              </label>
+            </div>
+          </div>
+
+          {/* Insurance Payout */}
+          {claim.insurancePayout && (
+            <div className="bg-white rounded-xl shadow-sm border border-green-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2"><Shield className="h-5 w-5 text-green-600" /> Insurance Payout Estimate</h2>
+              <p className="text-xs text-gray-500 mb-4 flex items-start gap-1.5">
+                <Info className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+                This payout is calculated from the current repair estimate and your policy. The final payout amount is confirmed by the insurance company after review.
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center"><p className="text-xs text-gray-500">Deductible</p><p className="text-xl font-bold text-gray-900">Rs. {claim.insurancePayout.deductible.toLocaleString()}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Covered</p><p className="text-xl font-bold text-gray-900">Rs. {claim.insurancePayout.coveredAmount.toLocaleString()}</p></div>
+                <div className="text-center"><p className="text-xs text-gray-500">Est. Payout</p><p className="text-xl font-bold text-green-600">Rs. {claim.insurancePayout.estimatedPayout.toLocaleString()}</p></div>
+              </div>
+              {claim.insurancePayout.notes && <p className="text-xs text-gray-500 mt-3">{claim.insurancePayout.notes}</p>}
+            </div>
+          )}
+
+          {/* Review Notes from Insurance */}
+          {claim.adminNotes && claim.adminNotes.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <StickyNote className="h-5 w-5 text-blue-600" /> Review Notes from Insurance
+              </h2>
+              <div className="space-y-2">
+                {claim.adminNotes.map((note) => (
+                  <div key={note.id} className="p-3 border border-blue-100 rounded-lg bg-blue-50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase ${
+                        note.category === 'vehicle' ? 'bg-blue-200 text-blue-800' :
+                        note.category === 'document' ? 'bg-purple-200 text-purple-800' :
+                        'bg-gray-200 text-gray-700'
+                      }`}>{note.category}</span>
+                      <span className="text-xs text-gray-400">{new Date(note.createdAt).toLocaleString()}</span>
+                    </div>
+                    <p className="text-sm text-gray-700">{note.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Documents Approved by Insurance */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -478,6 +669,44 @@ export function ClaimDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Garage Selection Modal */}
+      {garageModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => !garageSaving && setGarageModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">{claim.garage ? 'Change Garage' : 'Select a Garage'}</h3>
+              <button onClick={() => setGarageModal(false)} className="p-1 text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-2 flex-1">
+              {garageList.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-6">Loading garages...</p>
+              )}
+              {garageList.map((g) => (
+                <label key={g.id}
+                  className={`flex items-start gap-3 p-3 border-2 rounded-xl cursor-pointer transition ${
+                    garagePick === g.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}>
+                  <input type="radio" name="garagePick" checked={garagePick === g.id} onChange={() => setGaragePick(g.id)} className="sr-only" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{g.name}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{g.address}, {g.city}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{g.phone}</p>
+                  </div>
+                  {garagePick === g.id && <Check className="h-5 w-5 text-orange-600 shrink-0" />}
+                </label>
+              ))}
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+              <button onClick={() => setGarageModal(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
+              <button onClick={handleGarageSave} disabled={!garagePick || garageSaving}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                {garageSaving ? 'Saving...' : claim.garage ? 'Change Garage' : 'Select Garage'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

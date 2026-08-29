@@ -1,1 +1,0 @@
-Full admin dashboard for the insurance claim system providing a separate /admin area where admins can review all claims, approve/reject documents, manage users and garages, and update claim statuses in real time.

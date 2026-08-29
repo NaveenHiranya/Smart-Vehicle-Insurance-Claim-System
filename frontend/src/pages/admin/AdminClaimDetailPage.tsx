@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
 import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench } from 'lucide-react';
 import { uploadUrl } from '../../utils/uploadUrl';
+import { normalizeGarageItems, estimateTotals } from '../../utils/garageEstimate';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
@@ -240,7 +241,10 @@ export function AdminClaimDetailPage() {
             <div><span className="text-gray-500">City:</span><br /><span className="font-medium">{claim.garage.city}</span></div>
             <div><span className="text-gray-500">License:</span><br /><span className="font-medium">{claim.garage.licenseNumber}</span></div>
           </div>
-          {claim.garageEstimate ? (
+          {(() => {
+            const gItems = claim.garageEstimate ? normalizeGarageItems(claim.garageEstimate.items) : null;
+            const gTotals = gItems ? estimateTotals(gItems) : null;
+            return claim.garageEstimate && gItems && gTotals ? (
             <>
               <div className="flex items-center gap-2 mb-3">
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Garage Estimate Submitted</span>
@@ -271,26 +275,39 @@ export function AdminClaimDetailPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b border-gray-200 text-left text-gray-500 text-xs uppercase">
-                    <th className="pb-2">Type</th><th className="pb-2">Part</th><th className="pb-2">Parts</th><th className="pb-2">Labor</th><th className="pb-2 text-right">Subtotal</th>
+                    <th className="pb-2">Type</th><th className="pb-2">Part</th><th className="pb-2 text-right">Amount</th>
                   </tr></thead>
                   <tbody>
-                    {(claim.garageEstimate.items as any[]).map((item: any, i: number) => (
-                      <tr key={i} className={`border-b border-gray-100 ${item.addedByGarage ? 'bg-orange-50' : ''}`}>
-                        <td className="py-1.5 capitalize text-xs">{item.damageType?.replace(/_/g, ' ')}{item.addedByGarage && <span className="text-[10px] text-orange-600 ml-1">(added)</span>}</td>
-                        <td className="py-1.5 text-xs">{item.partName}</td>
-                        <td className="py-1.5 text-xs">Rs. {item.partCost?.toLocaleString()}</td>
-                        <td className="py-1.5 text-xs">{item.laborHours}h @ Rs. {item.laborRate?.toLocaleString()}</td>
-                        <td className="py-1.5 text-right font-medium text-xs">Rs. {item.subtotal?.toLocaleString()}</td>
+                    {gItems.parts.map((part, i) => (
+                      <tr key={i} className={`border-b border-gray-100 ${part.addedByGarage ? 'bg-orange-50' : ''}`}>
+                        <td className="py-1.5 capitalize text-xs">{part.damageType?.replace(/_/g, ' ')}{part.addedByGarage && <span className="text-[10px] text-orange-600 ml-1">(added)</span>}</td>
+                        <td className="py-1.5 text-xs">{part.partName}</td>
+                        <td className="py-1.5 text-right font-medium text-xs">Rs. {part.partCost?.toLocaleString()}</td>
                       </tr>
                     ))}
+                    <tr className="border-b border-gray-100 bg-purple-50">
+                      <td className="py-1.5 font-medium text-purple-900 text-xs">Labor</td>
+                      <td className="py-1.5 text-xs text-gray-600">{gItems.laborHours}h @ Rs. {gItems.laborRate.toLocaleString()}/h</td>
+                      <td className="py-1.5 text-right font-medium text-xs">Rs. {gTotals.laborCost.toLocaleString()}</td>
+                    </tr>
+                    <tr className="border-b border-gray-100 bg-sky-50">
+                      <td className="py-1.5 font-medium text-sky-900 text-xs">Paint & Materials</td>
+                      <td></td>
+                      <td className="py-1.5 text-right font-medium text-xs">Rs. {gItems.paintMaterials.toLocaleString()}</td>
+                    </tr>
+                    <tr className="font-semibold">
+                      <td className="py-1.5 text-xs" colSpan={2}>Total</td>
+                      <td className="py-1.5 text-right text-xs">Rs. {gTotals.totalCost.toLocaleString()}</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
               {claim.garageEstimate.notes && <p className="text-xs text-gray-600 mt-2 p-2 bg-gray-50 rounded">{claim.garageEstimate.notes}</p>}
             </>
-          ) : (
-            <p className="text-sm text-gray-400">Garage has not submitted an estimate yet.</p>
-          )}
+            ) : (
+              <p className="text-sm text-gray-400">Garage has not submitted an estimate yet.</p>
+            );
+          })()}
         </div>
       )}
 
