@@ -2,11 +2,20 @@ import { Router, Response } from 'express';
 import prisma from '../utils/prisma.js';
 import { adminAuthMiddleware } from '../middleware/adminAuth.js';
 import { AuthRequest } from '../types/index.js';
+import { recalculatePayout } from '../services/payoutService.js';
 
 const router = Router();
 router.use(adminAuthMiddleware);
 
 const param = (req: AuthRequest, name: string): string => req.params[name] as string;
+
+// Re-applies the insurance deduction to a vehicle's claims (valuation caps payouts)
+async function syncVehiclePayouts(vehicleId: string): Promise<void> {
+  const claims = await prisma.claim.findMany({ where: { vehicleId }, select: { id: true } });
+  for (const c of claims) {
+    await recalculatePayout(c.id);
+  }
+}
 
 // GET /api/admin/stats
 router.get('/stats', async (_req: AuthRequest, res: Response) => {
@@ -41,6 +50,16 @@ router.get('/users', async (_req: AuthRequest, res: Response) => {
             id: true, make: true, model: true, year: true,
             licensePlate: true, color: true, vin: true,
             _count: { select: { claims: true } },
+          },
+        },
+        // Latest policy first — drives the current-plan display and the Add Policy flow
+        policies: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true, policyNumber: true, coverageType: true,
+            deductible: true, premiumAmount: true, coveragePercent: true,
+            startDate: true, endDate: true,
+            template: { select: { name: true } },
           },
         },
       },
@@ -124,6 +143,110 @@ router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST /api/admin/users/:id/policies — the insurance company adds a policy for a user.
+// Values come from a built-in plan (templateId) and may be overridden, or be fully custom.
+router.post('/users/:id/policies', async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: param(req, 'id') } });
+    if (!user || user.isAdmin) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    const { templateId, coverageType, deductible, coveragePercent, annualFee } = req.body;
+
+    let data: {
+      coverageType: string;
+      deductible: number;
+      premiumAmount: number;
+      coveragePercent: number;
+      templateId: string | null;
+    };
+
+    if (templateId) {
+      // Based on a built-in plan — any provided field overrides the plan's value
+      const template = await prisma.policyTemplate.findFirst({
+        where: { id: templateId, isActive: true },
+      });
+      if (!template) {
+        res.status(404).json({ error: 'Policy plan not found.' });
+        return;
+      }
+      const ded = deductible !== undefined ? Number(deductible) : template.deductible;
+      const pct = coveragePercent !== undefined ? Number(coveragePercent) : template.coveragePercent;
+      const fee = annualFee !== undefined ? Number(annualFee) : template.annualFee;
+      if (Number.isNaN(ded) || ded < 0) { res.status(400).json({ error: 'Deductible must be a non-negative number.' }); return; }
+      if (Number.isNaN(pct) || pct <= 0 || pct > 100) { res.status(400).json({ error: 'Coverage % must be between 1 and 100.' }); return; }
+      if (Number.isNaN(fee) || fee < 0) { res.status(400).json({ error: 'Annual fee must be a non-negative number.' }); return; }
+      data = {
+        coverageType: coverageType ? String(coverageType).trim() : template.coverageType,
+        deductible: ded,
+        premiumAmount: fee,
+        coveragePercent: pct,
+        templateId: template.id,
+      };
+    } else {
+      // Fully custom policy entered by the admin
+      const ded = Number(deductible);
+      const pct = Number(coveragePercent);
+      const fee = Number(annualFee);
+      if (!coverageType) { res.status(400).json({ error: 'Insurance type is required.' }); return; }
+      if (Number.isNaN(ded) || ded < 0) { res.status(400).json({ error: 'Deductible must be a non-negative number.' }); return; }
+      if (Number.isNaN(pct) || pct <= 0 || pct > 100) { res.status(400).json({ error: 'Coverage % must be between 1 and 100.' }); return; }
+      if (Number.isNaN(fee) || fee < 0) { res.status(400).json({ error: 'Annual fee must be a non-negative number.' }); return; }
+      data = {
+        coverageType: String(coverageType).trim(),
+        deductible: ded,
+        premiumAmount: fee,
+        coveragePercent: pct,
+        templateId: null,
+      };
+    }
+
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setFullYear(endDate.getFullYear() + 1);
+
+    const policy = await prisma.insurancePolicy.create({
+      data: {
+        userId: user.id,
+        providerName: 'Flash Claim Insurance',
+        policyNumber: `FC-${Date.now().toString(36).toUpperCase()}`,
+        startDate,
+        endDate,
+        ...data,
+      },
+      include: { template: { select: { name: true } } },
+    });
+
+    // Keep the user's annual fee in sync with the assigned policy
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { annualFee: data.premiumAmount },
+    });
+
+    // Claims without a policy are deducted from the new one — link and calculate payouts
+    const unlinked = await prisma.claim.findMany({
+      where: { userId: user.id, policyId: null },
+      select: { id: true },
+    });
+    if (unlinked.length > 0) {
+      await prisma.claim.updateMany({
+        where: { id: { in: unlinked.map((c) => c.id) } },
+        data: { policyId: policy.id },
+      });
+      for (const c of unlinked) {
+        await recalculatePayout(c.id);
+      }
+    }
+
+    res.status(201).json(policy);
+  } catch (error) {
+    console.error('Admin add user policy error:', error);
+    res.status(500).json({ error: 'Failed to add policy.' });
+  }
+});
+
 // GET /api/admin/vehicles — all vehicles with owner + claims count; ?user= scopes to one owner
 router.get('/vehicles', async (req: AuthRequest, res: Response) => {
   try {
@@ -190,6 +313,142 @@ router.post('/vehicles', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Admin create vehicle error:', error);
     res.status(500).json({ error: 'Failed to create vehicle.' });
+  }
+});
+
+// PATCH /api/admin/vehicles/:id/valuation — insurance company sets the vehicle's value (caps payouts)
+router.patch('/vehicles/:id/valuation', async (req: AuthRequest, res: Response) => {
+  try {
+    const { valuation } = req.body;
+    const vehicle = await prisma.vehicle.findUnique({ where: { id: param(req, 'id') } });
+    if (!vehicle) {
+      res.status(404).json({ error: 'Vehicle not found.' });
+      return;
+    }
+    if (valuation === null || valuation === '') {
+      const updated = await prisma.vehicle.update({
+        where: { id: param(req, 'id') },
+        data: { valuation: null },
+      });
+      await syncVehiclePayouts(param(req, 'id'));
+      res.json(updated);
+      return;
+    }
+    const value = Number(valuation);
+    if (Number.isNaN(value) || value < 0) {
+      res.status(400).json({ error: 'Valuation must be a non-negative number.' });
+      return;
+    }
+    const updated = await prisma.vehicle.update({
+      where: { id: param(req, 'id') },
+      data: { valuation: value },
+    });
+    await syncVehiclePayouts(param(req, 'id'));
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin vehicle valuation error:', error);
+    res.status(500).json({ error: 'Failed to update valuation.' });
+  }
+});
+
+// ---------- Built-in policy plans (per insurance type) ----------
+
+// GET /api/admin/policy-templates
+router.get('/policy-templates', async (_req: AuthRequest, res: Response) => {
+  try {
+    const templates = await prisma.policyTemplate.findMany({
+      orderBy: [{ isActive: 'desc' }, { coverageType: 'asc' }, { annualFee: 'asc' }],
+      include: { _count: { select: { policies: true } } },
+    });
+    res.json(templates);
+  } catch (error) {
+    console.error('Admin policy templates error:', error);
+    res.status(500).json({ error: 'Failed to fetch policy plans.' });
+  }
+});
+
+// POST /api/admin/policy-templates
+router.post('/policy-templates', async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, coverageType, description, deductible, coveragePercent, annualFee, isActive } = req.body;
+    if (!name || !coverageType || deductible === undefined || coveragePercent === undefined || annualFee === undefined) {
+      res.status(400).json({ error: 'Name, insurance type, deductible, coverage %, and annual fee are required.' });
+      return;
+    }
+    const ded = Number(deductible);
+    const pct = Number(coveragePercent);
+    const fee = Number(annualFee);
+    if (Number.isNaN(ded) || ded < 0) { res.status(400).json({ error: 'Deductible must be a non-negative number.' }); return; }
+    if (Number.isNaN(pct) || pct <= 0 || pct > 100) { res.status(400).json({ error: 'Coverage % must be between 1 and 100.' }); return; }
+    if (Number.isNaN(fee) || fee < 0) { res.status(400).json({ error: 'Annual fee must be a non-negative number.' }); return; }
+
+    const template = await prisma.policyTemplate.create({
+      data: {
+        name: String(name).trim(),
+        coverageType: String(coverageType).trim(),
+        description: description ? String(description).trim() : null,
+        deductible: ded,
+        coveragePercent: pct,
+        annualFee: fee,
+        isActive: isActive === undefined ? true : Boolean(isActive),
+      },
+    });
+    res.status(201).json(template);
+  } catch (error) {
+    console.error('Admin create policy template error:', error);
+    res.status(500).json({ error: 'Failed to create policy plan.' });
+  }
+});
+
+// PATCH /api/admin/policy-templates/:id
+router.patch('/policy-templates/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await prisma.policyTemplate.findUnique({ where: { id: param(req, 'id') } });
+    if (!existing) {
+      res.status(404).json({ error: 'Policy plan not found.' });
+      return;
+    }
+    const { name, coverageType, description, deductible, coveragePercent, annualFee, isActive } = req.body;
+    const data: Record<string, unknown> = {};
+    if (name !== undefined) data.name = String(name).trim();
+    if (coverageType !== undefined) data.coverageType = String(coverageType).trim();
+    if (description !== undefined) data.description = description === null || description === '' ? null : String(description).trim();
+    if (deductible !== undefined) {
+      const ded = Number(deductible);
+      if (Number.isNaN(ded) || ded < 0) { res.status(400).json({ error: 'Deductible must be a non-negative number.' }); return; }
+      data.deductible = ded;
+    }
+    if (coveragePercent !== undefined) {
+      const pct = Number(coveragePercent);
+      if (Number.isNaN(pct) || pct <= 0 || pct > 100) { res.status(400).json({ error: 'Coverage % must be between 1 and 100.' }); return; }
+      data.coveragePercent = pct;
+    }
+    if (annualFee !== undefined) {
+      const fee = Number(annualFee);
+      if (Number.isNaN(fee) || fee < 0) { res.status(400).json({ error: 'Annual fee must be a non-negative number.' }); return; }
+      data.annualFee = fee;
+    }
+    if (isActive !== undefined) data.isActive = Boolean(isActive);
+
+    const updated = await prisma.policyTemplate.update({
+      where: { id: param(req, 'id') },
+      data,
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin update policy template error:', error);
+    res.status(500).json({ error: 'Failed to update policy plan.' });
+  }
+});
+
+// DELETE /api/admin/policy-templates/:id — policies created from it keep their copied values
+router.delete('/policy-templates/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.policyTemplate.delete({ where: { id: param(req, 'id') } });
+    res.json({ message: 'Policy plan deleted.' });
+  } catch (error) {
+    console.error('Admin delete policy template error:', error);
+    res.status(500).json({ error: 'Failed to delete policy plan.' });
   }
 });
 

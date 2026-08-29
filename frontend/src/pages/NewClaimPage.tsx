@@ -154,14 +154,15 @@ export function NewClaimPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Policy (optional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Policy</label>
               <select value={form.policyId} onChange={update('policyId')}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none">
-                <option value="">No policy linked</option>
+                <option value="">Use my active policy (default)</option>
                 {policies.map((p) => (
-                  <option key={p.id} value={p.id}>{p.providerName} - {p.policyNumber}</option>
+                  <option key={p.id} value={p.id}>{p.coverageType} · {p.template?.name || p.providerName} - {p.policyNumber}</option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-gray-400">The claim is deducted from this policy — deductible and coverage % apply to the payout.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Incident Date *</label><input type="date" value={form.incidentDate} onChange={update('incidentDate')} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" /></div>

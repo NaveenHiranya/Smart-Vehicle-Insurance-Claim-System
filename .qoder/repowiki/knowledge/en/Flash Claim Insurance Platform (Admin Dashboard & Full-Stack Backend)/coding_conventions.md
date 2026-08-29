@@ -1,0 +1,6 @@
+- Each Express route module is mounted as a sub-path under `/api/<domain>` in `src/index.ts`, keeping user, admin, garage, and chat concerns fully separated.
+- Authorization is applied at the router level via middleware (`adminAuthMiddleware`, `auth`, `garageAuth`) rather than per-handler checks, so every route in a protected router inherits the same access policy.
+- Admin-only routes are grouped under `src/routes/admin.ts` and guarded by `router.use(adminAuthMiddleware)` at the top of the file, enforcing that only `isAdmin === true` users can reach them.
+- Route handlers validate inputs inline and return early with `{ error: '...' }` JSON responses on 400/404, letting a single global `errorHandler` middleware handle unexpected exceptions.
+- Prisma queries use explicit `select`/`include` projections to fetch only the fields needed by the caller (e.g., admin user list includes `_count` of vehicles/claims but omits passwords).
+- Frontend API clients are split by role (`api.ts`, `adminApi.ts`, `garageApi.ts`) and each uses an axios instance with a request interceptor that injects the role-specific token from `localStorage` and a response interceptor that clears it and redirects on 401/403.

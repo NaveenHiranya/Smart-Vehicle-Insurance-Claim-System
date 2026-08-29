@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import type { AdminUser } from '../../types';
-import { Users, Car, ClipboardList, ChevronDown, ChevronUp, Pencil, X, BadgeCheck, Trash2, Plus } from 'lucide-react';
+import type { AdminUser, PolicyTemplate } from '../../types';
+import { Users, Car, ClipboardList, ChevronDown, ChevronUp, Pencil, X, BadgeCheck, Trash2, Plus, ShieldCheck } from 'lucide-react';
 
 // Sri Lankan driving license classes
 const LICENSE_TYPES = ['', 'A', 'A1', 'B', 'B1', 'C', 'C1', 'D', 'DE', 'G1', 'G2', 'J'];
+
+const emptyPolicyForm = { templateId: '', coverageType: '', deductible: '', coveragePercent: '', annualFee: '' };
 
 export function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -19,11 +21,63 @@ export function AdminUsersPage() {
   });
   const [saving, setSaving] = useState(false);
 
+  // Add-policy modal — the insurance company assigns a plan to a user
+  const [policyUser, setPolicyUser] = useState<AdminUser | null>(null);
+  const [policyForm, setPolicyForm] = useState(emptyPolicyForm);
+  const [policySaving, setPolicySaving] = useState(false);
+  const [templates, setTemplates] = useState<PolicyTemplate[]>([]);
+
   const load = () => {
     adminApi.get('/users').then((r) => setUsers(r.data)).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
+
+  const openPolicyModal = (u: AdminUser) => {
+    setPolicyUser(u);
+    setPolicyForm(emptyPolicyForm);
+    // Built-in plans pre-fill the form; fetched once and reused
+    if (templates.length === 0) {
+      adminApi.get('/policy-templates')
+        .then((r) => setTemplates((r.data as PolicyTemplate[]).filter((t) => t.isActive)))
+        .catch(() => {});
+    }
+  };
+
+  const pickTemplate = (templateId: string) => {
+    const t = templates.find((x) => x.id === templateId);
+    setPolicyForm({
+      templateId,
+      coverageType: t?.coverageType || '',
+      deductible: t != null ? String(t.deductible) : '',
+      coveragePercent: t != null ? String(t.coveragePercent) : '',
+      annualFee: t != null ? String(t.annualFee) : '',
+    });
+  };
+
+  const handleAddPolicy = async () => {
+    if (!policyUser) return;
+    const payload: Record<string, unknown> = {};
+    if (policyForm.templateId) payload.templateId = policyForm.templateId;
+    if (policyForm.coverageType.trim()) payload.coverageType = policyForm.coverageType.trim();
+    if (policyForm.deductible !== '') payload.deductible = Number(policyForm.deductible);
+    if (policyForm.coveragePercent !== '') payload.coveragePercent = Number(policyForm.coveragePercent);
+    if (policyForm.annualFee !== '') payload.annualFee = Number(policyForm.annualFee);
+    if (!policyForm.templateId && (!payload.coverageType || payload.deductible === undefined || payload.coveragePercent === undefined || payload.annualFee === undefined)) {
+      alert('Select a built-in plan or fill in all policy fields.');
+      return;
+    }
+    setPolicySaving(true);
+    try {
+      await adminApi.post(`/users/${policyUser.id}/policies`, payload);
+      setPolicyUser(null);
+      load();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to add policy.');
+    } finally {
+      setPolicySaving(false);
+    }
+  };
 
   const openEdit = (u: AdminUser) => {
     setEditUser(u);
@@ -144,6 +198,42 @@ export function AdminUsersPage() {
                           <div><p className="text-xs text-gray-400 uppercase font-medium">Annual Fee</p><p className="text-gray-700">{u.annualFee != null ? `Rs. ${u.annualFee.toLocaleString()}` : '—'}</p></div>
                           <div><p className="text-xs text-gray-400 uppercase font-medium">Joined</p><p className="text-gray-700">{u.joinedAt ? new Date(u.joinedAt).toLocaleDateString() : '—'}</p></div>
                           <div><p className="text-xs text-gray-400 uppercase font-medium">Address</p><p className="text-gray-700">{u.address || '—'}</p></div>
+                        </div>
+
+                        {/* Current policy — claims are deducted from it */}
+                        <div className="border-t border-gray-200 pt-3 mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1.5">
+                              <ShieldCheck className="h-3.5 w-3.5" /> Policy
+                            </p>
+                            <button onClick={() => openPolicyModal(u)}
+                              className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+                              <Plus className="h-3 w-3" /> Add Policy
+                            </button>
+                          </div>
+                          {u.policies?.length ? (() => {
+                            const p = u.policies[0];
+                            const active = new Date(p.endDate) >= new Date();
+                            return (
+                              <>
+                                <div className="flex flex-wrap items-center gap-2 p-2.5 bg-white border border-green-200 rounded-lg">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                    {active ? 'Active' : 'Expired'}
+                                  </span>
+                                  <span className="text-sm font-medium text-gray-900">{p.template?.name || p.coverageType}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {p.coverageType} · {p.coveragePercent}% cover · Rs. {p.deductible.toLocaleString()} deductible ·
+                                    Rs. {p.premiumAmount.toLocaleString()}/yr · until {new Date(p.endDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                {u.policies.length > 1 && (
+                                  <p className="text-[10px] text-gray-400 mt-1">+{u.policies.length - 1} earlier policy{u.policies.length > 2 ? 'ies' : ''}</p>
+                                )}
+                              </>
+                            );
+                          })() : (
+                            <p className="text-sm text-gray-400">No policy yet — claims are not covered by a plan.</p>
+                          )}
                         </div>
 
                         {/* Vehicles under this user — clicking one opens the Vehicles tab scoped to the owner */}
@@ -279,6 +369,68 @@ export function AdminUsersPage() {
               <button onClick={handleSave} disabled={saving}
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save Details'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Add policy modal — insurance company assigns a plan to the user */}
+      {policyUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => !policySaving && setPolicyUser(null)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 sticky top-0 bg-white">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Add Policy</h3>
+                <p className="text-xs text-gray-500">{policyUser.firstName} {policyUser.lastName} · {policyUser.email}</p>
+              </div>
+              <button onClick={() => setPolicyUser(null)} className="p-1 text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Built-in Plan</label>
+                <select value={policyForm.templateId} onChange={(e) => pickTemplate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none">
+                  <option value="">— Custom policy —</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.coverageType} · {t.coveragePercent}% · Rs. {t.annualFee.toLocaleString()}/yr)</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-400">Selecting a plan pre-fills the fields below — adjust them for this user if needed.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Insurance Type</label>
+                <input value={policyForm.coverageType} onChange={(e) => setPolicyForm((f) => ({ ...f, coverageType: e.target.value }))} placeholder="e.g. Comprehensive"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Coverage %</label>
+                  <input type="number" min="1" max="100" value={policyForm.coveragePercent} onChange={(e) => setPolicyForm((f) => ({ ...f, coveragePercent: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Deductible (Rs.)</label>
+                  <input type="number" min="0" value={policyForm.deductible} onChange={(e) => setPolicyForm((f) => ({ ...f, deductible: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Annual Fee (Rs.)</label>
+                  <input type="number" min="0" value={policyForm.annualFee} onChange={(e) => setPolicyForm((f) => ({ ...f, annualFee: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400">
+                Payout = (estimate − deductible) × coverage %. The policy runs for one year, the user's annual fee is synced, and existing uncovered claims are linked to it.
+              </p>
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-xl">
+              <button onClick={() => setPolicyUser(null)} disabled={policySaving}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
+              <button onClick={handleAddPolicy} disabled={policySaving}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+                {policySaving ? 'Adding...' : 'Add Policy'}
               </button>
             </div>
           </div>

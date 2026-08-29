@@ -216,16 +216,39 @@ export function AdminClaimDetailPage() {
               </div>
             </div>
           )}
-          {claim.insurancePayout && (
-            <div className="bg-white rounded-xl shadow-sm border border-green-200 p-5">
-              <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Shield className="h-4 w-4 text-green-600" />Payout Estimate</h2>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div><p className="text-xs text-gray-400">Deductible</p><p className="font-bold">Rs. {claim.insurancePayout.deductible.toLocaleString()}</p></div>
-                <div><p className="text-xs text-gray-400">Covered</p><p className="font-bold">Rs. {claim.insurancePayout.coveredAmount.toLocaleString()}</p></div>
-                <div><p className="text-xs text-gray-400">Payout</p><p className="font-bold text-green-600">Rs. {claim.insurancePayout.estimatedPayout.toLocaleString()}</p></div>
+          {claim.insurancePayout && (() => {
+            const payout = claim.insurancePayout!;
+            // The garage estimate is the deduction basis once submitted; until then the AI estimate applies
+            const baseTotal = claim.garageEstimate?.totalCost ?? claim.repairEstimate?.totalCost ?? 0;
+            const basisLabel = claim.garageEstimate ? 'Garage estimate total' : 'Repair estimate total';
+            const coveragePercent = claim.policy?.coveragePercent ?? 100;
+            const afterDeductible = Math.max(0, baseTotal - payout.deductible);
+            return (
+              <div className="bg-white rounded-xl shadow-sm border border-green-200 p-5">
+                <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 flex-wrap">
+                  <Shield className="h-4 w-4 text-green-600" />Payout Estimate
+                  {claim.policy && (
+                    <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                      {claim.policy.coverageType} · {coveragePercent}% cover
+                    </span>
+                  )}
+                </h2>
+                <div className="space-y-1.5 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-400">{basisLabel}</span><span className="font-medium">Rs. {baseTotal.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Deductible</span><span className="font-medium text-red-600">− Rs. {payout.deductible.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">After deductible</span><span className="font-medium">Rs. {afterDeductible.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">Policy coverage</span><span className="font-medium">× {coveragePercent}%</span></div>
+                  {claim.vehicle?.valuation != null && claim.vehicle.valuation > 0 && payout.coveredAmount >= claim.vehicle.valuation && (
+                    <div className="flex justify-between"><span className="text-gray-400">Vehicle valuation cap</span><span className="font-medium text-amber-600">max Rs. {claim.vehicle.valuation.toLocaleString()}</span></div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-700">Est. payout — {coveragePercent}% of Rs. {afterDeductible.toLocaleString()} after deductible</p>
+                  <p className="font-bold text-green-700">Rs. {payout.estimatedPayout.toLocaleString()}</p>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 

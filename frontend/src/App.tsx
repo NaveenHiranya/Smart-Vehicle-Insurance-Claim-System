@@ -21,6 +21,7 @@ import { AdminClaimsPage } from './pages/admin/AdminClaimsPage';
 import { AdminClaimDetailPage } from './pages/admin/AdminClaimDetailPage';
 import { AdminDocumentsPage } from './pages/admin/AdminDocumentsPage';
 import { AdminGaragesPage } from './pages/admin/AdminGaragesPage';
+import { AdminPoliciesPage } from './pages/admin/AdminPoliciesPage';
 import { GarageProtectedRoute } from './components/GarageProtectedRoute';
 import { GarageLayout } from './components/GarageLayout';
 import { GarageLoginPage } from './pages/garage/GarageLoginPage';
@@ -53,6 +54,7 @@ function App() {
           <Route path="/admin/vehicles" element={<AdminProtectedRoute><AdminLayout><AdminVehiclesPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/claims" element={<AdminProtectedRoute><AdminLayout><AdminClaimsPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/claims/:id" element={<AdminProtectedRoute><AdminLayout><AdminClaimDetailPage /></AdminLayout></AdminProtectedRoute>} />
+          <Route path="/admin/policies" element={<AdminProtectedRoute><AdminLayout><AdminPoliciesPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/documents" element={<AdminProtectedRoute><AdminLayout><AdminDocumentsPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/garages" element={<AdminProtectedRoute><AdminLayout><AdminGaragesPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />

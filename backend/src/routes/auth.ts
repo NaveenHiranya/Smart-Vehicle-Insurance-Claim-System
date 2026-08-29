@@ -10,10 +10,16 @@ const router = Router();
 // POST /api/auth/register
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, password, firstName, lastName, phone, address } = req.body;
+    const { email, password, firstName, lastName, phone, address, nic } = req.body;
 
     if (!email || !password || !firstName || !lastName) {
       res.status(400).json({ error: 'Email, password, first name, and last name are required.' });
+      return;
+    }
+
+    // Sri Lankan NIC: old format 9 digits + V/X, or new format 12 digits
+    if (nic && !/^\d{9}[vVxX]$|^\d{12}$/.test(String(nic).trim())) {
+      res.status(400).json({ error: 'NIC must be 9 digits followed by V/X or 12 digits.' });
       return;
     }
 
@@ -33,6 +39,7 @@ router.post('/register', async (req: Request, res: Response) => {
         lastName,
         phone: phone || null,
         address: address || null,
+        nic: nic ? String(nic).trim().toUpperCase() : null,
       },
       select: {
         id: true,
@@ -41,6 +48,7 @@ router.post('/register', async (req: Request, res: Response) => {
         lastName: true,
         phone: true,
         address: true,
+        nic: true,
         createdAt: true,
       },
     });
@@ -116,8 +124,14 @@ router.get('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
         lastName: true,
         phone: true,
         address: true,
+        nic: true,
+        licenseType: true,
+        annualFee: true,
+        joinedAt: true,
         isAdmin: true,
         createdAt: true,
+        // Latest policy — provides the user's insurance type
+        policies: { orderBy: { createdAt: 'desc' }, take: 1, select: { coverageType: true } },
       },
     });
 

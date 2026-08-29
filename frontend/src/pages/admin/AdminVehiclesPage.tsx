@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { Car, ClipboardList, Plus, Search, X } from 'lucide-react';
+import { Banknote, Car, ClipboardList, Plus, Search, X } from 'lucide-react';
 
 interface AdminVehicle {
   id: string;
@@ -13,6 +13,7 @@ interface AdminVehicle {
   licensePlate: string;
   color: string;
   mileage?: number | null;
+  valuation?: number | null;
   createdAt: string;
   user: { id: string; firstName: string; lastName: string; email: string };
   _count?: { claims: number };
@@ -40,6 +41,11 @@ export function AdminVehiclesPage() {
   const [addOpen, setAddOpen] = useState(searchParams.get('add') === '1');
   const [form, setForm] = useState({ ...emptyForm, userId: userFilter || '' });
   const [saving, setSaving] = useState(false);
+
+  // Vehicle valuation editor — the insurance company sets the value that caps claim payouts
+  const [valuationVehicle, setValuationVehicle] = useState<AdminVehicle | null>(null);
+  const [valuationInput, setValuationInput] = useState('');
+  const [valuationSaving, setValuationSaving] = useState(false);
 
   const load = () => {
     const params = new URLSearchParams();
@@ -80,6 +86,30 @@ export function AdminVehiclesPage() {
     const next = new URLSearchParams(searchParams);
     next.delete('user');
     setSearchParams(next, { replace: true });
+  };
+
+  const openValuation = (v: AdminVehicle) => {
+    setValuationVehicle(v);
+    setValuationInput(v.valuation != null ? String(v.valuation) : '');
+  };
+
+  const handleSaveValuation = async () => {
+    if (!valuationVehicle) return;
+    const value = valuationInput.trim() === '' ? null : Number(valuationInput);
+    if (value != null && (Number.isNaN(value) || value < 0)) {
+      alert('Valuation must be a non-negative number.');
+      return;
+    }
+    setValuationSaving(true);
+    try {
+      const res = await adminApi.patch(`/vehicles/${valuationVehicle.id}/valuation`, { valuation: value });
+      setVehicles((prev) => prev.map((v) => (v.id === valuationVehicle.id ? { ...v, valuation: res.data.valuation } : v)));
+      setValuationVehicle(null);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to save valuation.');
+    } finally {
+      setValuationSaving(false);
+    }
   };
 
   const filteredUser = users.find((u) => u.id === userFilter);
@@ -129,13 +159,14 @@ export function AdminVehiclesPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[760px]">
+          <table className="w-full text-sm min-w-[900px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Owner</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Vehicle</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Plate</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Color</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Valuation</th>
                 <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Claims</th>
                 <th className="px-5 py-3"></th>
               </tr>
@@ -160,6 +191,14 @@ export function AdminVehiclesPage() {
                   </td>
                   <td className="px-5 py-3 text-gray-600">{v.licensePlate}</td>
                   <td className="px-5 py-3 text-gray-600 capitalize">{v.color}</td>
+                  <td className="px-5 py-3">
+                    <button onClick={() => openValuation(v)}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium ${v.valuation != null ? 'text-green-700' : 'text-gray-400 hover:text-primary-600'}`}
+                      title="Set the vehicle's insured value — caps claim payouts">
+                      <Banknote className="h-3.5 w-3.5" />
+                      {v.valuation != null ? `Rs. ${v.valuation.toLocaleString()}` : 'Set value'}
+                    </button>
+                  </td>
                   <td className="px-5 py-3 text-center">
                     <span className="inline-flex items-center gap-1 text-gray-700">
                       <ClipboardList className="h-3.5 w-3.5" />{v._count?.claims ?? 0}
@@ -255,6 +294,38 @@ export function AdminVehiclesPage() {
               <button onClick={handleAdd} disabled={saving}
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
                 {saving ? 'Adding...' : 'Add Vehicle'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Valuation modal — insurance company sets the vehicle's insured value */}
+      {valuationVehicle && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => !valuationSaving && setValuationVehicle(null)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Vehicle Valuation</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {valuationVehicle.year} {valuationVehicle.make} {valuationVehicle.model} · {valuationVehicle.user.firstName} {valuationVehicle.user.lastName}
+                </p>
+              </div>
+              <button onClick={() => setValuationVehicle(null)} className="p-1 text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-4">
+              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Insured Value (Rs.)</label>
+              <input type="number" min="0" value={valuationInput} onChange={(e) => setValuationInput(e.target.value)} placeholder="e.g. 4500000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+              <p className="mt-2 text-xs text-gray-400">
+                Claim payouts are capped at this value. Leave empty to remove the cap.
+              </p>
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+              <button onClick={() => setValuationVehicle(null)} disabled={valuationSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
+              <button onClick={handleSaveValuation} disabled={valuationSaving}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+                {valuationSaving ? 'Saving...' : 'Save Valuation'}
               </button>
             </div>
           </div>

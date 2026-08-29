@@ -26,6 +26,18 @@ export interface AdminUser extends User {
     vin?: string;
     _count?: { claims: number };
   }[];
+  // Latest policy first — the plan the user's claims are deducted from
+  policies?: {
+    id: string;
+    policyNumber: string;
+    coverageType: string;
+    deductible: number;
+    premiumAmount: number;
+    coveragePercent: number;
+    startDate: string;
+    endDate: string;
+    template?: { name: string } | null;
+  }[];
   _count?: { vehicles: number; claims: number };
 }
 
@@ -40,9 +52,25 @@ export interface Vehicle {
   color: string;
   mileage?: number;
   photos: string[];
+  valuation?: number | null;
   createdAt: string;
   _count?: { claims: number };
   claims?: Claim[];
+}
+
+// Built-in insurance plan managed by the company, one per insurance type (or several tiers)
+export interface PolicyTemplate {
+  id: string;
+  name: string;
+  coverageType: string;
+  description?: string | null;
+  deductible: number;
+  coveragePercent: number;
+  annualFee: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { policies: number };
 }
 
 export interface InsurancePolicy {
@@ -53,8 +81,11 @@ export interface InsurancePolicy {
   coverageType: string;
   deductible: number;
   premiumAmount: number;
+  coveragePercent: number;
+  templateId?: string | null;
   startDate: string;
   endDate: string;
+  template?: { name: string } | null;
 }
 
 export type ClaimStatus = 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'GARAGE_REVIEW' | 'GARAGE_ESTIMATED' | 'APPROVED' | 'REJECTED' | 'COMPLETED';

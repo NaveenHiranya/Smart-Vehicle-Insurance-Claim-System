@@ -54,11 +54,33 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // Claims are deducted from the user's policy: when none was selected,
+    // fall back to the latest active policy (otherwise the most recent one)
+    let linkedPolicyId = policyId || null;
+    if (!linkedPolicyId) {
+      const activePolicy = await prisma.insurancePolicy.findFirst({
+        where: { userId: req.userId, endDate: { gte: new Date() } },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      linkedPolicyId = activePolicy?.id || null;
+    } else {
+      // Validate the provided policy belongs to the user
+      const owned = await prisma.insurancePolicy.findFirst({
+        where: { id: linkedPolicyId, userId: req.userId },
+        select: { id: true },
+      });
+      if (!owned) {
+        res.status(404).json({ error: 'Policy not found.' });
+        return;
+      }
+    }
+
     const claim = await prisma.claim.create({
       data: {
         userId: req.userId!,
         vehicleId,
-        policyId: policyId || null,
+        policyId: linkedPolicyId,
         garageId: garageId || null,
         incidentDate: new Date(incidentDate),
         incidentLocation,

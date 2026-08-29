@@ -1,9 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Save } from 'lucide-react';
+import api from '../services/api';
+import type { InsurancePolicy } from '../types';
+import { Save, Shield, BadgeCheck, IdCard, Wallet, CalendarDays } from 'lucide-react';
 
 export function ProfilePage() {
   const { user, updateProfile } = useAuth();
+  const [policy, setPolicy] = useState<InsurancePolicy | null>(null);
   const [form, setForm] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -13,6 +16,11 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+
+  // Latest policy provides the insurance type shown in the details card
+  useEffect(() => {
+    api.get('/policies').then((r) => setPolicy(r.data[0] || null)).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -33,6 +41,62 @@ export function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h1>
+
+      {/* Insurance details — records managed by the insurance company */}
+      <div className="bg-white rounded-xl shadow-sm border border-green-200 p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Shield className="h-5 w-5 text-green-600" /> Insurance Details
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex items-start gap-3">
+            <IdCard className="h-4 w-4 text-gray-400 mt-1 shrink-0" />
+            <div>
+              <p className="text-xs text-gray-400 uppercase font-medium">NIC</p>
+              <p className="text-sm text-gray-900 font-medium">{user?.nic || 'Not provided yet'}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Wallet className="h-4 w-4 text-gray-400 mt-1 shrink-0" />
+            <div>
+              <p className="text-xs text-gray-400 uppercase font-medium">Annual Fee</p>
+              <p className="text-sm text-gray-900 font-medium">
+                {user?.annualFee != null ? `Rs. ${user.annualFee.toLocaleString()}` : 'Not set yet'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Shield className="h-4 w-4 text-gray-400 mt-1 shrink-0" />
+            <div>
+              <p className="text-xs text-gray-400 uppercase font-medium">Insurance Type</p>
+              <p className="text-sm text-gray-900 font-medium">
+                {policy ? policy.coverageType : 'No active policy'}
+                {policy && <span className="text-xs text-gray-400 font-normal ml-1">({policy.coveragePercent}% cover)</span>}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <CalendarDays className="h-4 w-4 text-gray-400 mt-1 shrink-0" />
+            <div>
+              <p className="text-xs text-gray-400 uppercase font-medium">Joined</p>
+              <p className="text-sm text-gray-900 font-medium">
+                {user?.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+        {policy && (
+          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-500">
+            <BadgeCheck className="h-3.5 w-3.5 text-green-500 shrink-0" />
+            <span>
+              {policy.template?.name || policy.providerName} · Policy #{policy.policyNumber} ·
+              Rs. {policy.deductible.toLocaleString()} deductible · valid until {new Date(policy.endDate).toLocaleDateString()}
+            </span>
+          </div>
+        )}
+        <p className="mt-4 text-xs text-gray-400">
+          These details are managed by your insurance company. Contact them to update your NIC, annual fee, or insurance plan.
+        </p>
+      </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
@@ -69,7 +133,7 @@ export function ProfilePage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input type="tel" value={form.phone} onChange={update('phone')}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" placeholder="+1 (555) 000-0000" />
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" placeholder="+94 77 123 4567" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>

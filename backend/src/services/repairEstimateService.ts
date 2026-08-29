@@ -1,5 +1,6 @@
 import prisma from '../utils/prisma.js';
 import { RepairEstimateItem, RepairEstimateResult, DamageItem } from '../types/index.js';
+import { recalculatePayout } from './payoutService.js';
 
 // Repair cost lookup table (typical ranges in LKR – Sri Lankan Rupees)
 // Based on Sri Lankan vehicle repair market rates (garage & body shop prices)
@@ -107,9 +108,7 @@ export async function generateRepairEstimate(claimId: string): Promise<RepairEst
   const claim = await prisma.claim.findUnique({
     where: { id: claimId },
     include: {
-      vehicle: true,
       damageAssessment: true,
-      policy: true,
     },
   });
 
@@ -157,38 +156,8 @@ export async function generateRepairEstimate(claimId: string): Promise<RepairEst
     });
   }
 
-  // Calculate insurance payout if policy is linked
-  if (claim.policy) {
-    const deductible = claim.policy.deductible;
-    const coveredAmount = Math.max(0, totalCost - deductible);
-    const estimatedPayout = coveredAmount;
-
-    const existingPayout = await prisma.insurancePayout.findUnique({
-      where: { claimId },
-    });
-
-    const payoutData = {
-      deductible,
-      coveredAmount,
-      estimatedPayout,
-      notes: `Based on ${damages.length} damage item(s). Deductible of Rs. ${deductible.toLocaleString()} applied.`,
-    };
-
-    if (existingPayout) {
-      await prisma.insurancePayout.update({
-        where: { claimId },
-        data: payoutData,
-      });
-    } else {
-      await prisma.insurancePayout.create({
-        data: {
-          claimId,
-          repairEstimateId: estimate.id,
-          ...payoutData,
-        },
-      });
-    }
-  }
+  // Apply the insurance deduction to this estimate (payout = estimate − deductible, × coverage %, capped at valuation)
+  await recalculatePayout(claimId);
 
   return {
     items,

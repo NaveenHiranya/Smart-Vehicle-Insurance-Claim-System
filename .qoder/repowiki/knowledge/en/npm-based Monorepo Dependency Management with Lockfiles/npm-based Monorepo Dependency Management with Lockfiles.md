@@ -12,36 +12,32 @@ source_files:
     - frontend/package-lock.json
     - backend/.gitignore
     - frontend/.gitignore
-    - railway.toml
 ---
 
 ## System Overview
 
-This repository uses **npm** as the package manager for a multi-package monorepo consisting of a backend (`backend/`) and frontend (`frontend/`) application. There is no top-level `package-lock.json` or workspace configuration — each subproject manages its own dependencies independently, while a root `package.json` provides convenience scripts to orchestrate installs across both packages.
+This repository uses **npm** as the package manager across a multi-package monorepo structure. The root `package.json` acts as an orchestration layer that delegates dependency installation and build tasks to the `backend/` and `frontend/` sub-projects, each of which maintains its own independent `package.json`, `package-lock.json`, and `node_modules/` directory.
 
-## Key Files
+## Key Files and Packages
 
-- `package.json` (root): Defines cross-project scripts like `install:all`, `build`, `start`, `dev:backend`, `dev:frontend`, and `seed`. It does not declare any dependencies itself; it only orchestrates installation into `backend/` and `frontend/` via `cd` commands.
-- `backend/package.json`: Declures runtime dependencies (`express`, `@prisma/client`, `jsonwebtoken`, `bcryptjs`, `multer`, `cors`, `dotenv`, `zod`, `@google/generative-ai`) and dev dependencies (`typescript`, `tsx`, `nodemon`, `@types/*`). Includes Prisma-specific scripts (`prisma:generate`, `prisma:migrate`, `prisma:push`, `prisma:studio`, `start:migrate`).
-- `frontend/package.json`: Declares React 19, Vite, Tailwind CSS v4, Axios, React Router DOM, and Oxlint. Uses ESM (`"type": "module"`).
-- `backend/package-lock.json` and `frontend/package-lock.json`: npm lockfiles (lockfileVersion 3) that pin exact transitive dependency versions and include integrity hashes. Both are committed to the repository, ensuring deterministic builds.
-- `.gitignore`: Excludes `node_modules/` from version control in both projects.
-- `railway.toml` (root and `backend/`): Deployment configuration used by Railway; the backend includes a `DATABASE_URL` environment variable reference but no custom npm registry configuration.
+- **Root orchestrator**: `package.json` — defines workspace-level scripts (`install:all`, `dev:backend`, `dev:frontend`, `build:backend`, `build:frontend`, `seed`) that `cd` into each subdirectory and invoke npm commands there. No shared dependencies are declared at the root level; it is marked `"private": true`.
+- **Backend manifest**: `backend/package.json` — declares runtime dependencies (`express`, `@prisma/client`, `jsonwebtoken`, `bcryptjs`, `multer`, `cors`, `dotenv`, `zod`, `@google/generative-ai`) and dev dependencies (`typescript`, `tsx`, `nodemon`, Prisma CLI, and `@types/*` packages). Build script runs `prisma generate && tsc`; start script runs `prisma db push && node dist/index.js`.
+- **Frontend manifest**: `frontend/package.json` — declares React 19, Vite, Tailwind CSS v4, Axios, React Router DOM, and related dev tooling (`oxlint`, `@vitejs/plugin-react`, TypeScript ~6.0.2). Uses ES modules (`"type": "module"`).
+- **Lockfiles**: Both `backend/package-lock.json` and `frontend/package-lock.json` use lockfileVersion 3 and pin every transitive dependency with integrity hashes resolved from `https://registry.npmjs.org/`.
+- **`.gitignore` files**: Both `backend/.gitignore` and `frontend/.gitignore` exclude `node_modules/`, `dist/`, `.env`, and `*.log`, confirming that `node_modules` is never committed.
 
 ## Architecture and Conventions
 
-- **Per-package isolation**: Each subproject has its own `package.json` and `package-lock.json`. Dependencies are not shared at the monorepo root level; there is no `pnpm-workspace.yaml`, `yarn.lock`, or npm workspaces config.
-- **Version ranges use caret (`^`)**: All dependencies in both `backend/package.json` and `frontend/package.json` specify caret ranges (e.g., `^6.19.3`, `^19.2.8`), allowing minor/patch updates automatically. The exception is `typescript` in the frontend, which uses a tilde range (`~6.0.2`) to restrict patch-only updates.
-- **Lockfiles are committed**: Both `package-lock.json` files are tracked in git, so CI and local installs resolve to the exact same tree every time.
-- **No vendoring**: `node_modules/` directories exist locally but are ignored by git. Dependencies are fetched from the public npm registry on install.
-- **No private registries**: No `.npmrc` file was found in the repository, and all resolved URLs in the lockfiles point to `https://registry.npmjs.org/`. There is no evidence of a private npm registry, scoped private packages, or `GOOGLE_APPLICATION_CREDENTIALS`-style auth for package resolution.
-- **Prisma integration**: The backend uses Prisma (`prisma/schema.prisma`) alongside `@prisma/client` and `prisma` as a dev dependency. The build script runs `prisma generate && tsc`, and the start-migrate script runs `prisma db push` before starting the server.
-- **Deployment hooks**: The root `package.json` scripts assume a two-step install/build flow (`cd backend && npm install && npm run build`), matching how Railway deploys the backend.
+- **Per-subproject isolation**: Each subproject (backend, frontend) has its own dependency graph, version ranges, and lockfile. There is no shared workspace configuration (no `pnpm-workspace.yaml`, `lerna.json`, or npm workspaces setup); the root `package.json` simply shells out to each subproject via `cd` + `npm run ...`.
+- **Version range strategy**: All dependencies in both manifests use caret (`^`) ranges (e.g., `"express": "^5.2.1"`, `"react": "^19.2.8"`), allowing minor/patch updates while blocking major bumps. The frontend pins TypeScript with a tilde (`"~6.0.2"`) for stricter patch-level locking.
+- **Build-time code generation**: The backend's `build` script explicitly runs `prisma generate` before `tsc`, ensuring the generated Prisma client types are always regenerated from `prisma/schema.prisma` prior to compilation.
+- **No vendoring**: `node_modules/` directories exist locally but are gitignored; there is no vendored copy of third-party packages checked into source control.
+- **No private registry / auth**: All resolved URLs in the lockfiles point to `https://registry.npmjs.org/`. No `.npmrc` file exists in the repository, so no private registry, token, or `GOOGLE_APPLICATION_CREDENTIALS`-style authentication is configured at the dependency level.
 
-## Constraints and Rules Observed
+## Conventions and Constraints
 
-- Every dependency must be declared explicitly in the appropriate `package.json`; there is no hoisted/shared dependency list.
-- Version bumps should use caret ranges unless tighter pinning is needed (as seen with frontend TypeScript's tilde).
-- After changing `package.json`, the corresponding `package-lock.json` must be regenerated and committed to keep the lockfile in sync.
-- Scripts in the root `package.json` are the canonical entry points for development and deployment; adding new subprojects requires updating these scripts to include them.
-- Environment variables (e.g., `DATABASE_URL`, `JWT_SECRET`, `GOOGLE_GENERATIVE_AI_API_KEY`) are loaded via `dotenv` in the backend and referenced through `.env` / `.env.example` files rather than being baked into dependencies.
+- **Lockfiles are committed**: Both `backend/package-lock.json` and `frontend/package-lock.json` are present in the repository, enforcing reproducible installs across environments.
+- **Dependencies are not hoisted**: Because npm workspaces are not used, each subproject installs its own `node_modules/`; there is no shared dependency tree.
+- **Runtime vs dev separation**: Dependencies are cleanly split between `dependencies` (runtime) and `devDependencies` (tooling, type definitions, dev servers) in both subprojects.
+- **Prisma lifecycle**: The backend treats Prisma as both a runtime client (`@prisma/client`) and a dev/build tool (`prisma` CLI). Database migrations are applied at startup via `start:migrate` (`prisma db push`), rather than through a separate migration step — this is a deployment convention tied to the dependency usage pattern.
+- **TypeScript versions diverge**: Backend uses TypeScript `^7.0.2` while frontend uses `~6.0.2`; they are installed independently per subproject, avoiding cross-project type conflicts.

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import prisma from '../utils/prisma.js';
 import { garageAuthMiddleware } from '../middleware/garageAuth.js';
 import { AuthRequest } from '../types/index.js';
+import { recalculatePayout } from '../services/payoutService.js';
 
 const router = Router();
 router.use(garageAuthMiddleware);
@@ -124,6 +125,9 @@ router.post('/claims/:id/estimate', async (req: AuthRequest, res: Response) => {
       where: { id: claimId },
       data: { status: 'GARAGE_ESTIMATED' },
     });
+
+    // The garage estimate becomes the payout basis — re-apply the insurance deduction
+    await recalculatePayout(claimId);
 
     res.json(estimate);
   } catch (error) {

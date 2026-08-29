@@ -1,6 +1,0 @@
-- Admin routes are grouped in a single `routes/admin.ts` file and protected globally via `router.use(adminAuthMiddleware)` at the top of the router, so every handler implicitly requires an admin JWT.
-- Each route handler follows a try/catch pattern that logs errors to console and returns a uniform `{ error: string }` JSON response with appropriate HTTP status codes.
-- Database queries use Prisma's `include`/`select` to eagerly load related entities (e.g., claim detail includes user, vehicle, garage, images, damageAssessment, repairEstimate, documents, chatMessages, adminNotes) rather than issuing multiple round-trips.
-- Role-based access control is enforced server-side by checking `user.isAdmin` after JWT verification, and mirrored client-side by `AdminProtectedRoute` guarding `/admin/*` routes based on a stored `adminToken`.
-- Shared configuration (Prisma client, Gemini client) is instantiated once in `utils/*.ts` and imported as singletons across routes and services.
-- Frontend API clients are split by role (`adminApi.ts`, `api.ts`, `garageApi.ts`) so each consumer talks to its own base URL / token namespace instead of sharing a single global client.

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Shield, AlertCircle } from 'lucide-react';
 
 export function RegisterPage() {
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '', nic: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -78,10 +78,19 @@ export function RegisterPage() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">NIC</label>
+              <input type="text" value={form.nic} onChange={update('nic')} required
+                pattern="^\d{9}[vVxX]$|^\d{12}$"
+                title="9 digits followed by V/X, or 12 digits (e.g. 852345678V or 199852345678)"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
+                placeholder="852345678V or 199852345678" />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
               <input type="tel" value={form.phone} onChange={update('phone')}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                placeholder="+1 (555) 000-0000" />
+                placeholder="+94 77 123 4567" />
             </div>
 
             <button type="submit" disabled={loading}

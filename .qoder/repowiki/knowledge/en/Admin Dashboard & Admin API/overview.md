@@ -1,1 +1,0 @@
-Provides a separate admin portal and protected REST API for insurance administrators to manage users, claims, documents, garages, and claim status in real time.
