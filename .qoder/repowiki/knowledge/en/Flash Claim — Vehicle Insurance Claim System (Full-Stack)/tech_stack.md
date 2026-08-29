@@ -1,0 +1,1 @@
+Express 5 + TypeScript backend with Prisma ORM (PostgreSQL, SQLite for dev) and JSON Web Tokens for auth; React + Vite frontend with react-router-dom, Tailwind CSS, and Lucide icons; Google Generative AI (`@google/generative-ai`) for image damage assessment; Multer + Sharp for uploaded image resizing; Zod for runtime validation.

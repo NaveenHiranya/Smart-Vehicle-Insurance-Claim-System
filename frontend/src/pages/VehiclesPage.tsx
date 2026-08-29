@@ -2,8 +2,31 @@ import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../services/api';
-import type { Vehicle } from '../types';
-import { Car, Plus, Trash2, Upload, Sparkles, CheckCircle, AlertCircle, X, Loader, Check, Camera } from 'lucide-react';
+import type { Vehicle, PolicyTemplate, VehicleVerification } from '../types';
+import { Car, Plus, Trash2, Upload, Sparkles, CheckCircle, AlertCircle, X, Loader, Check, Camera, XCircle } from 'lucide-react';
+
+// Verification badge shared by the vehicles grid and detail views
+function VerificationBadge({ status }: { status: VehicleVerification }) {
+  if (status === 'VERIFIED') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 font-medium">
+        <CheckCircle className="h-3.5 w-3.5" /> Verified
+      </span>
+    );
+  }
+  if (status === 'REJECTED') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-medium">
+        <XCircle className="h-3.5 w-3.5" /> Rejected
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+      <AlertCircle className="h-3.5 w-3.5" /> Pending verification
+    </span>
+  );
+}
 
 export function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -42,9 +65,9 @@ export function VehiclesPage() {
               </div>
               <h3 className="font-semibold text-gray-900 text-lg">{v.year} {v.make} {v.model}</h3>
               <p className="text-sm text-gray-500 mt-1">{v.color} {v.mileage ? `- ${v.mileage.toLocaleString()} mi` : ''}</p>
-              <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between text-sm">
-                <span className="text-gray-500">{v._count?.claims || 0} claim(s)</span>
-                <span className="text-primary-600 font-medium">View details</span>
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                <span className="text-sm text-gray-500">{v._count?.claims || 0} claim(s)</span>
+                <VerificationBadge status={v.verificationStatus} />
               </div>
             </Link>
           ))}
@@ -99,10 +122,67 @@ export function VehicleDetailPage() {
         </div>
       </div>
 
-      <Link to={`/claims/new?vehicleId=${vehicle.id}`}
-        className="block w-full bg-primary-600 text-white text-center py-3 rounded-xl font-semibold hover:bg-primary-700 transition mb-6">
-        File a Claim for This Vehicle
-      </Link>
+      {/* Verification status — the insurance company must verify the vehicle before claims unlock */}
+      {(() => {
+        const cfg = vehicle.verificationStatus === 'VERIFIED'
+          ? { icon: <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />, box: 'bg-green-50 border-green-200', title: 'Vehicle verified', text: 'This vehicle and its insurance policy have been verified — you can file claims for it.' }
+          : vehicle.verificationStatus === 'REJECTED'
+          ? { icon: <XCircle className="h-5 w-5 text-red-600 mt-0.5" />, box: 'bg-red-50 border-red-200', title: 'Verification rejected', text: 'The insurance company could not verify this vehicle. Please contact support or update your vehicle details.' }
+          : { icon: <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />, box: 'bg-amber-50 border-amber-200', title: 'Pending verification', text: 'The insurance company is reviewing this vehicle and its insurance policy. Claims unlock once it is verified.' };
+        return (
+          <div className={`rounded-xl border p-4 mb-6 flex items-start gap-3 ${cfg.box}`}>
+            {cfg.icon}
+            <div>
+              <p className="font-medium text-gray-900">{cfg.title}</p>
+              <p className="text-sm text-gray-600">{cfg.text}</p>
+              {vehicle.verificationNotes && (
+                <p className="text-sm text-gray-600 mt-1"><span className="font-medium">Notes from the insurance company:</span> {vehicle.verificationNotes}</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Insurance policy card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <h2 className="font-semibold text-gray-900 mb-4">Insurance Policy</h2>
+        {vehicle.insurancePolicy ? (() => {
+          const p = vehicle.insurancePolicy;
+          const active = new Date(p.endDate) >= new Date();
+          return (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-medium text-gray-900">{p.template?.name || p.providerName}</p>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {active ? 'Active' : 'Expired'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div><p className="text-xs text-gray-500 uppercase">Policy #</p><p className="font-medium text-gray-900">{p.policyNumber}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Coverage Type</p><p className="font-medium text-gray-900">{p.coverageType}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Coverage</p><p className="font-medium text-gray-900">{p.coveragePercent}%</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Deductible</p><p className="font-medium text-gray-900">Rs. {p.deductible.toLocaleString()}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Premium</p><p className="font-medium text-gray-900">Rs. {p.premiumAmount.toLocaleString()}</p></div>
+                <div><p className="text-xs text-gray-500 uppercase">Valid Until</p><p className="font-medium text-gray-900">{new Date(p.endDate).toLocaleDateString()}</p></div>
+              </div>
+            </div>
+          );
+        })() : (
+          <p className="text-sm text-gray-500">No policy yet — the insurance company will complete it.</p>
+        )}
+      </div>
+
+      {vehicle.verificationStatus === 'VERIFIED' ? (
+        <Link to={`/claims/new?vehicleId=${vehicle.id}`}
+          className="block w-full bg-primary-600 text-white text-center py-3 rounded-xl font-semibold hover:bg-primary-700 transition mb-6">
+          File a Claim for This Vehicle
+        </Link>
+      ) : (
+        <div className="w-full bg-gray-100 text-gray-400 text-center py-3 rounded-xl font-semibold cursor-not-allowed mb-6"
+          title="Claims unlock once the vehicle and its insurance policy are verified">
+          Claim Unavailable — vehicle pending verification
+        </div>
+      )}
 
       {vehicle.claims && vehicle.claims.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -127,6 +207,15 @@ export function AddVehiclePage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+
+  // Optional insurance at vehicle registration — one policy per vehicle
+  const [templates, setTemplates] = useState<PolicyTemplate[]>([]);
+  const [addInsurance, setAddInsurance] = useState(false);
+  const [templateId, setTemplateId] = useState('');
+
+  useEffect(() => {
+    api.get('/policies/templates').then((res) => setTemplates(res.data)).catch(() => {});
+  }, []);
 
   // AI detection state
   const [detectImage, setDetectImage] = useState<File | null>(null);
@@ -204,7 +293,9 @@ export function AddVehiclePage() {
     setError('');
     setSuccess(false);
     try {
-      const res = await api.post('/vehicles', form);
+      const payload: any = { ...form };
+      if (addInsurance && templateId) payload.insurance = { templateId };
+      const res = await api.post('/vehicles', payload);
       setSuccess(true);
       setTimeout(() => navigate(`/vehicles/${res.data.id}`), 1500);
     } catch (err: any) {
@@ -214,6 +305,8 @@ export function AddVehiclePage() {
 
   const update = (f: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [f]: e.target.value }));
+
+  const selectedTemplate = templates.find((t) => t.id === templateId);
 
   const confidenceColor = (c: string) => {
     if (c === 'HIGH') return 'text-success-600 bg-success-50 border-success-200';
@@ -387,6 +480,35 @@ export function AddVehiclePage() {
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
               placeholder="25000" />
           </div>
+
+          {/* Insurance Policy (optional) — can also be added later from the Policies page */}
+          <div className="pt-4 border-t border-gray-100">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={addInsurance} onChange={(e) => setAddInsurance(e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+              <span className="text-sm font-medium text-gray-700">Add insurance now</span>
+            </label>
+            {addInsurance && (
+              <div className="mt-3 space-y-2">
+                <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none">
+                  <option value="">Select an insurance plan</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} — Rs. {t.annualFee.toLocaleString()}/yr</option>
+                  ))}
+                </select>
+                {selectedTemplate && (
+                  <p className="text-xs text-gray-500">
+                    {selectedTemplate.coverageType} · {selectedTemplate.coveragePercent}% coverage after Rs. {selectedTemplate.deductible.toLocaleString()} deductible · Rs. {selectedTemplate.annualFee.toLocaleString()} annual fee
+                  </p>
+                )}
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                  The insurance company verifies this vehicle and its policy before claims are unlocked.
+                </p>
+              </div>
+            )}
+          </div>
+
           <button type="submit" disabled={loading}
             className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 transition disabled:opacity-50">
             {loading ? 'Registering...' : 'Register Vehicle'}

@@ -35,10 +35,11 @@ router.get('/garages', async (_req: AuthRequest, res: Response) => {
 // Helper to extract string params from Express 5 (which types them as string | string[])
 const param = (req: AuthRequest, name: string): string => req.params[name] as string;
 
-// POST /api/claims
+// POST /api/claims — only verified vehicles may file claims; the claim is linked to the
+// selected vehicle's policy (insurance is vehicle-based)
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { vehicleId, policyId, garageId, incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport } = req.body;
+    const { vehicleId, garageId, incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport } = req.body;
 
     if (!vehicleId || !incidentDate || !incidentLocation || !incidentDescription) {
       res.status(400).json({ error: 'Vehicle, incident date, location, and description are required.' });
@@ -47,6 +48,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: vehicleId, userId: req.userId },
+      include: { insurancePolicy: { select: { id: true } } },
     });
 
     if (!vehicle) {
@@ -54,33 +56,22 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // Claims are deducted from the user's policy: when none was selected,
-    // fall back to the latest active policy (otherwise the most recent one)
-    let linkedPolicyId = policyId || null;
-    if (!linkedPolicyId) {
-      const activePolicy = await prisma.insurancePolicy.findFirst({
-        where: { userId: req.userId, endDate: { gte: new Date() } },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      });
-      linkedPolicyId = activePolicy?.id || null;
-    } else {
-      // Validate the provided policy belongs to the user
-      const owned = await prisma.insurancePolicy.findFirst({
-        where: { id: linkedPolicyId, userId: req.userId },
-        select: { id: true },
-      });
-      if (!owned) {
-        res.status(404).json({ error: 'Policy not found.' });
-        return;
-      }
+    // The insurance/admin panel must verify the vehicle and its policy before claims unlock
+    if (vehicle.verificationStatus !== 'VERIFIED') {
+      res.status(403).json({ error: 'This vehicle has not been verified yet. You cannot submit a claim until the vehicle and insurance policy have been verified.' });
+      return;
+    }
+
+    if (!vehicle.insurancePolicy) {
+      res.status(400).json({ error: 'This vehicle has no insurance policy. The insurance company must add one before a claim can be filed.' });
+      return;
     }
 
     const claim = await prisma.claim.create({
       data: {
         userId: req.userId!,
         vehicleId,
-        policyId: linkedPolicyId,
+        policyId: vehicle.insurancePolicy.id,
         garageId: garageId || null,
         incidentDate: new Date(incidentDate),
         incidentLocation,
@@ -172,7 +163,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const { incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport, policyId, garageId } = req.body;
+    const { incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport, garageId } = req.body;
 
     const claim = await prisma.claim.update({
       where: { id: param(req, 'id') },
@@ -182,7 +173,6 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         ...(incidentDescription && { incidentDescription }),
         ...(weatherConditions !== undefined && { weatherConditions }),
         ...(hasPoliceReport !== undefined && { hasPoliceReport }),
-        ...(policyId !== undefined && { policyId }),
         ...(garageId !== undefined && { garageId: garageId || null }),
       },
     });

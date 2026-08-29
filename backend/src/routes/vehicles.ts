@@ -31,10 +31,11 @@ router.post('/detect', uploadImage.single('image'), async (req: AuthRequest, res
   }
 });
 
-// POST /api/vehicles
+// POST /api/vehicles — insurance (a built-in plan) may optionally be attached at registration;
+// the vehicle always starts PENDING until the insurance company verifies it
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { make, model, year, vin, licensePlate, color, mileage, photos } = req.body;
+    const { make, model, year, vin, licensePlate, color, mileage, photos, insurance } = req.body;
 
     if (!make || !model || !year || !licensePlate || !color) {
       res.status(400).json({ error: 'Make, model, year, license plate, and color are required.' });
@@ -53,7 +54,37 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         mileage: mileage ? parseInt(mileage) : null,
         photos: JSON.stringify(photos || []),
       },
+      include: { insurancePolicy: { include: { template: { select: { name: true } } } } },
     });
+
+    // Optional insurance at registration — the policy itself still needs admin verification
+    if (insurance?.templateId) {
+      const template = await prisma.policyTemplate.findFirst({
+        where: { id: insurance.templateId, isActive: true },
+      });
+      if (template) {
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setFullYear(endDate.getFullYear() + 1);
+        const policy = await prisma.insurancePolicy.create({
+          data: {
+            userId: req.userId!,
+            vehicleId: vehicle.id,
+            providerName: 'Flash Claim Insurance',
+            policyNumber: `FC-${Date.now().toString(36).toUpperCase()}`,
+            coverageType: template.coverageType,
+            deductible: template.deductible,
+            premiumAmount: template.annualFee,
+            coveragePercent: template.coveragePercent,
+            templateId: template.id,
+            startDate,
+            endDate,
+          },
+          include: { template: { select: { name: true } } },
+        });
+        vehicle.insurancePolicy = policy;
+      }
+    }
 
     res.status(201).json(vehicle);
   } catch (error) {
@@ -70,6 +101,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: 'desc' },
       include: {
         _count: { select: { claims: true } },
+        insurancePolicy: { include: { template: { select: { name: true } } } },
       },
     });
 
@@ -86,6 +118,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: param(req, 'id'), userId: req.userId },
       include: {
+        insurancePolicy: { include: { template: { select: { name: true } } } },
         claims: {
           orderBy: { createdAt: 'desc' },
           select: {

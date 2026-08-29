@@ -11,16 +11,17 @@
 - [adminApi.ts](file://frontend/src/services/adminApi.ts)
 - [AdminProtectedRoute.tsx](file://frontend/src/components/AdminProtectedRoute.tsx)
 - [admin.ts](file://backend/src/routes/admin.ts)
+- [damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
 - [adminAuth.ts](file://backend/src/middleware/adminAuth.ts)
 - [types/index.ts](file://frontend/src/types/index.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced AdminUsersPage with comprehensive insurance company record management including NIC numbers, license types, annual fees, and join dates
-- Upgraded AdminClaimsPage with advanced filtering capabilities including PENDING status filter and scope-based filtering via URL parameters
-- Improved AdminDashboardPage with interactive stat cards featuring contextual navigation and hover effects
-- Added sophisticated user detail editing modal with validation and real-time updates
+- Enhanced AdminClaimDetailPage with comprehensive 'Re-analyze Damage' button functionality including loading states, error handling, and visual feedback for AI damage analysis re-processing
+- Added sophisticated UI feedback with animated refresh icons, progress indicators, and retry mechanisms
+- Integrated backend API endpoint for re-running AI damage analysis with proper error mapping
+- Implemented automatic repair estimate regeneration after successful damage analysis
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -34,7 +35,7 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive documentation for the administrative interface pages of the Smart Vehicle Insurance Claim System. It covers system analytics and monitoring, claim review and approval workflows, detailed claim inspection and decision-making, enhanced user management with insurance company records, document verification and management, and administrative authentication. The focus is on admin-specific features such as status management, sophisticated filtering, search, audit-ready actions (approve/reject with reasons), and comprehensive user data management.
+This document provides comprehensive documentation for the administrative interface pages of the Smart Vehicle Insurance Claim System. It covers system analytics and monitoring, claim review and approval workflows, detailed claim inspection and decision-making, enhanced user management with insurance company records, document verification and management, and administrative authentication. The focus is on admin-specific features such as status management, sophisticated filtering, search, audit-ready actions (approve/reject with reasons), comprehensive user data management, and AI-powered damage analysis re-processing capabilities.
 
 ## Project Structure
 The admin UI is implemented as React components under the admin pages directory, communicating with a protected backend API via an Axios instance that injects bearer tokens and handles unauthorized responses by redirecting to the admin login. Backend routes enforce admin-only access using JWT-based middleware.
@@ -54,6 +55,7 @@ end
 subgraph "Backend"
 I["admin.ts"]
 J["adminAuth.ts"]
+K["damageAnalysisService.ts"]
 end
 A --> G
 B --> G
@@ -63,6 +65,7 @@ E --> G
 F --> G
 G --> I
 I --> J
+I --> K
 H --> A
 ```
 
@@ -70,25 +73,26 @@ H --> A
 - [AdminLoginPage.tsx:1-75](file://frontend/src/pages/admin/AdminLoginPage.tsx#L1-L75)
 - [AdminDashboardPage.tsx:1-136](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L1-L136)
 - [AdminClaimsPage.tsx:1-187](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L1-L187)
-- [AdminClaimDetailPage.tsx:1-275](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L275)
+- [AdminClaimDetailPage.tsx:1-545](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L545)
 - [AdminUsersPage.tsx:1-290](file://frontend/src/pages/admin/AdminUsersPage.tsx#L1-L290)
 - [AdminDocumentsPage.tsx:1-210](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L1-L210)
 - [adminApi.ts:1-28](file://frontend/src/services/adminApi.ts#L1-L28)
-- [admin.ts:1-591](file://backend/src/routes/admin.ts#L1-L591)
+- [admin.ts:1-773](file://backend/src/routes/admin.ts#L1-L773)
+- [damageAnalysisService.ts:1-200](file://backend/src/services/damageAnalysisService.ts#L1-L200)
 - [adminAuth.ts:1-27](file://backend/src/middleware/adminAuth.ts#L1-L27)
 - [AdminProtectedRoute.tsx:1-8](file://frontend/src/components/AdminProtectedRoute.tsx#L1-L8)
 
 **Section sources**
 - [AdminLoginPage.tsx:1-75](file://frontend/src/pages/admin/AdminLoginPage.tsx#L1-L75)
 - [adminApi.ts:1-28](file://frontend/src/services/adminApi.ts#L1-L28)
-- [admin.ts:1-591](file://backend/src/routes/admin.ts#L1-L591)
+- [admin.ts:1-773](file://backend/src/routes/admin.ts#L1-L773)
 - [adminAuth.ts:1-27](file://backend/src/middleware/adminAuth.ts#L1-L27)
 - [AdminProtectedRoute.tsx:1-8](file://frontend/src/components/AdminProtectedRoute.tsx#L1-L8)
 
 ## Core Components
 - **AdminDashboardPage**: Displays system overview metrics with interactive stat cards that provide contextual navigation to relevant sections, claim status breakdown, recent claims list, and quick links to key admin areas.
-- **AdminClaimsPage**: Lists claims with sophisticated filtering capabilities including PENDING status filter (combining multiple in-progress statuses), search by user/vehicle fields, and scope-based filtering via URL parameters (?user=, ?vehicle=).
-- **AdminClaimDetailPage**: Provides full claim inspection including damage assessment, repair estimate, payout estimate, images, and documents; enables status changes and per-document approve/reject with optional reason.
+- **AdminClaimsPage**: Lists claims with sophisticated filtering capabilities including PENDING status filter and scope-based filtering via URL parameters.
+- **AdminClaimDetailPage**: Provides full claim inspection including damage assessment, repair estimate, payout estimate, images, and documents; enables status changes, per-document approve/reject with optional reason, and AI-powered damage analysis re-processing with comprehensive loading states and error handling.
 - **AdminUsersPage**: Enhanced user management with detailed insurance company records including NIC numbers, license types, annual fees, and join dates; expandable rows show additional details with edit modal functionality.
 - **AdminDocumentsPage**: Central hub for reviewing uploaded documents with tabs for Pending, Issues Found, and All; supports approve and reject with reason input.
 - **AdminLoginPage**: Authenticates administrators, validates admin privileges, stores token and user info, and redirects to dashboard.
@@ -96,13 +100,13 @@ H --> A
 **Section sources**
 - [AdminDashboardPage.tsx:1-136](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L1-L136)
 - [AdminClaimsPage.tsx:1-187](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L1-L187)
-- [AdminClaimDetailPage.tsx:1-275](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L275)
+- [AdminClaimDetailPage.tsx:1-545](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L545)
 - [AdminUsersPage.tsx:1-290](file://frontend/src/pages/admin/AdminUsersPage.tsx#L1-L290)
 - [AdminDocumentsPage.tsx:1-210](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L1-L210)
 - [AdminLoginPage.tsx:1-75](file://frontend/src/pages/admin/AdminLoginPage.tsx#L1-L75)
 
 ## Architecture Overview
-Administrative operations are secured via JWT-based middleware. The frontend uses a dedicated axios instance to call admin endpoints with Authorization headers. Unauthorized or forbidden responses trigger redirection to the admin login page.
+Administrative operations are secured via JWT-based middleware. The frontend uses a dedicated axios instance to call admin endpoints with Authorization headers. Unauthorized or forbidden responses trigger redirection to the admin login page. The damage analysis re-processing feature integrates with AI services to re-evaluate vehicle damage from uploaded images.
 
 ```mermaid
 sequenceDiagram
@@ -111,6 +115,7 @@ participant L as "AdminLoginPage.tsx"
 participant API as "adminApi.ts"
 participant R as "admin.ts"
 participant M as "adminAuth.ts"
+participant D as "damageAnalysisService.ts"
 U->>L : Enter credentials and submit
 L->>API : POST /auth/login {email, password}
 API-->>L : {user, token}
@@ -123,18 +128,27 @@ R->>M : Verify JWT and isAdmin
 M-->>R : Authorized
 R-->>API : Stats payload
 API-->>U : Dashboard stats
+Note over U,D : Re-analyze Damage Workflow
+U->>API : POST /claims/ : id/analyze
+API->>R : Route to analyze endpoint
+R->>D : analyzeDamage(claimId)
+D->>D : Process images with AI
+D-->>R : Damage assessment result
+R-->>API : Updated claim data
+API-->>U : Refreshed claim with new assessment
 ```
 
 **Diagram sources**
 - [AdminLoginPage.tsx:13-31](file://frontend/src/pages/admin/AdminLoginPage.tsx#L13-L31)
 - [adminApi.ts:7-24](file://frontend/src/services/adminApi.ts#L7-L24)
-- [admin.ts:12-26](file://backend/src/routes/admin.ts#L12-L26)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
+- [damageAnalysisService.ts:110-199](file://backend/src/services/damageAnalysisService.ts#L110-L199)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 
 ## Detailed Component Analysis
 
 ### AdminDashboardPage
-**Updated** Enhanced with interactive stat cards featuring contextual navigation and hover effects that link directly to relevant admin sections.
+Enhanced with interactive stat cards featuring contextual navigation and hover effects that link directly to relevant admin sections.
 
 - Purpose: Provide a high-level overview of system health and activity with improved user experience.
 - Key behaviors:
@@ -161,7 +175,7 @@ Render --> End(["Idle"])
 - [types/index.ts:40-44](file://frontend/src/types/index.ts#L40-L44)
 
 ### AdminClaimsPage
-**Updated** Enhanced with sophisticated filtering capabilities including PENDING status filter and scope-based filtering via URL parameters.
+Enhanced with sophisticated filtering capabilities including PENDING status filter and scope-based filtering via URL parameters.
 
 - Purpose: List and filter claims with advanced filtering options and contextual navigation.
 - Key behaviors:
@@ -196,12 +210,19 @@ P->>P : Refresh list with updated URL
 - [types/index.ts:40-44](file://frontend/src/types/index.ts#L40-L44)
 
 ### AdminClaimDetailPage
-- Purpose: Inspect a single claim and make decisions (status changes, document approvals/rejections).
+**Updated** Significantly enhanced with comprehensive 'Re-analyze Damage' button functionality including loading states, error handling, and visual feedback for AI damage analysis re-processing.
+
+- Purpose: Inspect a single claim and make decisions (status changes, document approvals/rejections) with AI-powered damage analysis re-processing capabilities.
 - Key behaviors:
   - Loads full claim data including images, assessments, estimates, payouts, and documents.
   - Quick actions to set status (Approve, Reject, Under Review, Completed).
   - Advanced status override via select control.
   - Per-document approve/reject with optional rejection reason.
+  - **NEW**: Re-analyze Damage button with loading states, error handling, and visual feedback.
+  - **NEW**: Animated refresh icon during analysis processing.
+  - **NEW**: Progress indicator showing "AI is re-analyzing the damage photos" message.
+  - **NEW**: Error display with retry mechanism for failed analyses.
+  - **NEW**: Automatic repair estimate regeneration after successful damage analysis.
 - Data model usage: Leverages claim, damage assessment, repair estimate, insurance payout, and document types.
 
 ```mermaid
@@ -209,6 +230,7 @@ sequenceDiagram
 participant D as "AdminClaimDetailPage.tsx"
 participant API as "adminApi.ts"
 participant R as "admin.ts"
+participant S as "damageAnalysisService.ts"
 D->>API : GET /api/admin/claims/ : id
 API-->>D : Full claim object
 D->>API : PATCH /api/admin/claims/ : id/status {status}
@@ -219,20 +241,29 @@ D->>API : PATCH /api/admin/documents/ : id/approve|reject {reason?}
 API->>R : Update document verification
 R-->>API : Updated document
 API-->>D : Success
+Note over D,S : Re-analyze Damage Workflow
+D->>API : POST /api/admin/claims/ : id/analyze
+API->>R : Route to analyze endpoint
+R->>S : analyzeDamage(claimId)
+S->>S : Process images with AI
+S-->>R : Damage assessment result
+R-->>API : Updated claim with new assessment
+API-->>D : Refreshed claim data
+D->>D : Update UI with new assessment
 ```
 
 **Diagram sources**
-- [AdminClaimDetailPage.tsx:29-74](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L29-L74)
-- [admin.ts:400-418](file://backend/src/routes/admin.ts#L400-L418)
-- [admin.ts:446-461](file://backend/src/routes/admin.ts#L446-L461)
-- [admin.ts:515-531](file://backend/src/routes/admin.ts#L515-L531)
+- [AdminClaimDetailPage.tsx:105-114](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L114)
+- [AdminClaimDetailPage.tsx:185-192](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L185-L192)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
+- [damageAnalysisService.ts:110-199](file://backend/src/services/damageAnalysisService.ts#L110-L199)
 
 **Section sources**
-- [AdminClaimDetailPage.tsx:1-275](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L275)
+- [AdminClaimDetailPage.tsx:1-545](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L545)
 - [types/index.ts:40-144](file://frontend/src/types/index.ts#L40-L144)
 
 ### AdminUsersPage
-**Updated** Significantly enhanced with comprehensive insurance company record management and detailed user information display.
+Significantly enhanced with comprehensive insurance company record management and detailed user information display.
 
 - Purpose: View and manage registered users with detailed insurance company records and expanded functionality.
 - Key behaviors:
@@ -269,6 +300,8 @@ Save --> Refresh["Refresh user list"]
 - [types/index.ts:17-30](file://frontend/src/types/index.ts#L17-L30)
 
 ### AdminDocumentsPage
+Centralized document review workflow with filtering and actions.
+
 - Purpose: Centralized document review workflow with filtering and actions.
 - Key behaviors:
   - Tabbed filtering: Pending, Issues Found, All.
@@ -297,6 +330,8 @@ Refresh --> End(["Done"])
 - [admin.ts:446-531](file://backend/src/routes/admin.ts#L446-L531)
 
 ### AdminLoginPage
+Authenticates administrators and gates access to admin routes.
+
 - Purpose: Authenticate administrators and gate access to admin routes.
 - Key behaviors:
   - Submits credentials to login endpoint.
@@ -333,9 +368,11 @@ end
   - All admin pages depend on adminApi for authenticated requests.
   - AdminProtectedRoute guards admin routes based on token presence.
   - Enhanced AdminUsersPage depends on comprehensive user data structures.
+  - AdminClaimDetailPage now depends on AI damage analysis service integration.
 - Backend dependencies:
   - admin routes depend on adminAuth middleware to validate JWT and ensure admin role.
   - Routes use Prisma to read/write claims, users, and documents with enhanced user data support.
+  - Damage analysis routes integrate with AI services for automated damage assessment.
 
 ```mermaid
 graph LR
@@ -343,30 +380,36 @@ AP["AdminPages"] --> AA["adminApi.ts"]
 AA --> AR["admin.ts"]
 AR --> AM["adminAuth.ts"]
 AR --> DB["Prisma (DB)"]
+AR --> DAS["damageAnalysisService.ts"]
 AP --> Types["Enhanced User Types"]
+DAS --> AI["AI Services"]
 ```
 
 **Diagram sources**
 - [adminApi.ts:1-28](file://frontend/src/services/adminApi.ts#L1-L28)
-- [admin.ts:1-591](file://backend/src/routes/admin.ts#L1-L591)
+- [admin.ts:1-773](file://backend/src/routes/admin.ts#L1-L773)
 - [adminAuth.ts:1-27](file://backend/src/middleware/adminAuth.ts#L1-L27)
+- [damageAnalysisService.ts:1-200](file://backend/src/services/damageAnalysisService.ts#L1-L200)
 - [types/index.ts:17-30](file://frontend/src/types/index.ts#L17-L30)
 
 **Section sources**
 - [adminApi.ts:1-28](file://frontend/src/services/adminApi.ts#L1-L28)
-- [admin.ts:1-591](file://backend/src/routes/admin.ts#L1-L591)
+- [admin.ts:1-773](file://backend/src/routes/admin.ts#L1-L773)
 - [adminAuth.ts:1-27](file://backend/src/middleware/adminAuth.ts#L1-L27)
+- [damageAnalysisService.ts:1-200](file://backend/src/services/damageAnalysisService.ts#L1-L200)
 - [types/index.ts:17-30](file://frontend/src/types/index.ts#L17-L30)
 
 ## Performance Considerations
 - Concurrent fetching: Dashboard fetches stats and recent claims in parallel to reduce load time.
 - Filtering at source: Claims and documents use query parameters to minimize client-side processing, including sophisticated PENDING status filtering.
 - Selective includes: Backend queries include only necessary relations to reduce payload size, with enhanced user data loading.
+- AI analysis optimization: Damage analysis limits images to 6 most relevant ones and processes them efficiently.
 - Optimizations to consider:
   - Pagination for large lists (claims, documents).
   - Debounced search input to reduce request frequency.
   - Caching frequently accessed stats with short TTL if appropriate.
   - Virtual scrolling for large user lists with expanded details.
+  - Rate limiting for AI analysis requests to prevent overload.
 
 ## Troubleshooting Guide
 - Authentication issues:
@@ -381,16 +424,25 @@ AP --> Types["Enhanced User Types"]
 - User management issues:
   - Enhanced user editing requires valid NIC format, license type selection, and numeric annual fee values.
   - Date validation ensures proper joinedAt format for user records.
+- **NEW**: AI damage analysis issues:
+  - Re-analyze button disabled when no images exist; ensure claim has uploaded images.
+  - Loading states indicate active analysis; wait for completion or check for errors.
+  - Error messages provide specific failure reasons; retry functionality available for transient failures.
+  - Backend returns 400 for precondition issues (no images) and 502 for AI service failures.
+  - Automatic repair estimate generation may fail independently without affecting damage analysis.
 - Empty states:
   - No claims/documents/users may indicate missing data or overly restrictive filters; adjust filters or clear search.
   - Scope-based filtering (?user=, ?vehicle=) may result in empty results if no matching records exist.
 
 **Section sources**
 - [adminApi.ts:16-24](file://frontend/src/services/adminApi.ts#L16-L24)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [admin.ts:400-418](file://backend/src/routes/admin.ts#L400-L418)
 - [admin.ts:446-531](file://backend/src/routes/admin.ts#L446-L531)
 - [AdminLoginPage.tsx:17-31](file://frontend/src/pages/admin/AdminLoginPage.tsx#L17-L31)
 - [admin.ts:55-109](file://backend/src/routes/admin.ts#L55-L109)
+- [AdminClaimDetailPage.tsx:105-114](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L114)
+- [AdminClaimDetailPage.tsx:185-192](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L185-L192)
 
 ## Conclusion
-The administrative interface provides a comprehensive set of tools for monitoring system health, managing claims and users with detailed insurance company records, and verifying documents. Recent enhancements include sophisticated filtering capabilities, interactive stat cards with contextual navigation, and robust user management with validation. The system emphasizes secure access, efficient data retrieval, and actionable workflows for approving or rejecting claims and documents. Future enhancements can include pagination, advanced reporting, bulk operations, and richer audit trails to further streamline administrative tasks.
+The administrative interface provides a comprehensive set of tools for monitoring system health, managing claims and users with detailed insurance company records, verifying documents, and performing AI-powered damage analysis re-processing. Recent enhancements include sophisticated filtering capabilities, interactive stat cards with contextual navigation, robust user management with validation, and comprehensive AI damage analysis re-processing with loading states, error handling, and visual feedback. The system emphasizes secure access, efficient data retrieval, actionable workflows for approving or rejecting claims and documents, and intelligent AI-assisted damage assessment capabilities. Future enhancements can include pagination, advanced reporting, bulk operations, richer audit trails, and expanded AI analysis features to further streamline administrative tasks.

@@ -5,21 +5,23 @@
 - [damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
 - [gemini.ts](file://backend/src/utils/gemini.ts)
 - [claims.ts](file://backend/src/routes/claims.ts)
+- [admin.ts](file://backend/src/routes/admin.ts)
 - [upload.ts](file://backend/src/middleware/upload.ts)
 - [index.ts](file://backend/src/types/index.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
 - [repairEstimateService.ts](file://backend/src/services/repairEstimateService.ts)
 - [errorHandler.ts](file://backend/src/middleware/errorHandler.ts)
 - [imageUtils.ts](file://backend/src/utils/imageUtils.ts)
+- [AdminClaimDetailPage.tsx](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Complete modernization with structured JSON schemas replacing manual parsing
-- Added explicit damage type definitions and severity level standardization
-- Implemented robust response validation through parseDamageAnalysis function
-- Enhanced error handling with comprehensive fallback mechanisms for AI service failures
-- Updated architecture diagrams to reflect improved reliability features
+- Added admin-triggered re-analysis endpoint with proper error handling
+- Implemented differentiated error mapping between precondition issues (400) and AI service failures (502)
+- Enhanced admin interface with re-analysis capabilities and error feedback
+- Updated architecture diagrams to reflect admin re-analysis workflow
+- Extended troubleshooting guide to cover admin-specific scenarios
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -34,13 +36,14 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the AI-powered damage analysis service that processes vehicle images to detect and classify damage for insurance claims. The system has been completely modernized with structured JSON schema enforcement, explicit damage type definitions, standardized severity levels, and robust response validation. It covers the image upload workflow, Google Gemini API integration with automatic model switching, prompt engineering approach, response parsing into structured data models, confidence scoring considerations, fallback mechanisms when AI services are unavailable, error handling strategies, and guidance for customizing prompts and extending capabilities.
+This document explains the AI-powered damage analysis service that processes vehicle images to detect and classify damage for insurance claims. The system has been completely modernized with structured JSON schema enforcement, explicit damage type definitions, standardized severity levels, and robust response validation. It covers the image upload workflow, Google Gemini API integration with automatic model switching, prompt engineering approach, response parsing into structured data models, confidence scoring considerations, fallback mechanisms when AI services are unavailable, error handling strategies, and guidance for customizing prompts and extending capabilities. **Updated** The system now includes admin-triggered re-analysis capabilities with proper error differentiation between precondition issues and AI service failures.
 
 ## Project Structure
-The backend exposes claim-related endpoints, including image upload and AI-driven damage analysis. The core flow is:
+The backend exposes claim-related endpoints, including image upload, AI-driven damage analysis, and admin re-analysis. The core flow is:
 - Frontend uploads images via a protected endpoint.
 - Images are stored on disk and recorded in the database.
 - On claim submission or explicit analyze call, the system invokes the damage analysis service.
+- **Updated** Admins can trigger re-analysis through a dedicated endpoint with proper error handling.
 - The service reads images, calls Google Gemini with automatic model switching and fallback support, parses the JSON response using structured schemas, persists results, updates per-image annotations, and triggers repair estimate generation.
 
 ```mermaid
@@ -57,11 +60,14 @@ G --> M3["Model 3: gemini-3-flash"]
 A --> P["Parse & Validate<br/>parseDamageAnalysis()"]
 P --> DB2["Database<br/>DamageAssessment"]
 A --> E["Repair Estimate Service<br/>generateRepairEstimate()"]
+Admin["Admin Interface"] --> AR["Admin Router<br/>/api/admin/claims/:id/analyze"]
+AR --> A
 ```
 
 **Diagram sources**
 - [claims.ts:298-336](file://backend/src/routes/claims.ts#L298-L336)
 - [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [damageAnalysisService.ts:110-199](file://backend/src/services/damageAnalysisService.ts#L110-L199)
 - [gemini.ts:91-142](file://backend/src/utils/gemini.ts#L91-L142)
 - [repairEstimateService.ts:108-171](file://backend/src/services/repairEstimateService.ts#L108-L171)
@@ -69,12 +75,14 @@ A --> E["Repair Estimate Service<br/>generateRepairEstimate()"]
 **Section sources**
 - [claims.ts:298-336](file://backend/src/routes/claims.ts#L298-L336)
 - [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [damageAnalysisService.ts:110-199](file://backend/src/services/damageAnalysisService.ts#L110-L199)
 - [gemini.ts:91-142](file://backend/src/utils/gemini.ts#L91-L142)
 - [repairEstimateService.ts:108-171](file://backend/src/services/repairEstimateService.ts#L108-L171)
 
 ## Core Components
 - Claims router: Handles image uploads, claim submission, and triggers analysis.
+- **Updated** Admin router: Provides admin-only re-analysis endpoint with proper error handling.
 - Upload middleware: Validates file types and sizes, stores files under /uploads/images or /uploads/documents.
 - Damage analysis service: Orchestrates reading images, calling Gemini with automatic model switching, parsing results using structured schemas, persisting assessments, annotating images, and triggering estimates.
 - Gemini utility: Provides robust model initialization with cascading fallback support and retry logic.
@@ -84,6 +92,7 @@ A --> E["Repair Estimate Service<br/>generateRepairEstimate()"]
 
 **Section sources**
 - [claims.ts:298-336](file://backend/src/routes/claims.ts#L298-L336)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
 - [damageAnalysisService.ts:110-199](file://backend/src/services/damageAnalysisService.ts#L110-L199)
 - [gemini.ts:91-142](file://backend/src/utils/gemini.ts#L91-L142)
@@ -92,12 +101,14 @@ A --> E["Repair Estimate Service<br/>generateRepairEstimate()"]
 - [errorHandler.ts:1-28](file://backend/src/middleware/errorHandler.ts#L1-L28)
 
 ## Architecture Overview
-The end-to-end flow integrates frontend uploads, backend storage, AI vision analysis with automatic model switching, structured JSON schema validation, and downstream estimate generation.
+The end-to-end flow integrates frontend uploads, backend storage, AI vision analysis with automatic model switching, structured JSON schema validation, and downstream estimate generation. **Updated** Admin users can now trigger re-analysis with differentiated error handling.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
-participant Router as "Claims Router"
+participant AdminUI as "Admin UI"
+participant ClaimsRouter as "Claims Router"
+participant AdminRouter as "Admin Router"
 participant Multer as "Upload Middleware"
 participant DB as "Database"
 participant Service as "Damage Analysis Service"
@@ -106,12 +117,14 @@ participant Model1 as "Primary Model"
 participant Model2 as "Fallback Models"
 participant Parser as "Response Parser"
 participant Estimator as "Repair Estimate Service"
-Client->>Router : POST /api/claims/ : id/images
-Router->>Multer : Validate & store image(s)
+Client->>ClaimsRouter : POST /api/claims/ : id/images
+ClaimsRouter->>Multer : Validate & store image(s)
 Multer-->>DB : Create ClaimImage records
-Client->>Router : POST /api/claims/ : id/submit
-Router->>DB : Update claim status to SUBMITTED
-Router->>Service : analyzeDamage(claimId) [background]
+Client->>ClaimsRouter : POST /api/claims/ : id/submit
+ClaimsRouter->>DB : Update claim status to SUBMITTED
+ClaimsRouter->>Service : analyzeDamage(claimId) [background]
+AdminUI->>AdminRouter : POST /api/admin/claims/ : id/analyze
+AdminRouter->>Service : analyzeDamage(claimId) [direct]
 Service->>DB : Load claim + images + vehicle
 Service->>Fallback : generateContentWithFallback(prompt + images)
 Fallback->>Model1 : Try primary model (gemini-3.1-flash-lite)
@@ -128,12 +141,14 @@ Service->>DB : Save/update DamageAssessment
 Service->>DB : Update ClaimImage.aiAnnotation
 Service->>Estimator : generateRepairEstimate(claimId)
 Estimator-->>Service : Estimate result
-Service-->>Router : Result (if called directly)
+Service-->>AdminRouter : Result (if called directly)
+AdminRouter-->>AdminUI : 400 (precondition) or 502 (AI failure)
 ```
 
 **Diagram sources**
 - [claims.ts:298-336](file://backend/src/routes/claims.ts#L298-L336)
 - [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [damageAnalysisService.ts:110-199](file://backend/src/services/damageAnalysisService.ts#L110-L199)
 - [gemini.ts:91-142](file://backend/src/utils/gemini.ts#L91-L142)
 - [repairEstimateService.ts:108-171](file://backend/src/services/repairEstimateService.ts#L108-L171)
@@ -166,6 +181,26 @@ Error handling:
 
 **Section sources**
 - [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
+
+### Admin Re-Analysis Endpoint
+**New Section** The admin re-analysis endpoint allows administrators to manually trigger damage analysis for any claim with proper error handling and differentiation.
+
+Key features:
+- **Endpoint**: POST /api/admin/claims/:id/analyze
+- **Authentication**: Requires admin authentication
+- **Error Differentiation**: 
+  - 400 Bad Request: Precondition issues (e.g., missing images, invalid claim)
+  - 502 Bad Gateway: AI service failures (temporary issues worth retrying)
+- **User Experience**: Clear error messages for different failure types
+
+Implementation details:
+- Validates claim existence before processing
+- Calls the same `analyzeDamage()` function as user-facing endpoints
+- Implements intelligent error mapping based on error message content
+- Provides actionable feedback for precondition errors vs. retryable AI failures
+
+**Section sources**
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 
 ### Damage Analysis Service
 Responsibilities:
@@ -268,7 +303,7 @@ Integration point:
 - [repairEstimateService.ts:108-171](file://backend/src/services/repairEstimateService.ts#L108-L171)
 
 ### Error Handling Strategy
-**Updated** Enhanced error handling now includes comprehensive fallback mechanisms for AI service failures and robust response validation.
+**Updated** Enhanced error handling now includes comprehensive fallback mechanisms for AI service failures, robust response validation, and differentiated error responses for admin operations.
 
 Key improvements:
 - **Automatic Model Switching**: When the primary Gemini model fails, the system automatically tries alternative models
@@ -277,16 +312,19 @@ Key improvements:
 - **Graceful Degradation**: Ensures the system continues functioning even when AI services are partially unavailable
 - **Enhanced Logging**: Provides detailed information about which models were attempted and why they failed
 - **Structured Response Validation**: Robust parsing with `parseDamageAnalysis()` ensures data integrity
+- **Updated** **Admin Error Differentiation**: Properly maps precondition issues to 400 status codes and AI service failures to 502 status codes
 
 Operational guidance:
 - Use AppError for known failure cases with specific status codes.
 - Log unexpected errors for debugging and monitoring.
 - Monitor fallback usage patterns to optimize model selection.
 - Track parse validation failures for response quality monitoring.
+- **Updated** For admin operations, distinguish between actionable precondition errors (400) and retryable AI failures (502).
 
 **Section sources**
 - [errorHandler.ts:1-28](file://backend/src/middleware/errorHandler.ts#L1-L28)
 - [claims.ts:374-399](file://backend/src/routes/claims.ts#L374-L399)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [gemini.ts:64-80](file://backend/src/utils/gemini.ts#L64-L80)
 - [damageAnalysisService.ts:80-108](file://backend/src/services/damageAnalysisService.ts#L80-L108)
 
@@ -297,6 +335,7 @@ High-level dependencies between modules:
 graph LR
 Claims["claims.ts"] --> Upload["upload.ts"]
 Claims --> DamageSvc["damageAnalysisService.ts"]
+Admin["admin.ts"] --> DamageSvc
 DamageSvc --> Fallback["gemini.ts<br/>generateContentWithFallback()"]
 DamageSvc --> Parser["parseDamageAnalysis()"]
 DamageSvc --> ImageUtils["imageUtils.ts<br/>buildImageParts()"]
@@ -305,10 +344,12 @@ DamageSvc --> PrismaDB["schema.prisma"]
 DamageSvc --> RepairSvc["repairEstimateService.ts"]
 RepairSvc --> PrismaDB
 Claims --> ErrorHandler["errorHandler.ts"]
+Admin --> ErrorHandler
 ```
 
 **Diagram sources**
 - [claims.ts:298-336](file://backend/src/routes/claims.ts#L298-L336)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [damageAnalysisService.ts:110-199](file://backend/src/services/damageAnalysisService.ts#L110-L199)
 - [gemini.ts:91-142](file://backend/src/utils/gemini.ts#L91-L142)
 - [repairEstimateService.ts:108-171](file://backend/src/services/repairEstimateService.ts#L108-L171)
@@ -316,13 +357,14 @@ Claims --> ErrorHandler["errorHandler.ts"]
 
 **Section sources**
 - [claims.ts:298-336](file://backend/src/routes/claims.ts#L298-L336)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [damageAnalysisService.ts:110-199](file://backend/src/services/damageAnalysisService.ts#L110-L199)
 - [gemini.ts:91-142](file://backend/src/utils/gemini.ts#L91-L142)
 - [repairEstimateService.ts:108-171](file://backend/src/services/repairEstimateService.ts#L108-L171)
 - [errorHandler.ts:1-28](file://backend/src/middleware/errorHandler.ts#L1-L28)
 
 ## Performance Considerations
-**Updated** Performance considerations now include the impact of automatic model switching and structured schema validation.
+**Updated** Performance considerations now include the impact of automatic model switching, structured schema validation, and admin re-analysis operations.
 
 Key optimizations:
 - **Asynchronous Background Analysis**: Background analysis on claim submission avoids blocking user requests.
@@ -333,17 +375,19 @@ Key optimizations:
 - **Cost Control**: Prompt length and number of images affect Gemini API latency and cost; limit concurrent analyses or queue them.
 - **Fallback Efficiency**: Repair estimate calculation is CPU-bound but lightweight; batch processing can be considered for bulk re-estimates.
 - **Schema Validation**: Structured JSON schema reduces parsing overhead and improves response consistency.
+- **Updated** **Admin Re-analysis Caching**: Consider implementing caching for frequently accessed claim data to reduce database load during admin re-analysis operations.
 
 Monitoring recommendations:
 - Track which models are being used most frequently
 - Monitor fallback trigger frequency to identify problematic models
 - Log response times per model to optimize selection strategy
 - Monitor parse validation success rates for response quality
+- **Updated** Monitor admin re-analysis frequency and success rates to identify potential abuse or system issues.
 
 [No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
-**Updated** Troubleshooting guide now includes guidance for diagnosing model switching, fallback issues, and response validation problems.
+**Updated** Troubleshooting guide now includes guidance for diagnosing model switching, fallback issues, response validation problems, and admin-specific scenarios.
 
 Common issues and resolutions:
 - Missing images before submission: Ensure at least one image is uploaded; the submit endpoint validates this.
@@ -354,23 +398,29 @@ Common issues and resolutions:
 - **Unavailable AI Service**: If all models fail, the system throws an error. Check API key configuration and network connectivity.
 - **Database errors**: Verify Prisma client configuration and database connectivity; check error logs for constraint violations.
 - **Response Validation Failures**: If structured schema validation fails, check the damage types and severity levels being returned by the AI model.
+- **Updated** **Admin Re-analysis Issues**: 
+  - 400 errors indicate precondition problems (missing images, invalid claim) - fix the underlying data issue
+  - 502 errors indicate AI service failures - retry the operation as it's likely temporary
+  - Check admin logs for detailed error messages and stack traces
 
 Operational checks:
 - Confirm GEMINI_API_KEY is set.
 - Verify uploads directory exists and is writable.
 - Monitor logs for background analysis failures and repair estimate generation errors.
-- **Monitor fallback usage**: Look for patterns in model switching that might indicate capacity issues or regional problems.
-- **Check parse validation**: Monitor for parse failures that might indicate AI model behavior changes.
+- **Updated** Monitor fallback usage: Look for patterns in model switching that might indicate capacity issues or regional problems.
+- **Updated** Check parse validation: Monitor for parse failures that might indicate AI model behavior changes.
+- **Updated** Admin monitoring: Track admin re-analysis attempts and their outcomes to identify systemic issues.
 
 **Section sources**
 - [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 - [upload.ts:30-47](file://backend/src/middleware/upload.ts#L30-L47)
 - [damageAnalysisService.ts:80-108](file://backend/src/services/damageAnalysisService.ts#L80-L108)
 - [errorHandler.ts:13-27](file://backend/src/middleware/errorHandler.ts#L13-L27)
 - [gemini.ts:117-142](file://backend/src/utils/gemini.ts#L117-L142)
 
 ## Conclusion
-The damage analysis service integrates image uploads, Google Gemini visual analysis with automatic model switching, structured JSON schema validation, and automated repair estimates into a cohesive claims workflow. The recent complete modernization with structured JSON schemas, explicit damage type definitions, standardized severity levels, and robust response validation through the `parseDamageAnalysis()` function significantly improves reliability and data consistency. The system enforces structured outputs through both prompt engineering and schema validation, persists results for auditability, and includes robust fallbacks and error handling. Extending the system to include confidence scores, additional image modalities, or alternative models can be achieved by updating the prompt, types, and parsing logic while preserving the established architecture.
+The damage analysis service integrates image uploads, Google Gemini visual analysis with automatic model switching, structured JSON schema validation, and automated repair estimates into a cohesive claims workflow. The recent complete modernization with structured JSON schemas, explicit damage type definitions, standardized severity levels, and robust response validation through the `parseDamageAnalysis()` function significantly improves reliability and data consistency. **Updated** The system now includes admin-triggered re-analysis capabilities with proper error differentiation between precondition issues (400) and AI service failures (502), providing administrators with clear feedback and actionable error handling. The system enforces structured outputs through both prompt engineering and schema validation, persists results for auditability, and includes robust fallbacks and error handling. Extending the system to include confidence scores, additional image modalities, or alternative models can be achieved by updating the prompt, types, and parsing logic while preserving the established architecture.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -381,11 +431,13 @@ The damage analysis service integrates image uploads, Google Gemini visual analy
 - POST /api/claims/:id/submit: Submit claim; triggers background damage analysis.
 - POST /api/claims/:id/analyze: Manually trigger damage analysis and return results.
 - POST /api/claims/:id/estimate: Generate repair estimate based on existing damage assessment.
+- **Updated** POST /api/admin/claims/:id/analyze: Admin-only endpoint to trigger damage analysis with proper error handling (400 for precondition issues, 502 for AI failures).
 
 **Section sources**
 - [claims.ts:298-336](file://backend/src/routes/claims.ts#L298-L336)
 - [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
 - [claims.ts:374-399](file://backend/src/routes/claims.ts#L374-L399)
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
 
 ### Customizing Damage Detection Prompts
 To customize detection behavior:
@@ -459,3 +511,29 @@ Implementation tips:
 - [damageAnalysisService.ts:6-12](file://backend/src/services/damageAnalysisService.ts#L6-L12)
 - [damageAnalysisService.ts:17-37](file://backend/src/services/damageAnalysisService.ts#L17-L37)
 - [damageAnalysisService.ts:53-64](file://backend/src/services/damageAnalysisService.ts#L53-L64)
+
+### Admin Re-Analysis Implementation Details
+**New Section** The admin re-analysis feature provides administrators with manual control over damage analysis processing.
+
+**Key Features**:
+- **Authentication**: Protected by admin authentication middleware
+- **Error Differentiation**: 
+  - 400 status: Precondition issues (missing images, invalid claim ID)
+  - 502 status: AI service failures (temporary issues worth retrying)
+- **User Feedback**: Clear error messages help admins understand what went wrong
+- **Integration**: Uses the same `analyzeDamage()` function as user-facing endpoints
+
+**Frontend Integration**:
+- Admin claim detail page includes "Re-analyze Damage" button
+- Loading states and error handling for smooth user experience
+- Automatic refresh of claim data after successful re-analysis
+
+**Error Handling Strategy**:
+- Checks error messages for "images" keyword to identify precondition issues
+- Maps all other errors to 502 status for retryable AI failures
+- Provides actionable feedback to admins based on error type
+
+**Section sources**
+- [admin.ts:548-570](file://backend/src/routes/admin.ts#L548-L570)
+- [AdminClaimDetailPage.tsx:105-114](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L114)
+- [AdminClaimDetailPage.tsx:190-236](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L190-L236)

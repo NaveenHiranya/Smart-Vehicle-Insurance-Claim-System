@@ -10,11 +10,11 @@ export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  // Insurance is chosen per vehicle after signup — no plan selection here
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       await register(form);
       navigate('/dashboard');
@@ -40,16 +40,16 @@ export function RegisterPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Create Account</h2>
-
-          {error && (
-            <div className="mb-4 p-3 bg-danger-50 border border-danger-500/20 rounded-lg flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-danger-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-danger-700">{error}</p>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Create Account</h2>
+
+            {error && (
+              <div className="mb-4 p-3 bg-danger-50 border border-danger-500/20 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-danger-600 shrink-0 mt-0.5" />
+                <p className="text-sm text-danger-700">{error}</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
@@ -97,13 +97,17 @@ export function RegisterPage() {
               className="w-full bg-primary-600 text-white py-2.5 rounded-lg font-medium hover:bg-primary-700 focus:ring-4 focus:ring-primary-200 transition disabled:opacity-50">
               {loading ? 'Creating account...' : 'Create Account'}
             </button>
-          </form>
 
-          <p className="text-center text-sm text-gray-600 mt-6">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 font-medium hover:text-primary-700">Sign in</Link>
-          </p>
+            <p className="text-xs text-gray-400 text-center">
+              After signing in, register your vehicles and choose an insurance plan for each one.
+            </p>
+          </form>
         </div>
+
+        <p className="text-center text-sm text-gray-600 mt-6">
+          Already have an account?{' '}
+          <Link to="/login" className="text-primary-600 font-medium hover:text-primary-700">Sign in</Link>
+        </p>
       </div>
     </div>
   );

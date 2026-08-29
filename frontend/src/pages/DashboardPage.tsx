@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import type { Claim, Vehicle } from '../types';
-import { Car, ClipboardList, FileText, Plus, ArrowRight } from 'lucide-react';
+import { Car, ClipboardList, FileText, Plus, ArrowRight, ShieldCheck, AlertTriangle, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -14,6 +14,7 @@ export function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Vehicles include their insurance policy — insurance is per vehicle now
         const [vRes, cRes] = await Promise.all([api.get('/vehicles'), api.get('/claims')]);
         setVehicles(vRes.data);
         setClaims(cRes.data);
@@ -52,6 +53,89 @@ export function DashboardPage() {
           Welcome back, {user?.firstName}
         </h1>
         <p className="text-gray-600 mt-1 text-sm sm:text-base">Here's your insurance claim overview</p>
+      </div>
+
+      {/* My Vehicles — one insurance card per vehicle */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">My Vehicles</h2>
+          <Link to="/vehicles/new" className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+            <Plus className="h-4 w-4" /> Add Vehicle
+          </Link>
+        </div>
+        {vehicles.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            <Car className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm mb-2">No vehicles registered yet — add one and choose its insurance policy.</p>
+            <Link to="/vehicles/new" className="text-primary-600 text-sm font-medium hover:text-primary-700">Add a vehicle</Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {vehicles.map((v: Vehicle) => {
+              const policy = v.insurancePolicy;
+              const active = policy ? new Date(policy.endDate) >= new Date() : false;
+              return (
+                <div key={v.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="p-2 bg-primary-100 rounded-lg shrink-0"><Car className="h-5 w-5 text-primary-600" /></div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{v.year} {v.make} {v.model}</p>
+                        <p className="text-xs text-gray-500">{v.licensePlate}</p>
+                      </div>
+                    </div>
+                    {v.verificationStatus === 'VERIFIED' ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 font-medium shrink-0">
+                        <CheckCircle className="h-3.5 w-3.5" /> Verified
+                      </span>
+                    ) : v.verificationStatus === 'REJECTED' ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-medium shrink-0">
+                        <XCircle className="h-3.5 w-3.5" /> Rejected
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium shrink-0">
+                        <AlertCircle className="h-3.5 w-3.5" /> Verification
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm border-t border-gray-100 pt-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500">Insurance</p>
+                      <p className="font-medium text-gray-900 flex items-center gap-1">
+                        {policy
+                          ? (active
+                            ? <><ShieldCheck className="h-4 w-4 text-green-600" /> Active</>
+                            : <><AlertTriangle className="h-4 w-4 text-amber-500" /> Expired</>)
+                          : <><AlertTriangle className="h-4 w-4 text-gray-400" /> None</>}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500">Policy #</p>
+                      <p className="font-medium text-gray-900 truncate">{policy ? policy.policyNumber : '—'}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Link to={`/vehicles/${v.id}`}
+                      className="flex-1 text-center px-3 py-2 bg-primary-50 text-primary-700 border border-primary-100 rounded-lg text-sm font-medium hover:bg-primary-100 transition">
+                      View Vehicle
+                    </Link>
+                    {v.verificationStatus === 'VERIFIED' ? (
+                      <Link to={`/claims/new?vehicleId=${v.id}`}
+                        className="flex-1 text-center px-3 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition">
+                        New Claim
+                      </Link>
+                    ) : (
+                      <span className="flex-1 text-center px-3 py-2 bg-gray-100 text-gray-400 rounded-lg text-sm font-medium cursor-not-allowed"
+                        title="Claims unlock once the vehicle and its insurance policy are verified">
+                        Claim Unavailable
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Stats Cards */}

@@ -41,6 +41,8 @@ export interface AdminUser extends User {
   _count?: { vehicles: number; claims: number };
 }
 
+export type VehicleVerification = 'PENDING' | 'VERIFIED' | 'REJECTED';
+
 export interface Vehicle {
   id: string;
   userId: string;
@@ -53,6 +55,11 @@ export interface Vehicle {
   mileage?: number;
   photos: string[];
   valuation?: number | null;
+  // Insurance/admin verification of the vehicle and its policy — claims require VERIFIED
+  verificationStatus: VehicleVerification;
+  verifiedAt?: string | null;
+  verificationNotes?: string | null;
+  insurancePolicy?: InsurancePolicy | null;
   createdAt: string;
   _count?: { claims: number };
   claims?: Claim[];
@@ -83,6 +90,8 @@ export interface InsurancePolicy {
   premiumAmount: number;
   coveragePercent: number;
   templateId?: string | null;
+  // Vehicle this policy insures — insurance is vehicle-based
+  vehicleId?: string | null;
   startDate: string;
   endDate: string;
   template?: { name: string } | null;

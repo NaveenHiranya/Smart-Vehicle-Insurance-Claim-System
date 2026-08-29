@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-08-29T10:27:25Z"
+exported_at: "2026-08-29T10:58:47Z"
 modules:
     "":
-        dir_name: Admin Dashboard & Insurance Operations Backend
-        title: Admin Dashboard & Insurance Operations Backend
+        dir_name: Flash Claim — Vehicle Insurance Claim System (Full-Stack)
+        title: Flash Claim — Vehicle Insurance Claim System (Full-Stack)
         scope: []
         source_files: []
         children: []

@@ -42,11 +42,22 @@ model Vehicle {
   photos       String @default("[]")
   // Vehicle valuation (LKR) set by the insurance company — caps claim payouts
   valuation    Float?
+  // Insurance/admin verification of the vehicle and its policy — claims require VERIFIED
+  verificationStatus VehicleVerification @default(PENDING)
+  verifiedAt         DateTime?
+  verificationNotes  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  claims Claim[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  claims           Claim[]
+  insurancePolicy  InsurancePolicy?
+}
+
+enum VehicleVerification {
+  PENDING
+  VERIFIED
+  REJECTED
 }
 
 // Built-in insurance plans the company offers — one per insurance type (or several)
@@ -75,6 +86,8 @@ model InsurancePolicy {
   premiumAmount Float
   coveragePercent Float   @default(100) // % covered after deductible
   templateId   String?
+  // Vehicle this policy insures — one policy per vehicle (insurance is vehicle-based)
+  vehicleId    String?   @unique
   startDate    DateTime
   endDate      DateTime
   createdAt    DateTime  @default(now())
@@ -82,6 +95,7 @@ model InsurancePolicy {
 
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   template PolicyTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  vehicle  Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   claims   Claim[]
 }
 

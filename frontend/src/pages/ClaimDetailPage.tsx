@@ -611,64 +611,97 @@ export function ClaimDetailPage() {
             </div>
           </div>
 
-          {/* Insurance Payout — claim deducted from the policy */}
-          {claim.insurancePayout && (() => {
-            const payout = claim.insurancePayout!;
+          {/* Insurance Payout — the claimable price after policy deductions */}
+          {(() => {
+            const policy = claim.policy;
             // The garage estimate is the deduction basis once submitted; until then the AI estimate applies
-            const baseTotal = claim.garageEstimate?.totalCost ?? claim.repairEstimate?.totalCost ?? 0;
-            const basisLabel = claim.garageEstimate ? 'Garage estimate total' : 'Repair estimate total';
-            const coveragePercent = claim.policy?.coveragePercent ?? 100;
-            const afterDeductible = Math.max(0, baseTotal - payout.deductible);
+            const baseTotal = claim.garageEstimate?.totalCost ?? claim.repairEstimate?.totalCost ?? null;
+            const hasEstimate = claim.garageEstimate != null || claim.repairEstimate != null;
             const valuation = claim.vehicle?.valuation ?? null;
-            const capped = valuation != null && valuation > 0 && payout.coveredAmount >= valuation;
+
+            if (!policy) {
+              // Legacy claims filed before per-vehicle policies — nothing to deduct from yet
+              if (!hasEstimate) return null;
+              return (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-gray-400" /> Claimable Price
+                  </h2>
+                  <p className="text-sm text-gray-500">No insurance policy is linked to this claim yet. The insurance company must attach and verify a policy for this vehicle before a claimable price can be calculated.</p>
+                </div>
+              );
+            }
+
+            const coveragePercent = policy.coveragePercent ?? 100;
+            // Same formula as the backend payout service — computed from the current estimate so
+            // the price shows even when the persisted payout row is not there yet
+            const breakdown = baseTotal != null ? (() => {
+              const afterDeductible = Math.max(0, baseTotal - policy.deductible);
+              const covered = afterDeductible * (coveragePercent / 100);
+              const capped = valuation != null && valuation > 0 && covered >= valuation;
+              return { baseTotal, afterDeductible, claimable: capped && valuation != null ? valuation : covered, capped };
+            })() : null;
+            const basisLabel = claim.garageEstimate ? 'Garage estimate total' : 'Repair estimate total';
+
             return (
               <div className="bg-white rounded-xl shadow-sm border border-green-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-green-600" /> Insurance Payout Estimate
-                  {claim.policy && (
-                    <span className="ml-auto text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">
-                      {claim.policy.coverageType} · {coveragePercent}% cover
-                    </span>
-                  )}
+                  <Shield className="h-5 w-5 text-green-600" /> Claimable Price
+                  <span className="ml-auto text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                    {policy.coverageType} · {coveragePercent}% cover
+                  </span>
                 </h2>
                 <p className="text-xs text-gray-500 mb-4 flex items-start gap-1.5">
                   <Info className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
                   Your claim is deducted from this policy: the deductible is subtracted from the current estimate (garage estimate once submitted), then the plan's coverage percentage is applied. The final payout is confirmed by the insurance company after review.
                 </p>
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">{basisLabel}</span>
-                    <span className="font-medium text-gray-900">Rs. {baseTotal.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Deductible</span>
-                    <span className="font-medium text-red-600">− Rs. {payout.deductible.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">After deductible</span>
-                    <span className="font-medium text-gray-900">Rs. {afterDeductible.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Policy coverage</span>
-                    <span className="font-medium text-gray-900">× {coveragePercent}%</span>
-                  </div>
-                  {capped && valuation != null && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Vehicle valuation cap</span>
-                      <span className="font-medium text-amber-600">max Rs. {valuation.toLocaleString()}</span>
+                {breakdown ? (
+                  <>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">{basisLabel}</span>
+                        <span className="font-medium text-gray-900">Rs. {breakdown.baseTotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Deductible</span>
+                        <span className="font-medium text-red-600">− Rs. {policy.deductible.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">After deductible</span>
+                        <span className="font-medium text-gray-900">Rs. {breakdown.afterDeductible.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Policy coverage</span>
+                        <span className="font-medium text-gray-900">× {coveragePercent}%</span>
+                      </div>
+                      {breakdown.capped && valuation != null && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Vehicle valuation cap</span>
+                          <span className="font-medium text-amber-600">max Rs. {valuation.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="flex items-center justify-between gap-4 p-4 bg-green-50 border border-green-100 rounded-lg">
-                  <div>
-                    <p className="text-xs text-green-700 font-semibold uppercase tracking-wide">Estimated Payout</p>
-                    <p className="text-xs text-green-600 mt-0.5">
-                      {coveragePercent}% of Rs. {afterDeductible.toLocaleString()} after deductible
-                    </p>
+                    <div className="flex items-center justify-between gap-4 p-4 bg-green-50 border border-green-100 rounded-lg">
+                      <div>
+                        <p className="text-xs text-green-700 font-semibold uppercase tracking-wide">Claimable Price (after deductions)</p>
+                        <p className="text-xs text-green-600 mt-0.5">
+                          {breakdown.capped && valuation != null
+                            ? `Capped at vehicle valuation of Rs. ${valuation.toLocaleString()}`
+                            : `${coveragePercent}% of Rs. ${breakdown.afterDeductible.toLocaleString()} after deductible`}
+                        </p>
+                      </div>
+                      <p className="text-2xl font-bold text-green-700 shrink-0">Rs. {breakdown.claimable.toLocaleString()}</p>
+                    </div>
+                    {breakdown.claimable === 0 && (
+                      <p className="text-xs text-amber-600 mt-3">The deductible exceeds the estimate total, so nothing is claimable on this claim.</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-600">
+                    Your claimable price will appear here once a repair estimate is generated.
                   </div>
-                  <p className="text-2xl font-bold text-green-700 shrink-0">Rs. {payout.estimatedPayout.toLocaleString()}</p>
-                </div>
-                {payout.notes && <p className="text-xs text-gray-500 mt-3">{payout.notes}</p>}
+                )}
+                {claim.insurancePayout?.notes && <p className="text-xs text-gray-500 mt-3">{claim.insurancePayout.notes}</p>}
               </div>
             );
           })()}

@@ -1,0 +1,1 @@
+End-to-end vehicle insurance claim platform with user, garage, and admin portals that submit claims, perform AI damage analysis, manage policies, and let insurers review and approve payouts.

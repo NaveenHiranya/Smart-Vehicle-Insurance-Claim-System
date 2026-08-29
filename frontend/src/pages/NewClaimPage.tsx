@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../services/api';
-import type { Vehicle, InsurancePolicy } from '../types';
-import { Camera, Image, X, ChevronLeft, ChevronRight, Check, MapPin, FolderOpen } from 'lucide-react';
+import type { Vehicle } from '../types';
+import { Camera, Image, X, ChevronLeft, ChevronRight, Check, MapPin, FolderOpen, ShieldCheck } from 'lucide-react';
 
 const steps = ['Incident Info', 'Select Garage', 'Vehicle Photos', 'Damage Photos', 'Review & Submit'];
 
@@ -12,7 +12,6 @@ export function NewClaimPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [policies, setPolicies] = useState<InsurancePolicy[]>([]);
   const [claimId, setClaimId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +25,6 @@ export function NewClaimPage() {
   const [form, setForm] = useState({
     vehicleId: searchParams.get('vehicleId') || '',
     garageId: '',
-    policyId: '',
     incidentDate: new Date().toISOString().split('T')[0],
     incidentLocation: '',
     incidentDescription: '',
@@ -35,9 +33,9 @@ export function NewClaimPage() {
   });
 
   useEffect(() => {
-    Promise.all([api.get('/vehicles'), api.get('/policies'), api.get('/claims/garages')]).then(([vRes, pRes, gRes]) => {
+    // Vehicles include their insurance policy — the claim uses the selected vehicle's policy
+    Promise.all([api.get('/vehicles'), api.get('/claims/garages')]).then(([vRes, gRes]) => {
       setVehicles(vRes.data);
-      setPolicies(pRes.data);
       setGarages(gRes.data);
     });
   }, []);
@@ -107,15 +105,16 @@ export function NewClaimPage() {
     }
   };
 
+  const selectedVehicle = vehicles.find((v) => v.id === form.vehicleId);
+  const selectedGarage = garages.find((g) => g.id === form.garageId);
+
   const canProceed = () => {
-    if (step === 0) return form.vehicleId && form.incidentDate && form.incidentLocation && form.incidentDescription;
+    // A verified vehicle is required — its insurance policy is retrieved automatically
+    if (step === 0) return !!selectedVehicle && selectedVehicle.verificationStatus === 'VERIFIED' && form.incidentDate && form.incidentLocation && form.incidentDescription;
     if (step === 1) return true; // garage is optional
     if (step === 2) return uploadedImages.full.length > 0;
     return true;
   };
-
-  const selectedVehicle = vehicles.find((v) => v.id === form.vehicleId);
-  const selectedGarage = garages.find((g) => g.id === form.garageId);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -149,20 +148,31 @@ export function NewClaimPage() {
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none">
                 <option value="">Select a vehicle</option>
                 {vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>{v.year} {v.make} {v.model} ({v.licensePlate})</option>
+                  <option key={v.id} value={v.id} disabled={v.verificationStatus !== 'VERIFIED'}>
+                    {v.year} {v.make} {v.model} ({v.licensePlate}){v.verificationStatus !== 'VERIFIED' ? ' — pending verification' : ''}
+                  </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Policy</label>
-              <select value={form.policyId} onChange={update('policyId')}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none">
-                <option value="">Use my active policy (default)</option>
-                {policies.map((p) => (
-                  <option key={p.id} value={p.id}>{p.coverageType} · {p.template?.name || p.providerName} - {p.policyNumber}</option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-gray-400">The claim is deducted from this policy — deductible and coverage % apply to the payout.</p>
+              {vehicles.length === 0 && (
+                <p className="mt-1 text-xs text-amber-600">A registered vehicle is required to file a claim — add one from the Vehicles page.</p>
+              )}
+              {vehicles.length > 0 && (!selectedVehicle || selectedVehicle.verificationStatus !== 'VERIFIED') && (
+                <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                  This vehicle has not been verified yet. You cannot submit a claim until the vehicle and insurance policy have been verified.
+                </p>
+              )}
+              {selectedVehicle && selectedVehicle.verificationStatus === 'VERIFIED' && selectedVehicle.insurancePolicy && (
+                <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    {selectedVehicle.insurancePolicy.template?.name || selectedVehicle.insurancePolicy.providerName} — {selectedVehicle.insurancePolicy.coverageType}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Policy #{selectedVehicle.insurancePolicy.policyNumber} · {selectedVehicle.insurancePolicy.coveragePercent}% coverage after Rs. {selectedVehicle.insurancePolicy.deductible.toLocaleString()} deductible
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">The claim automatically uses this vehicle's verified policy.</p>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Incident Date *</label><input type="date" value={form.incidentDate} onChange={update('incidentDate')} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" /></div>
@@ -306,6 +316,19 @@ export function NewClaimPage() {
                 <p className="text-sm text-gray-600">{selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model} ({selectedVehicle.licensePlate})</p>
               </div>
             )}
+            <div className="p-4 bg-green-50/70 border border-green-100 rounded-lg">
+              <p className="text-sm font-medium text-gray-900 mb-1">Insurance Policy (from this vehicle)</p>
+              {selectedVehicle?.insurancePolicy ? (
+                <>
+                  <p className="text-sm text-gray-600">{selectedVehicle.insurancePolicy.template?.name || selectedVehicle.insurancePolicy.providerName} — {selectedVehicle.insurancePolicy.coverageType}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {selectedVehicle.insurancePolicy.coveragePercent}% coverage after Rs. {selectedVehicle.insurancePolicy.deductible.toLocaleString()} deductible · Policy #{selectedVehicle.insurancePolicy.policyNumber}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-red-600">No policy attached to this vehicle — the insurance company must add one.</p>
+              )}
+            </div>
             <div className="p-4 bg-gray-50 rounded-lg space-y-2">
               <div className="flex justify-between text-sm"><span className="text-gray-500">Date:</span><span className="font-medium">{form.incidentDate}</span></div>
               <div className="flex justify-between text-sm"><span className="text-gray-500">Location:</span><span className="font-medium">{form.incidentLocation}</span></div>

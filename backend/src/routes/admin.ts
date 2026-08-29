@@ -23,14 +23,15 @@ async function syncVehiclePayouts(vehicleId: string): Promise<void> {
 // GET /api/admin/stats
 router.get('/stats', async (_req: AuthRequest, res: Response) => {
   try {
-    const [userCount, claimCounts, docCount, pendingDocs] = await Promise.all([
+    const [userCount, claimCounts, docCount, pendingDocs, pendingVehicles] = await Promise.all([
       prisma.user.count({ where: { isAdmin: false } }),
       prisma.claim.groupBy({ by: ['status'], _count: { id: true } }),
       prisma.document.count(),
       prisma.document.count({ where: { verificationStatus: 'PENDING' } }),
+      prisma.vehicle.count({ where: { verificationStatus: 'PENDING' } }),
     ]);
     const claimsByStatus = Object.fromEntries(claimCounts.map((c: { status: string; _count: { id: number } }) => [c.status, c._count.id]));
-    res.json({ userCount, claimsByStatus, docCount, pendingDocs });
+    res.json({ userCount, claimsByStatus, docCount, pendingDocs, pendingVehicles });
   } catch (error) {
     console.error('Admin stats error:', error);
     res.status(500).json({ error: 'Failed to fetch stats.' });
@@ -146,117 +147,17 @@ router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/admin/users/:id/policies — the insurance company adds a policy for a user.
-// Values come from a built-in plan (templateId) and may be overridden, or be fully custom.
-router.post('/users/:id/policies', async (req: AuthRequest, res: Response) => {
-  try {
-    const user = await prisma.user.findUnique({ where: { id: param(req, 'id') } });
-    if (!user || user.isAdmin) {
-      res.status(404).json({ error: 'User not found.' });
-      return;
-    }
-
-    const { templateId, coverageType, deductible, coveragePercent, annualFee } = req.body;
-
-    let data: {
-      coverageType: string;
-      deductible: number;
-      premiumAmount: number;
-      coveragePercent: number;
-      templateId: string | null;
-    };
-
-    if (templateId) {
-      // Based on a built-in plan — any provided field overrides the plan's value
-      const template = await prisma.policyTemplate.findFirst({
-        where: { id: templateId, isActive: true },
-      });
-      if (!template) {
-        res.status(404).json({ error: 'Policy plan not found.' });
-        return;
-      }
-      const ded = deductible !== undefined ? Number(deductible) : template.deductible;
-      const pct = coveragePercent !== undefined ? Number(coveragePercent) : template.coveragePercent;
-      const fee = annualFee !== undefined ? Number(annualFee) : template.annualFee;
-      if (Number.isNaN(ded) || ded < 0) { res.status(400).json({ error: 'Deductible must be a non-negative number.' }); return; }
-      if (Number.isNaN(pct) || pct <= 0 || pct > 100) { res.status(400).json({ error: 'Coverage % must be between 1 and 100.' }); return; }
-      if (Number.isNaN(fee) || fee < 0) { res.status(400).json({ error: 'Annual fee must be a non-negative number.' }); return; }
-      data = {
-        coverageType: coverageType ? String(coverageType).trim() : template.coverageType,
-        deductible: ded,
-        premiumAmount: fee,
-        coveragePercent: pct,
-        templateId: template.id,
-      };
-    } else {
-      // Fully custom policy entered by the admin
-      const ded = Number(deductible);
-      const pct = Number(coveragePercent);
-      const fee = Number(annualFee);
-      if (!coverageType) { res.status(400).json({ error: 'Insurance type is required.' }); return; }
-      if (Number.isNaN(ded) || ded < 0) { res.status(400).json({ error: 'Deductible must be a non-negative number.' }); return; }
-      if (Number.isNaN(pct) || pct <= 0 || pct > 100) { res.status(400).json({ error: 'Coverage % must be between 1 and 100.' }); return; }
-      if (Number.isNaN(fee) || fee < 0) { res.status(400).json({ error: 'Annual fee must be a non-negative number.' }); return; }
-      data = {
-        coverageType: String(coverageType).trim(),
-        deductible: ded,
-        premiumAmount: fee,
-        coveragePercent: pct,
-        templateId: null,
-      };
-    }
-
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setFullYear(endDate.getFullYear() + 1);
-
-    const policy = await prisma.insurancePolicy.create({
-      data: {
-        userId: user.id,
-        providerName: 'Flash Claim Insurance',
-        policyNumber: `FC-${Date.now().toString(36).toUpperCase()}`,
-        startDate,
-        endDate,
-        ...data,
-      },
-      include: { template: { select: { name: true } } },
-    });
-
-    // Keep the user's annual fee in sync with the assigned policy
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { annualFee: data.premiumAmount },
-    });
-
-    // Claims without a policy are deducted from the new one — link and calculate payouts
-    const unlinked = await prisma.claim.findMany({
-      where: { userId: user.id, policyId: null },
-      select: { id: true },
-    });
-    if (unlinked.length > 0) {
-      await prisma.claim.updateMany({
-        where: { id: { in: unlinked.map((c) => c.id) } },
-        data: { policyId: policy.id },
-      });
-      for (const c of unlinked) {
-        await recalculatePayout(c.id);
-      }
-    }
-
-    res.status(201).json(policy);
-  } catch (error) {
-    console.error('Admin add user policy error:', error);
-    res.status(500).json({ error: 'Failed to add policy.' });
-  }
-});
-
-// GET /api/admin/vehicles — all vehicles with owner + claims count; ?user= scopes to one owner
+// GET /api/admin/vehicles — all vehicles with owner, claims count and insurance; ?user= scopes to one owner
 router.get('/vehicles', async (req: AuthRequest, res: Response) => {
   try {
     const userFilter = req.query.user as string | undefined;
     const search = req.query.search as string | undefined;
+    const verification = req.query.verification as string | undefined;
     const where: any = {};
     if (userFilter) where.userId = userFilter;
+    if (verification && ['PENDING', 'VERIFIED', 'REJECTED'].includes(verification)) {
+      where.verificationStatus = verification;
+    }
     if (search) {
       where.OR = [
         { make: { contains: search } },
@@ -272,12 +173,159 @@ router.get('/vehicles', async (req: AuthRequest, res: Response) => {
       include: {
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
         _count: { select: { claims: true } },
+        insurancePolicy: { include: { template: { select: { name: true } } } },
       },
     });
     res.json(vehicles);
   } catch (error) {
     console.error('Admin vehicles error:', error);
     res.status(500).json({ error: 'Failed to fetch vehicles.' });
+  }
+});
+
+// PATCH /api/admin/vehicles/:id/verify — the insurance/admin panel verifies (or rejects)
+// the vehicle and its insurance policy; VERIFIED requires an attached policy
+router.patch('/vehicles/:id/verify', async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, notes } = req.body;
+    if (!['VERIFIED', 'REJECTED', 'PENDING'].includes(status)) {
+      res.status(400).json({ error: 'Status must be VERIFIED, REJECTED, or PENDING.' });
+      return;
+    }
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id: param(req, 'id') },
+      include: { insurancePolicy: { select: { id: true } } },
+    });
+    if (!vehicle) {
+      res.status(404).json({ error: 'Vehicle not found.' });
+      return;
+    }
+    if (status === 'VERIFIED' && !vehicle.insurancePolicy) {
+      res.status(400).json({ error: 'Add an insurance policy to this vehicle before verifying it.' });
+      return;
+    }
+    const updated = await prisma.vehicle.update({
+      where: { id: param(req, 'id') },
+      data: {
+        verificationStatus: status,
+        verifiedAt: status === 'VERIFIED' ? new Date() : null,
+        ...(notes !== undefined && { verificationNotes: notes || null }),
+      },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        insurancePolicy: { include: { template: { select: { name: true } } } },
+        _count: { select: { claims: true } },
+      },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin vehicle verification error:', error);
+    res.status(500).json({ error: 'Failed to update verification.' });
+  }
+});
+
+// POST /api/admin/vehicles/:id/policy — add or replace the vehicle's insurance policy.
+// Values come from a built-in plan (templateId) or a fully custom entry; any change resets
+// the vehicle to PENDING because the insurance info needs re-verification.
+router.post('/vehicles/:id/policy', async (req: AuthRequest, res: Response) => {
+  try {
+    const { templateId, providerName, policyNumber, coverageType, deductible, premiumAmount, coveragePercent, startDate, endDate } = req.body;
+    const vehicle = await prisma.vehicle.findUnique({ where: { id: param(req, 'id') } });
+    if (!vehicle) {
+      res.status(404).json({ error: 'Vehicle not found.' });
+      return;
+    }
+
+    let data: {
+      providerName: string;
+      policyNumber: string;
+      coverageType: string;
+      deductible: number;
+      premiumAmount: number;
+      coveragePercent: number;
+      templateId: string | null;
+    };
+
+    if (templateId) {
+      const template = await prisma.policyTemplate.findFirst({
+        where: { id: templateId, isActive: true },
+      });
+      if (!template) {
+        res.status(404).json({ error: 'Policy plan not found.' });
+        return;
+      }
+      data = {
+        providerName: 'Flash Claim Insurance',
+        policyNumber: `FC-${Date.now().toString(36).toUpperCase()}`,
+        coverageType: template.coverageType,
+        deductible: template.deductible,
+        premiumAmount: template.annualFee,
+        coveragePercent: template.coveragePercent,
+        templateId: template.id,
+      };
+    } else {
+      if (!providerName || !policyNumber || !coverageType || deductible === undefined || premiumAmount === undefined || !startDate || !endDate) {
+        res.status(400).json({ error: 'Either choose a plan or provide all policy fields (provider, number, type, deductible, premium, start and end dates).' });
+        return;
+      }
+      const ded = Number(deductible);
+      const pct = coveragePercent !== undefined ? Number(coveragePercent) : 100;
+      const fee = Number(premiumAmount);
+      if (Number.isNaN(ded) || ded < 0) { res.status(400).json({ error: 'Deductible must be a non-negative number.' }); return; }
+      if (Number.isNaN(pct) || pct <= 0 || pct > 100) { res.status(400).json({ error: 'Coverage % must be between 1 and 100.' }); return; }
+      if (Number.isNaN(fee) || fee < 0) { res.status(400).json({ error: 'Premium must be a non-negative number.' }); return; }
+      data = {
+        providerName: String(providerName).trim(),
+        policyNumber: String(policyNumber).trim(),
+        coverageType: String(coverageType).trim(),
+        deductible: ded,
+        premiumAmount: fee,
+        coveragePercent: pct,
+        templateId: null,
+      };
+    }
+
+    // One policy per vehicle — update in place keeps existing claim.policyId links stable
+    const existing = await prisma.insurancePolicy.findFirst({ where: { vehicleId: vehicle.id } });
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    let policy;
+    if (existing) {
+      policy = await prisma.insurancePolicy.update({
+        where: { id: existing.id },
+        data: { ...data, ...(start && { startDate: start }), ...(end && { endDate: end }) },
+      });
+    } else {
+      const s = start ?? new Date();
+      const e = end ?? (() => { const d = new Date(s); d.setFullYear(d.getFullYear() + 1); return d; })();
+      policy = await prisma.insurancePolicy.create({
+        data: {
+          userId: vehicle.userId,
+          vehicleId: vehicle.id,
+          startDate: s,
+          endDate: e,
+          ...data,
+        },
+      });
+    }
+
+    // Changed insurance info needs re-verification
+    await prisma.vehicle.update({
+      where: { id: vehicle.id },
+      data: { verificationStatus: 'PENDING', verifiedAt: null },
+    });
+
+    // Re-apply the policy terms to this vehicle's claims
+    const claims = await prisma.claim.findMany({ where: { vehicleId: vehicle.id }, select: { id: true } });
+    for (const c of claims) {
+      await recalculatePayout(c.id);
+    }
+
+    res.status(existing ? 200 : 201).json(policy);
+  } catch (error) {
+    console.error('Admin vehicle policy error:', error);
+    res.status(500).json({ error: 'Failed to save policy.' });
   }
 });
 

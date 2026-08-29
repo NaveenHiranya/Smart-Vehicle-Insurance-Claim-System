@@ -1,1 +1,0 @@
-Server startup enforces required env vars (`JWT_SECRET`, `GEMINI_API_KEY`, `DATABASE_URL`, plus optional `CORS_ORIGIN`, `UPLOAD_DIR`, `PORT`); missing vars cause an immediate exit. On boot the app runs `seedPolicyTemplates()` idempotently so built-in plan templates exist even in fresh databases.

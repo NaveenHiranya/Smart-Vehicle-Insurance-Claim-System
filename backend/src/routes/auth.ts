@@ -7,7 +7,7 @@ import { AuthRequest } from '../types/index.js';
 
 const router = Router();
 
-// POST /api/auth/register
+// POST /api/auth/register — insurance is attached per vehicle later, not at signup
 router.post('/register', async (req: Request, res: Response) => {
   try {
     const { email, password, firstName, lastName, phone, address, nic } = req.body;

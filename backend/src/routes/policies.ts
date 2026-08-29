@@ -23,12 +23,12 @@ router.get('/templates', async (_req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/policies/activate — activate a built-in plan for the signed-in user
+// POST /api/policies/activate — activate a built-in plan for one of the signed-in user's vehicles
 router.post('/activate', async (req: AuthRequest, res: Response) => {
   try {
-    const { templateId } = req.body;
-    if (!templateId) {
-      res.status(400).json({ error: 'Plan is required.' });
+    const { templateId, vehicleId } = req.body;
+    if (!templateId || !vehicleId) {
+      res.status(400).json({ error: 'Plan and vehicle are required.' });
       return;
     }
     const template = await prisma.policyTemplate.findFirst({
@@ -39,6 +39,20 @@ router.post('/activate', async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // The plan attaches to the user's own vehicle
+    const vehicle = await prisma.vehicle.findFirst({
+      where: { id: vehicleId, userId: req.userId },
+      include: { insurancePolicy: { select: { id: true } } },
+    });
+    if (!vehicle) {
+      res.status(404).json({ error: 'Vehicle not found.' });
+      return;
+    }
+    if (vehicle.insurancePolicy) {
+      res.status(409).json({ error: 'This vehicle already has an insurance policy. Delete it first to activate a different plan.' });
+      return;
+    }
+
     const startDate = new Date();
     const endDate = new Date();
     endDate.setFullYear(endDate.getFullYear() + 1);
@@ -46,6 +60,7 @@ router.post('/activate', async (req: AuthRequest, res: Response) => {
     const policy = await prisma.insurancePolicy.create({
       data: {
         userId: req.userId!,
+        vehicleId: vehicle.id,
         providerName: 'Flash Claim Insurance',
         policyNumber: `FC-${Date.now().toString(36).toUpperCase()}`,
         coverageType: template.coverageType,
@@ -58,12 +73,7 @@ router.post('/activate', async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // Keep the user's annual fee in sync with the activated plan
-    await prisma.user.update({
-      where: { id: req.userId! },
-      data: { annualFee: template.annualFee },
-    });
-
+    // The vehicle still needs insurance/admin verification before claims unlock
     res.status(201).json(policy);
   } catch (error) {
     console.error('Activate policy error:', error);
@@ -170,11 +180,12 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// DELETE /api/policies/:id
+// DELETE /api/policies/:id — removing a verified vehicle's policy makes it unverified again
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const existing = await prisma.insurancePolicy.findFirst({
       where: { id: param(req, 'id'), userId: req.userId },
+      include: { vehicle: { select: { id: true, verificationStatus: true } } },
     });
 
     if (!existing) {
@@ -183,6 +194,15 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     await prisma.insurancePolicy.delete({ where: { id: param(req, 'id') } });
+
+    // A verified vehicle without a policy can no longer be claimed
+    if (existing.vehicle && existing.vehicle.verificationStatus === 'VERIFIED') {
+      await prisma.vehicle.update({
+        where: { id: existing.vehicle.id },
+        data: { verificationStatus: 'PENDING', verifiedAt: null },
+      });
+    }
+
     res.json({ message: 'Policy deleted successfully.' });
   } catch (error) {
     console.error('Delete policy error:', error);
