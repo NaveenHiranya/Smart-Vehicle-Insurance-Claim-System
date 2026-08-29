@@ -1,1 +1,0 @@
-A separate admin portal (user app) that lets administrators log in, view all users and claims, approve/reject documents, manage garages, and change claim statuses with real-time reflection in the user-facing app.

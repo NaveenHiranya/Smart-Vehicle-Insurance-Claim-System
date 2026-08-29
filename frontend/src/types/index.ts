@@ -5,8 +5,28 @@ export interface User {
   lastName: string;
   phone?: string;
   address?: string;
+  // Insurance company records filled in by an admin
+  nic?: string;
+  licenseType?: string;
+  annualFee?: number;
+  joinedAt?: string;
   isAdmin?: boolean;
   createdAt: string;
+}
+
+// User row as returned by the admin users endpoint (includes vehicles + counts)
+export interface AdminUser extends User {
+  vehicles?: {
+    id: string;
+    make: string;
+    model: string;
+    year: number;
+    licensePlate: string;
+    color: string;
+    vin?: string;
+    _count?: { claims: number };
+  }[];
+  _count?: { vehicles: number; claims: number };
 }
 
 export interface Vehicle {

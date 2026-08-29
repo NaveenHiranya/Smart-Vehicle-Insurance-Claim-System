@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { Users, ClipboardList, FileText, Clock, ArrowRight, Wrench } from 'lucide-react';
+import { Users, ClipboardList, FileText, Clock, ArrowRight } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
@@ -36,36 +36,56 @@ export function AdminDashboardPage() {
         <p className="text-gray-500 mt-1">System overview and recent activity</p>
       </div>
 
-      {/* Stats */}
+      {/* Stats — each card navigates to its section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+        <Link to="/admin/users" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition group">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-100 rounded-lg"><Users className="h-5 w-5 text-blue-600" /></div>
             <span className="text-sm text-gray-500 font-medium">Total Users</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{stats?.userCount ?? 0}</p>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-gray-900">{stats?.userCount ?? 0}</p>
+            <span className="text-xs text-blue-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+              Manage users <ArrowRight className="h-3 w-3" />
+            </span>
+          </div>
+        </Link>
+        <Link to="/admin/claims" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:border-primary-300 hover:shadow-md transition group">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-primary-100 rounded-lg"><ClipboardList className="h-5 w-5 text-primary-600" /></div>
             <span className="text-sm text-gray-500 font-medium">Total Claims</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{totalClaims}</p>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-gray-900">{totalClaims}</p>
+            <span className="text-xs text-primary-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+              View claims <ArrowRight className="h-3 w-3" />
+            </span>
+          </div>
+        </Link>
+        <Link to="/admin/claims?status=PENDING" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:border-yellow-300 hover:shadow-md transition group">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-yellow-100 rounded-lg"><Clock className="h-5 w-5 text-yellow-600" /></div>
             <span className="text-sm text-gray-500 font-medium">Pending Claims</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{pendingClaims}</p>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-gray-900">{pendingClaims}</p>
+            <span className="text-xs text-yellow-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+              Review now <ArrowRight className="h-3 w-3" />
+            </span>
+          </div>
+        </Link>
+        <Link to="/admin/documents" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:border-orange-300 hover:shadow-md transition group">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-orange-100 rounded-lg"><FileText className="h-5 w-5 text-orange-600" /></div>
             <span className="text-sm text-gray-500 font-medium">Docs Awaiting</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{stats?.pendingDocs ?? 0}</p>
-        </div>
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-gray-900">{stats?.pendingDocs ?? 0}</p>
+            <span className="text-xs text-orange-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+              Approve docs <ArrowRight className="h-3 w-3" />
+            </span>
+          </div>
+        </Link>
       </div>
 
       {/* Claim status breakdown */}
@@ -74,12 +94,13 @@ export function AdminDashboardPage() {
           <h2 className="font-semibold text-gray-900 mb-4">Claims by Status</h2>
           <div className="space-y-2">
             {Object.entries(stats?.claimsByStatus || {}).map(([status, count]) => (
-              <div key={status} className="flex items-center justify-between">
+              <Link key={status} to={`/admin/claims?status=${status}`}
+                className="flex items-center justify-between px-2 -mx-2 py-1 rounded-lg hover:bg-gray-50 transition">
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[status] || 'bg-gray-100 text-gray-600'}`}>
                   {status.replace('_', ' ')}
                 </span>
                 <span className="font-bold text-gray-900">{count as number}</span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -108,23 +129,6 @@ export function AdminDashboardPage() {
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Quick links */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { to: '/admin/users', label: 'Manage Users', icon: Users, color: 'bg-blue-600' },
-          { to: '/admin/claims', label: 'Review Claims', icon: ClipboardList, color: 'bg-primary-600' },
-          { to: '/admin/documents', label: 'Approve Documents', icon: FileText, color: 'bg-orange-600' },
-          { to: '/admin/garages', label: 'Manage Garages', icon: Wrench, color: 'bg-orange-700' },
-        ].map(({ to, label, icon: Icon, color }) => (
-          <Link key={to} to={to}
-            className={`flex items-center gap-3 ${color} text-white rounded-xl p-4 hover:opacity-90 transition`}>
-            <Icon className="h-6 w-6" />
-            <span className="font-semibold">{label}</span>
-            <ArrowRight className="h-4 w-4 ml-auto" />
-          </Link>
-        ))}
       </div>
     </div>
   );

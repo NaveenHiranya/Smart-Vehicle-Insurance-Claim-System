@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-08-29T04:19:33Z"
+exported_at: "2026-08-29T06:29:54Z"
 modules:
     "":
-        dir_name: Admin Dashboard — Insurance Claims Management Portal
-        title: Admin Dashboard — Insurance Claims Management Portal
+        dir_name: Admin Dashboard & Admin API
+        title: Admin Dashboard & Admin API
         scope: []
         source_files: []
         children: []

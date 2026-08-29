@@ -1,0 +1,1 @@
+Express 5 + TypeScript backend with Prisma ORM over SQLite; JWT (jsonwebtoken) + bcryptjs for authentication; Google Generative AI (@google/generative-ai) for AI services. Frontend uses React 19 + Vite + Tailwind CSS + react-router-dom v7, with axios for HTTP and lucide-react icons.

@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: Admin Dashboard — Insurance Claims Management Portal
+title: Admin Dashboard & Admin API
 scope: []
 source_files: []
 depends_on: []

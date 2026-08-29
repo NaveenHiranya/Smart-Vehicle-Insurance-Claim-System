@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Shield, LayoutDashboard, Users, ClipboardList, FileText, LogOut, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Shield, LayoutDashboard, Users, ClipboardList, FileText, LogOut, Wrench, ChevronLeft, ChevronRight, Car } from 'lucide-react';
 
 const navItems = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/admin/users', label: 'Users', icon: Users },
+  { path: '/admin/vehicles', label: 'Vehicles', icon: Car },
   { path: '/admin/claims', label: 'Claims', icon: ClipboardList },
   { path: '/admin/documents', label: 'Documents', icon: FileText },
   { path: '/admin/garages', label: 'Garages', icon: Wrench },

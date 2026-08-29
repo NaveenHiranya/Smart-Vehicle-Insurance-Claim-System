@@ -25,7 +25,7 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/admin/users
+// GET /api/admin/users — includes each user's vehicles so admins can inspect them under the Users tab
 router.get('/users', async (_req: AuthRequest, res: Response) => {
   try {
     const users = await prisma.user.findMany({
@@ -34,7 +34,15 @@ router.get('/users', async (_req: AuthRequest, res: Response) => {
       select: {
         id: true, email: true, firstName: true, lastName: true,
         phone: true, address: true, createdAt: true,
+        nic: true, licenseType: true, annualFee: true, joinedAt: true,
         _count: { select: { vehicles: true, claims: true } },
+        vehicles: {
+          select: {
+            id: true, make: true, model: true, year: true,
+            licensePlate: true, color: true, vin: true,
+            _count: { select: { claims: true } },
+          },
+        },
       },
     });
     res.json(users);
@@ -44,13 +52,162 @@ router.get('/users', async (_req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/admin/claims
+// PATCH /api/admin/users/:id — insurance company records an admin fills in
+router.patch('/users/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: param(req, 'id') } });
+    if (!user || user.isAdmin) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    const { phone, address, nic, licenseType, annualFee, joinedAt } = req.body;
+
+    // Build the update payload from provided keys only — absent fields stay unchanged
+    const data: Record<string, unknown> = {};
+    if (phone !== undefined) data.phone = phone.trim() === '' ? null : phone.trim();
+    if (address !== undefined) data.address = address.trim() === '' ? null : address.trim();
+    if (nic !== undefined) data.nic = nic.trim() === '' ? null : nic.trim();
+    if (licenseType !== undefined) data.licenseType = licenseType.trim() === '' ? null : licenseType.trim();
+    if (annualFee !== undefined) {
+      if (annualFee === null || annualFee === '') data.annualFee = null;
+      else {
+        const fee = Number(annualFee);
+        if (Number.isNaN(fee) || fee < 0) {
+          res.status(400).json({ error: 'Annual fee must be a non-negative number.' });
+          return;
+        }
+        data.annualFee = fee;
+      }
+    }
+    if (joinedAt !== undefined) {
+      if (joinedAt === null || joinedAt === '') data.joinedAt = null;
+      else {
+        const date = new Date(joinedAt);
+        if (Number.isNaN(date.getTime())) {
+          res.status(400).json({ error: 'Invalid joined date.' });
+          return;
+        }
+        data.joinedAt = date;
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: param(req, 'id') },
+      data,
+      select: {
+        id: true, email: true, firstName: true, lastName: true,
+        phone: true, address: true, nic: true, licenseType: true,
+        annualFee: true, joinedAt: true, createdAt: true,
+      },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin user update error:', error);
+    res.status(500).json({ error: 'Failed to update user.' });
+  }
+});
+
+// DELETE /api/admin/users/:id — removes the user and (via cascade) their vehicles, claims and policies
+router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: param(req, 'id') } });
+    if (!user || user.isAdmin) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+    await prisma.user.delete({ where: { id: param(req, 'id') } });
+    res.json({ message: 'User deleted.' });
+  } catch (error) {
+    console.error('Admin delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user.' });
+  }
+});
+
+// GET /api/admin/vehicles — all vehicles with owner + claims count; ?user= scopes to one owner
+router.get('/vehicles', async (req: AuthRequest, res: Response) => {
+  try {
+    const userFilter = req.query.user as string | undefined;
+    const search = req.query.search as string | undefined;
+    const where: any = {};
+    if (userFilter) where.userId = userFilter;
+    if (search) {
+      where.OR = [
+        { make: { contains: search } },
+        { model: { contains: search } },
+        { licensePlate: { contains: search } },
+        { user: { firstName: { contains: search } } },
+        { user: { lastName: { contains: search } } },
+      ];
+    }
+    const vehicles = await prisma.vehicle.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        _count: { select: { claims: true } },
+      },
+    });
+    res.json(vehicles);
+  } catch (error) {
+    console.error('Admin vehicles error:', error);
+    res.status(500).json({ error: 'Failed to fetch vehicles.' });
+  }
+});
+
+// POST /api/admin/vehicles — register a vehicle on behalf of a user
+router.post('/vehicles', async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId, make, model, year, vin, licensePlate, color, mileage } = req.body;
+    if (!userId || !make || !model || !year || !licensePlate || !color) {
+      res.status(400).json({ error: 'Owner, make, model, year, license plate, and color are required.' });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.isAdmin) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+    const parsedYear = parseInt(year);
+    if (Number.isNaN(parsedYear) || parsedYear < 1900 || parsedYear > 2100) {
+      res.status(400).json({ error: 'Year must be a valid number.' });
+      return;
+    }
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        userId,
+        make: String(make).trim(),
+        model: String(model).trim(),
+        year: parsedYear,
+        vin: vin ? String(vin).trim() : null,
+        licensePlate: String(licensePlate).trim(),
+        color: String(color).trim(),
+        mileage: mileage ? parseInt(mileage) : null,
+        photos: '[]',
+      },
+    });
+    res.status(201).json(vehicle);
+  } catch (error) {
+    console.error('Admin create vehicle error:', error);
+    res.status(500).json({ error: 'Failed to create vehicle.' });
+  }
+});
+
+// GET /api/admin/claims — supports comma-separated status lists (e.g. ?status=SUBMITTED,UNDER_REVIEW)
 router.get('/claims', async (req: AuthRequest, res: Response) => {
   try {
     const statusFilter = req.query.status as string | undefined;
     const search = req.query.search as string | undefined;
+    const userFilter = req.query.user as string | undefined;
+    const vehicleFilter = req.query.vehicle as string | undefined;
     const where: any = {};
-    if (statusFilter) where.status = statusFilter;
+    if (statusFilter) {
+      const statuses = statusFilter.split(',').map((s) => s.trim()).filter(Boolean);
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
+    }
+    // Scoped views: claims of one user (?user=) or one vehicle (?vehicle=)
+    if (userFilter) where.userId = userFilter;
+    if (vehicleFilter) where.vehicleId = vehicleFilter;
     if (search) {
       where.OR = [
         { user: { firstName: { contains: search } } },

@@ -1,3 +1,7 @@
+</think>
+
+Based on my analysis of the codebase, I can see significant enhancements to the claims API endpoints with improved garage assignment workflow, better status transitions, and enhanced document verification capabilities. Let me now create the updated documentation:
+
 # Claims Processing Endpoints
 
 <cite>
@@ -5,6 +9,7 @@
 - [index.ts](file://backend/src/index.ts)
 - [claims.ts](file://backend/src/routes/claims.ts)
 - [admin.ts](file://backend/src/routes/admin.ts)
+- [garage.ts](file://backend/src/routes/garage.ts)
 - [damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
 - [repairEstimateService.ts](file://backend/src/services/repairEstimateService.ts)
 - [documentVerificationService.ts](file://backend/src/services/documentVerificationService.ts)
@@ -16,11 +21,12 @@
 
 ## Update Summary
 **Changes Made**
-- Added documentation for three new admin note management endpoints
-- Updated Admin Endpoints section with GET, POST, and DELETE operations for claim notes
-- Enhanced Admin Claim Detail workflow to include note management functionality
-- Updated data models overview to include AdminNote entity
-- Added example workflows demonstrating note creation and management
+- Enhanced claims API with comprehensive garage assignment workflow including new `/api/claims/:id/garage` endpoint
+- Improved status transitions with new GARAGE_REVIEW and GARAGE_ESTIMATED states
+- Added enhanced document verification capabilities with improved AI-powered validation
+- Expanded admin endpoints with comprehensive note management system
+- Integrated garage-specific endpoints for estimate submission and claim management
+- Updated data models to support garage relationships and enhanced workflow tracking
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -35,16 +41,21 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for claims processing endpoints in the Smart Vehicle Insurance Claim System. It covers claim submission, status tracking, image and document uploads, AI-powered damage assessment, repair estimate generation, document verification, chat assistance, and administrative note management. It also documents workflow state management from claim creation to resolution, including integration points with damage analysis services and insurance payout calculations.
+This document provides comprehensive API documentation for claims processing endpoints in the Smart Vehicle Insurance Claim System. It covers claim submission, status tracking, image and document uploads, AI-powered damage assessment, repair estimate generation, document verification, chat assistance, administrative note management, and enhanced garage assignment workflows. The system now supports a complete claims lifecycle from submission through garage review and estimation to final resolution, with robust state management and audit trails.
 
 ## Project Structure
-The backend exposes RESTful APIs under /api. The claims module is mounted at /api/claims and includes endpoints for CRUD operations, file uploads, AI analysis triggers, estimates, document handling, and chat. Admin endpoints are available under /api/admin for operational workflows such as status updates, document approvals, and administrative note management.
+The backend exposes RESTful APIs under /api with specialized route modules:
+- **Claims**: Core claim operations, garage assignment, file uploads, AI analysis triggers, estimates, document handling, and chat
+- **Admin**: Operational control over statuses, documents, garages, and administrative notes
+- **Garage**: Garage-specific operations for claim review and estimate submission
+- **Authentication**: User, admin, and garage authentication flows
 
 ```mermaid
 graph TB
 Client["Client App"] --> API["Express Server<br/>/api"]
 API --> Claims["Claims Routes<br/>/api/claims/*"]
 API --> Admin["Admin Routes<br/>/api/admin/*"]
+API --> Garage["Garage Routes<br/>/api/garage/*"]
 Claims --> DB["Prisma Client<br/>SQLite"]
 Claims --> DamageSvc["Damage Analysis Service"]
 Claims --> RepairSvc["Repair Estimate Service"]
@@ -52,419 +63,274 @@ Claims --> DocVerifySvc["Document Verification Service"]
 Claims --> ChatSvc["Claim Assistant Service"]
 Admin --> DB
 Admin --> Notes["Admin Note Management"]
+Garage --> DB
+Garage --> GarageEstimates["Garage Estimates"]
 ```
 
 **Diagram sources**
-- [index.ts:25-45](file://backend/src/index.ts#L25-L45)
+- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
 - [claims.ts:1-15](file://backend/src/routes/claims.ts#L1-L15)
 - [admin.ts:1-7](file://backend/src/routes/admin.ts#L1-L7)
+- [garage.ts:1-7](file://backend/src/routes/garage.ts#L1-L7)
 
 **Section sources**
-- [index.ts:25-45](file://backend/src/index.ts#L25-L45)
+- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
 
 ## Core Components
-- Claims routes handle lifecycle operations: create, read, update, submit, analyze, estimate, upload images/documents, verify documents, and chat interactions.
-- Services implement AI-driven features:
-  - Damage analysis using a vision model to detect damages and severity.
-  - Repair estimate generation based on detected damages and policy deductible.
-  - Document verification to validate uploaded documents.
-  - Chat assistant that answers user questions with context-aware responses.
-- Admin note management enables administrators to add contextual notes to claims for review purposes.
-- Middleware handles authentication and file uploads with size/type constraints.
-- Data models define entities like Claim, DamageAssessment, RepairEstimate, InsurancePayout, Document, ChatMessage, and AdminNote.
+- **Enhanced Claims Routes**: Handle complete lifecycle operations including garage assignment, status transitions, CRUD operations, file uploads, AI analysis triggers, estimates, document handling, and chat interactions
+- **Advanced Services**: AI-driven features including damage analysis, repair estimate generation, document verification, and contextual chat assistance
+- **Garage Integration**: Dedicated endpoints for garage claim review, estimate submission, and workflow management
+- **Administrative Controls**: Comprehensive note management, status control, document approval/rejection, and garage management
+- **Enhanced Data Models**: Support for garage relationships, improved status tracking, and comprehensive audit trails
 
 **Section sources**
-- [claims.ts:20-447](file://backend/src/routes/claims.ts#L20-L447)
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
-- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
-- [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
-- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
-- [schema.prisma:62-214](file://backend/prisma/schema.prisma#L62-L214)
+- [claims.ts:17-532](file://backend/src/routes/claims.ts#L17-L532)
+- [garage.ts:11-136](file://backend/src/routes/garage.ts#L11-L136)
+- [admin.ts:11-300](file://backend/src/routes/admin.ts#L11-L300)
 
 ## Architecture Overview
-The claims API orchestrates multiple services to automate and streamline the claims process:
-- Submission triggers background AI damage analysis and auto-generates repair estimates when possible.
-- Estimates incorporate policy deductibles to compute estimated payouts.
-- Documents can be verified via AI and approved/rejected by admins.
-- Chat assistant provides contextual guidance throughout the claim lifecycle.
-- Administrative notes provide audit trail and communication channel between reviewers.
+The enhanced claims API orchestrates multiple services and stakeholders to automate and streamline the entire claims process:
+- **Submission Workflow**: Triggers background AI damage analysis and auto-generates repair estimates when possible
+- **Garage Assignment**: Allows users to select approved garages, moving claims to GARAGE_REVIEW status
+- **Garage Estimation**: Garages can submit detailed estimates, updating status to GARAGE_ESTIMATED
+- **Document Verification**: AI-powered validation with admin override capabilities
+- **Chat Assistance**: Contextual guidance throughout the entire claim lifecycle
+- **Administrative Oversight**: Comprehensive note-taking, status management, and audit trails
 
 ```mermaid
 sequenceDiagram
-participant C as "Client"
+participant U as "User"
+participant G as "Garage"
+participant A as "Admin"
 participant R as "Claims Router"
-participant A as "Admin Router"
-participant S as "Damage Analysis Service"
-participant E as "Repair Estimate Service"
-participant V as "Document Verification Service"
-participant N as "Note Management"
+participant GR as "Garage Router"
+participant S as "Services"
 participant DB as "Database"
-C->>R : POST /api/claims (create)
-R->>DB : Create Claim
-R-->>C : 201 Created
-A->>A : POST /api/admin/claims/ : id/notes (add note)
-A->>DB : Create AdminNote
-A-->>C : 201 Created
-C->>R : POST /api/claims/ : id/images (upload)
-R->>DB : Persist images
-R-->>C : 201 Created
-C->>R : POST /api/claims/ : id/submit
-R->>DB : Update status to SUBMITTED
-R->>S : analyzeDamage(claimId)
-S->>DB : Read images & vehicle
-S-->>R : DamageAnalysisResult
-R->>E : generateRepairEstimate(claimId)
-E->>DB : Save estimate & payout
-R-->>C : Updated claim
-C->>R : POST /api/claims/ : id/documents (upload)
-R->>DB : Persist document
-R-->>C : 201 Created
-C->>R : POST /api/claims/ : id/documents/ : docId/verify
-R->>V : verifyDocument(docId)
-V->>DB : Update verification result
-V-->>R : VerificationResult
-R-->>C : Result
-C->>R : GET/POST /api/claims/ : id/chat
-R->>N : getChatResponse(claimId, message)
-N->>DB : Load claim context & history
-N-->>R : Assistant response
-R-->>C : Chat messages
+U->>R : POST /api/claims (create)
+R->>DB : Create Claim (DRAFT)
+R-->>U : 201 Created
+U->>R : PATCH /api/claims/ : id/garage (assign)
+R->>DB : Update garageId & status to GARAGE_REVIEW
+R-->>U : Updated claim
+G->>GR : GET /api/garage/claims (review)
+GR->>DB : Fetch assigned claims
+GR-->>G : Claims list
+G->>GR : POST /api/garage/claims/ : id/estimate (submit)
+GR->>DB : Create estimate & update status to GARAGE_ESTIMATED
+GR-->>G : 201 Created
+A->>R : GET /api/admin/claims/ : id (review)
+R->>DB : Fetch claim with notes & details
+R-->>A : Full claim details
+A->>R : POST /api/admin/claims/ : id/notes (add note)
+R->>DB : Create AdminNote
+R-->>A : 201 Created
+A->>R : PATCH /api/admin/claims/ : id/status (approve/reject)
+R->>DB : Update status
+R-->>A : Updated claim
 ```
 
 **Diagram sources**
-- [claims.ts:20-447](file://backend/src/routes/claims.ts#L20-L447)
-- [admin.ts:169-219](file://backend/src/routes/admin.ts#L169-L219)
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
-- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
-- [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
+- [claims.ts:38-274](file://backend/src/routes/claims.ts#L38-L274)
+- [garage.ts:11-136](file://backend/src/routes/garage.ts#L11-L136)
+- [admin.ts:81-127](file://backend/src/routes/admin.ts#L81-L127)
 
 ## Detailed Component Analysis
 
-### Claims Endpoints
+### Enhanced Claims Endpoints
 Base path: /api/claims (requires authentication)
 
-- Create Claim
+#### Garage Assignment Workflow *(New)*
+- **List Available Garages**
+  - Method: GET
+  - Path: /api/claims/garages
+  - Response: array of active, approved garages with contact information and specialties
+  
+- **Assign/Change Garage**
+  - Method: PATCH
+  - Path: /api/claims/:id/garage
+  - Request body: { garageId: string }
+  - Response: updated claim with garage assignment
+  - Validation: 
+    - Prevents changes after garage estimate submission
+    - Blocks changes for finalized claims (APPROVED, COMPLETED, REJECTED)
+    - Requires valid, active, approved garage
+  - Status Transition: Moves to GARAGE_REVIEW if claim was already submitted
+
+#### Standard Claim Operations
+- **Create Claim**
   - Method: POST
   - Path: /api/claims
-  - Request body fields: vehicleId, incidentDate, incidentLocation, incidentDescription, weatherConditions (optional), hasPoliceReport (optional), policyId (optional)
-  - Response: created claim object
-  - Notes: Validates required fields; checks vehicle ownership; sets default status DRAFT
-
-- List Claims
-  - Method: GET
-  - Path: /api/claims?status={DRAFT|SUBMITTED|UNDER_REVIEW|APPROVED|REJECTED|COMPLETED}
-  - Response: array of claims with vehicle summary, damage severity, and counts of images/documents
-
-- Get Claim Detail
-  - Method: GET
-  - Path: /api/claims/:id
-  - Response: full claim with related vehicle, policy, images, damage assessment, repair estimate, insurance payout, documents, and chat messages
-
-- Update Claim
-  - Method: PUT
-  - Path: /api/claims/:id
-  - Request body fields: incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport, policyId (all optional)
-  - Response: updated claim
-  - Notes: Only allowed when status is DRAFT
-
-- Submit Claim
+  - Request body fields: vehicleId, policyId, garageId (optional), incidentDate, incidentLocation, incidentDescription, weatherConditions (optional), hasPoliceReport (optional)
+  - Response: created claim object with default DRAFT status
+  
+- **Submit Claim**
   - Method: POST
   - Path: /api/claims/:id/submit
-  - Response: updated claim with status SUBMITTED
-  - Notes: Requires at least one image; triggers background AI damage analysis
+  - Response: updated claim with status transition logic:
+    - If garage assigned: moves to GARAGE_REVIEW
+    - Otherwise: moves to SUBMITTED
+  - Validation: Requires at least one image; prevents resubmission
+  
+- **Update Claim**
+  - Method: PUT
+  - Path: /api/claims/:id
+  - Request body fields: All optional except garageId which can be set during draft phase
+  - Response: updated claim
+  - Validation: Only allowed when status is DRAFT
 
-- Upload Images
+#### File and Document Management
+- **Upload Images**
   - Method: POST
   - Path: /api/claims/:id/images
   - Form fields: images (multipart, up to 10), imageType (FULL_VEHICLE or DAMAGE_CLOSEUP), label (optional)
   - Response: created image records
-  - Notes: Enforces file type and size limits via middleware
-
-- Delete Image
+  
+- **Delete Image**
   - Method: DELETE
   - Path: /api/claims/:id/images/:imageId
-  - Response: success message
-  - Notes: Deletes file from disk and database record
-
-- Trigger AI Damage Analysis
-  - Method: POST
-  - Path: /api/claims/:id/analyze
-  - Response: damage analysis result
-  - Notes: Reads images, calls AI service, saves assessment, updates image annotations, auto-generates estimate if possible
-
-- Generate Repair Estimate
-  - Method: POST
-  - Path: /api/claims/:id/estimate
-  - Response: repair estimate with items, totals, and estimated days
-  - Notes: Requires prior damage assessment; calculates payout if policy exists
-
-- Upload Document
+  - Response: success message with file cleanup
+  
+- **Upload Document**
   - Method: POST
   - Path: /api/claims/:id/documents
   - Form fields: document (multipart), documentType (LICENSE|REGISTRATION|ACCIDENT_REPORT|REPAIR_ESTIMATE)
-  - Response: created document record
+  - Response: created document record with PENDING verification status
 
-- List Documents
-  - Method: GET
-  - Path: /api/claims/:id/documents
-  - Response: array of documents for the claim
-
-- Verify Document
+#### AI-Powered Features
+- **Trigger AI Damage Analysis**
+  - Method: POST
+  - Path: /api/claims/:id/analyze
+  - Response: damage analysis result with severity assessment
+  
+- **Generate Repair Estimate**
+  - Method: POST
+  - Path: /api/claims/:id/estimate
+  - Response: repair estimate with items, totals, and estimated days
+  - Validation: Requires prior damage assessment completion
+  
+- **Verify Document**
   - Method: POST
   - Path: /api/claims/:id/documents/:docId/verify
   - Response: verification result (VERIFIED|ISSUES_FOUND|UNREADABLE)
-  - Notes: Calls AI verification service and updates document record
+  - Behavior: AI-powered document validation with fallback handling
 
-- Chat Messages
+#### Communication
+- **Chat Messages**
   - GET /api/claims/:id/chat: returns chat history
-  - POST /api/claims/:id/chat: sends a message and receives assistant response; persists both user and assistant messages
-
-Authentication: All endpoints require a valid JWT token via auth middleware.
-
-Error handling: Standardized error responses with descriptive messages; 404 for not found, 400 for validation errors, 500 for server errors.
+  - POST /api/claims/:id/chat: sends message and receives assistant response
 
 **Section sources**
-- [claims.ts:20-447](file://backend/src/routes/claims.ts#L20-L447)
-- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
+- [claims.ts:17-532](file://backend/src/routes/claims.ts#L17-L532)
 
-### Admin Endpoints
+### Enhanced Admin Endpoints
 Base path: /api/admin (requires admin authentication)
 
-- Stats
-  - GET /api/admin/stats: returns user count, claims by status, document counts, pending documents
-
-- Users
-  - GET /api/admin/users: lists non-admin users with counts
-
-- Claims
-  - GET /api/admin/claims: list claims with filters (status, search)
-  - GET /api/admin/claims/:id: detailed claim view with associated admin notes
-
-- Status Management
-  - PATCH /api/admin/claims/:id/status: update claim status (valid values defined in schema)
-
-- Documents
-  - GET /api/admin/documents: list documents filtered by verification status
-  - PATCH /api/admin/documents/:id/approve: mark document as VERIFIED
-  - PATCH /api/admin/documents/:id/reject: mark document as ISSUES_FOUND with reason
-
-- **Admin Note Management** *(New)*
-  - **GET /api/admin/claims/:id/notes**: retrieves all administrative notes for a specific claim, ordered by creation date (newest first)
-    - Response: array of AdminNote objects with id, claimId, category, content, createdAt, updatedAt
-    - Categories: "vehicle", "document", "general"
+#### Administrative Note Management *(Enhanced)*
+- **Get Claim Notes**
+  - Method: GET
+  - Path: /api/admin/claims/:id/notes
+  - Response: array of AdminNote objects ordered by creation date (newest first)
+  - Categories: "vehicle", "document", "general"
   
-  - **POST /api/admin/claims/:id/notes**: creates a new administrative note for a claim
-    - Request body: { category: string, content: string }
-    - Validation: content must be non-empty after trimming; category defaults to "general" if invalid
-    - Response: created AdminNote object with 201 status code
+- **Create Administrative Note**
+  - Method: POST
+  - Path: /api/admin/claims/:id/notes
+  - Request body: { category: string, content: string }
+  - Validation: Content must be non-empty; category defaults to "general" if invalid
+  - Response: created AdminNote with 201 status code
   
-  - **DELETE /api/admin/notes/:noteId**: deletes a specific administrative note by its ID
-    - Response: success message with 200 status code
+- **Delete Administrative Note**
+  - Method: DELETE
+  - Path: /api/admin/notes/:noteId
+  - Response: success message with 200 status code
 
-**Updated** Added three new endpoints for comprehensive administrative note management, enabling reviewers to add contextual information, track decisions, and maintain an audit trail for each claim.
+#### Enhanced Status Management
+- **Update Claim Status**
+  - Method: PATCH
+  - Path: /api/admin/claims/:id/status
+  - Valid statuses: DRAFT, SUBMITTED, UNDER_REVIEW, GARAGE_REVIEW, GARAGE_ESTIMATED, APPROVED, REJECTED, COMPLETED
+  - Response: updated claim with new status
 
-**Section sources**
-- [admin.ts:11-239](file://backend/src/routes/admin.ts#L11-L239)
+#### Document Management
+- **List Documents**
+  - Method: GET
+  - Path: /api/admin/documents
+  - Query parameters: status filter (PENDING, VERIFIED, ISSUES_FOUND, UNREADABLE, ALL)
+  - Response: documents with claim context and verification status
+  
+- **Approve Document**
+  - Method: PATCH
+  - Path: /api/admin/documents/:id/approve
+  - Response: updated document with VERIFIED status
+  
+- **Reject Document**
+  - Method: PATCH
+  - Path: /api/admin/documents/:id/reject
+  - Request body: { reason: string }
+  - Response: updated document with ISSUES_FOUND status
 
-### AI-Powered Damage Assessment
-- Input: claim images and vehicle context
-- Output: structured JSON with damages, drivability assessment, overall severity
-- Behavior:
-  - Reads images from storage, encodes to base64, sends to vision model
-  - Parses JSON response; fallback to MINOR severity if parsing fails
-  - Saves or updates DamageAssessment record
-  - Updates per-image AI annotations
-  - Auto-triggers repair estimate generation
-
-Complexity considerations:
-- Image I/O and base64 encoding scale linearly with number of images
-- Model call latency depends on image size and network conditions
-- Fallback logic ensures robustness against parsing failures
-
-**Section sources**
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-
-### Repair Estimate Generation
-- Input: damage assessment items
-- Output: itemized costs, totals, estimated repair days
-- Behavior:
-  - Uses cost lookup tables and labor rates based on severity
-  - Computes part costs, labor hours/costs, paint materials
-  - Saves RepairEstimate record
-  - If policy linked, computes deductible, covered amount, and estimated payout; saves InsurancePayout
-
-Optimization opportunities:
-- Cache cost ranges and labor rates
-- Batch updates for large damage sets
-- Parallelize independent calculations where applicable
-
-**Section sources**
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
-
-### Document Verification
-- Input: uploaded document image and type
-- Output: verification status, issues, extracted info, recommendations
-- Behavior:
-  - Reads document file, encodes to base64, sends to vision model with context
-  - Parses JSON response; fallback to UNREADABLE with manual review recommendation
-  - Updates document verification status and result
-
-Integration points:
-- Admin approval/rejection flows override or refine AI results
-- Required document types enforced by client and validated by server
+#### Garage Management
+- **List Garages**
+  - Method: GET
+  - Path: /api/admin/garages
+  - Response: all garages with activity counts and approval status
+  
+- **Approve Garage**
+  - Method: PATCH
+  - Path: /api/admin/garages/:id/approve
+  - Response: updated garage with isApproved and isActive flags
+  
+- **Toggle Garage Activity**
+  - Method: PATCH
+  - Path: /api/admin/garages/:id/toggle
+  - Response: updated garage with toggled isActive status
 
 **Section sources**
-- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
-- [admin.ts:151-183](file://backend/src/routes/admin.ts#L151-L183)
+- [admin.ts:11-300](file://backend/src/routes/admin.ts#L11-L300)
 
-### Chat Assistant
-- Contextual responses built from claim data, policy, damage assessment, estimate, payout, and document statuses
-- Maintains conversation history per claim
-- Persists user and assistant messages
+### Garage-Specific Endpoints
+Base path: /api/garage (requires garage authentication)
 
-Usage patterns:
-- Retrieve chat history for UI display
-- Send new messages to receive actionable guidance
+#### Garage Claim Management
+- **List Assigned Claims**
+  - Method: GET
+  - Path: /api/garage/claims
+  - Query parameters: status filter
+  - Response: claims assigned to this garage with full details including damage assessment and existing estimates
+  
+- **Get Claim Detail**
+  - Method: GET
+  - Path: /api/garage/claims/:id
+  - Response: detailed claim information including user contacts, vehicle details, images, assessments, and admin notes
 
-**Section sources**
-- [claimAssistantService.ts:19-130](file://backend/src/services/claimAssistantService.ts#L19-L130)
-
-## Dependency Analysis
-The claims module depends on:
-- Prisma for data access and relationships
-- Multer middleware for file uploads with type/size constraints
-- AI services for damage analysis, document verification, and chat assistance
-- Admin routes for operational control over status, documents, and administrative notes
-
-```mermaid
-graph LR
-Claims["Claims Routes"] --> Prisma["Prisma Client"]
-Claims --> Multer["Multer Upload"]
-Claims --> DamageSvc["Damage Analysis Service"]
-Claims --> RepairSvc["Repair Estimate Service"]
-Claims --> DocVerifySvc["Document Verification Service"]
-Claims --> ChatSvc["Claim Assistant Service"]
-Admin["Admin Routes"] --> Prisma
-Admin --> Notes["Admin Note Management"]
-```
-
-**Diagram sources**
-- [claims.ts:1-15](file://backend/src/routes/claims.ts#L1-L15)
-- [admin.ts:1-7](file://backend/src/routes/admin.ts#L1-L7)
-- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
+#### Garage Estimate Submission
+- **Submit/Update Estimate**
+  - Method: POST
+  - Path: /api/garage/claims/:id/estimate
+  - Request body: { items: array, totalPartsCost: number, totalLaborCost: number, totalCost: number, estimatedDays: number, notes: string }
+  - Validation: Requires AI damage assessment completion; validates item structure
+  - Response: created or updated garage estimate
+  - Status Transition: Automatically updates claim status to GARAGE_ESTIMATED
 
 **Section sources**
-- [claims.ts:1-15](file://backend/src/routes/claims.ts#L1-L15)
-- [admin.ts:1-7](file://backend/src/routes/admin.ts#L1-L7)
-- [upload.ts:1-54](file://backend/src/middleware/upload.ts#L1-L54)
+- [garage.ts:11-136](file://backend/src/routes/garage.ts#L11-L136)
 
-## Performance Considerations
-- File uploads: Enforce size limits and allowed MIME types to prevent abuse and reduce processing overhead.
-- AI calls: Minimize payload size by compressing images before upload; consider batching images if supported by the model.
-- Background processing: Submitting a claim triggers asynchronous analysis; ensure queueing or retries for reliability.
-- Database queries: Use selective includes to avoid loading unnecessary relations; paginate large lists where applicable.
-- Caching: Consider caching static cost tables and frequently accessed metadata to reduce computation.
-- Note management: Admin notes are lightweight text operations with minimal performance impact.
-
-[No sources needed since this section provides general guidance]
-
-## Troubleshooting Guide
-Common issues and resolutions:
-- Missing environment variables: Ensure JWT_SECRET, GEMINI_API_KEY, DATABASE_URL are set at startup.
-- Upload errors: Validate file types and sizes; check upload directory permissions.
-- AI parsing failures: Fallback behavior sets conservative defaults; retry with clearer images or adjust prompts.
-- Not found errors: Verify claim IDs and user authorization; ensure resources exist before operations.
-- Status transitions: Only DRAFT claims can be edited; submissions require images; admin-only endpoints require admin auth.
-- Note management errors: Ensure claim exists before creating notes; validate note content is not empty; verify admin authentication.
-
-Operational tips:
-- Use health endpoint to verify service connectivity.
-- Monitor logs for background task failures and database errors.
-- Leverage admin endpoints to correct document verification states, claim statuses, and manage administrative notes.
+### Enhanced Document Verification
+- **AI-Powered Analysis**: Advanced document type identification and completeness checking
+- **Context-Aware Validation**: Uses claim context (vehicle info, policyholder details) for verification
+- **Fallback Handling**: Graceful degradation to manual review when AI parsing fails
+- **Admin Override**: Manual approval/rejection capabilities with reason tracking
 
 **Section sources**
-- [index.ts:15-22](file://backend/src/index.ts#L15-L22)
-- [upload.ts:30-41](file://backend/src/middleware/upload.ts#L30-L41)
-- [damageAnalysisService.ts:85-103](file://backend/src/services/damageAnalysisService.ts#L85-L103)
-- [documentVerificationService.ts:78-94](file://backend/src/services/documentVerificationService.ts#L78-L94)
-- [admin.ts:187-198](file://backend/src/routes/admin.ts#L187-L198)
+- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
 
-## Conclusion
-The claims processing API provides a robust, automated workflow from submission to resolution, integrating AI-powered damage assessment, repair estimate generation, document verification, contextual chat assistance, and administrative note management. Admin endpoints enable operational control over statuses, documents, and comprehensive note-taking capabilities. The system balances automation with human oversight to ensure accuracy and compliance while maintaining detailed audit trails through administrative notes.
-
-[No sources needed since this section summarizes without analyzing specific files]
-
-## Appendices
-
-### HTTP Methods and URL Patterns Summary
-- POST /api/claims
-- GET /api/claims
-- GET /api/claims/:id
-- PUT /api/claims/:id
-- POST /api/claims/:id/submit
-- POST /api/claims/:id/images
-- DELETE /api/claims/:id/images/:imageId
-- POST /api/claims/:id/analyze
-- POST /api/claims/:id/estimate
-- POST /api/claims/:id/documents
-- GET /api/claims/:id/documents
-- POST /api/claims/:id/documents/:docId/verify
-- GET /api/claims/:id/chat
-- POST /api/claims/:id/chat
-- GET /api/admin/stats
-- GET /api/admin/users
-- GET /api/admin/claims
-- GET /api/admin/claims/:id
-- PATCH /api/admin/claims/:id/status
-- GET /api/admin/documents
-- PATCH /api/admin/documents/:id/approve
-- PATCH /api/admin/documents/:id/reject
-- **GET /api/admin/claims/:id/notes** *(New)*
-- **POST /api/admin/claims/:id/notes** *(New)*
-- **DELETE /api/admin/notes/:noteId** *(New)*
-
-**Section sources**
-- [claims.ts:20-447](file://backend/src/routes/claims.ts#L20-L447)
-- [admin.ts:11-239](file://backend/src/routes/admin.ts#L11-L239)
-
-### Workflow State Management
-Claim statuses follow a defined lifecycle:
-- DRAFT: Initial state; editable until submission
-- SUBMITTED: After submission; triggers AI analysis and estimate generation
-- UNDER_REVIEW: Administrative review phase
-- APPROVED: Claim accepted; payout calculation applied
-- REJECTED: Claim declined; reasons documented
-- COMPLETED: Finalized; repairs completed and payments processed
-
-```mermaid
-stateDiagram-v2
-[*] --> DRAFT
-DRAFT --> SUBMITTED : "submit"
-SUBMITTED --> UNDER_REVIEW : "admin review"
-UNDER_REVIEW --> APPROVED : "approve"
-UNDER_REVIEW --> REJECTED : "reject"
-APPROVED --> COMPLETED : "complete"
-REJECTED --> [*]
-COMPLETED --> [*]
-```
-
-**Diagram sources**
-- [schema.prisma:62-69](file://backend/prisma/schema.prisma#L62-L69)
-- [admin.ts:105-123](file://backend/src/routes/admin.ts#L105-L123)
-
-**Section sources**
-- [schema.prisma:62-69](file://backend/prisma/schema.prisma#L62-L69)
-- [admin.ts:105-123](file://backend/src/routes/admin.ts#L105-L123)
-
-### Data Models Overview
-Key entities and relationships:
-- User owns Vehicles and Policies; Claims link to User, Vehicle, and optionally Policy
-- ClaimImage attached to Claim; DamageAssessment linked to Claim; RepairEstimate linked to DamageAssessment and Claim; InsurancePayout linked to Claim and RepairEstimate
-- Document attached to Claim with verification status and result
-- ChatMessage associated with Claim
-- **AdminNote attached to Claim with category classification and timestamp tracking** *(New)*
+### Enhanced Data Models
+Key entities and relationships with improvements:
+- **Claim**: Now includes garageId relationship and enhanced status tracking
+- **Garage**: Supports claim assignments and estimate submissions
+- **GarageEstimate**: Links garages to specific claims with detailed cost breakdowns
+- **AdminNote**: Provides audit trail and communication channel for reviewers
+- **Enhanced Status Flow**: DRAFT → SUBMITTED/GARAGE_REVIEW → UNDER_REVIEW/GARAGE_ESTIMATED → APPROVED/REJECTED → COMPLETED
 
 ```mermaid
 erDiagram
@@ -473,9 +339,12 @@ USER ||--o{ INSURANCE_POLICY : owns
 USER ||--o{ CLAIM : submits
 VEHICLE ||--o{ CLAIM : involved_in
 INSURANCE_POLICY ||--o{ CLAIM : covers
+GARAGE ||--o{ CLAIM : assigns_to
+GARAGE ||--o{ GARAGE_ESTIMATE : submits
 CLAIM ||--o{ CLAIM_IMAGE : has
 CLAIM ||--o| DAMAGE_ASSESSMENT : has
 CLAIM ||--o| REPAIR_ESTIMATE : has
+CLAIM ||--o| GARAGE_ESTIMATE : has
 CLAIM ||--o| INSURANCE_PAYOUT : has
 CLAIM ||--o{ DOCUMENT : has
 CLAIM ||--o{ CHAT_MESSAGE : has
@@ -483,32 +352,187 @@ CLAIM ||--o{ ADMIN_NOTE : has
 ```
 
 **Diagram sources**
-- [schema.prisma:10-214](file://backend/prisma/schema.prisma#L10-L214)
+- [schema.prisma:73-100](file://backend/prisma/schema.prisma#L73-L100)
+- [schema.prisma:220-255](file://backend/prisma/schema.prisma#L220-L255)
 
 **Section sources**
-- [schema.prisma:10-214](file://backend/prisma/schema.prisma#L10-L214)
+- [schema.prisma:73-255](file://backend/prisma/schema.prisma#L73-L255)
+
+## Dependency Analysis
+The enhanced claims module depends on:
+- **Prisma**: Enhanced data access with garage relationships and improved query capabilities
+- **Multer**: File upload middleware with type/size constraints for images and documents
+- **AI Services**: Damage analysis, document verification, and chat assistance with fallback mechanisms
+- **Authentication**: Multi-role authentication (user, admin, garage) with appropriate middleware
+- **Status Management**: Complex state transitions with validation rules
+
+```mermaid
+graph LR
+Claims["Claims Routes"] --> Prisma["Enhanced Prisma Client"]
+Claims --> Multer["Multer Upload"]
+Claims --> DamageSvc["Damage Analysis Service"]
+Claims --> RepairSvc["Repair Estimate Service"]
+Claims --> DocVerifySvc["Enhanced Document Verification"]
+Claims --> ChatSvc["Claim Assistant Service"]
+Admin["Admin Routes"] --> Prisma
+Admin --> Notes["Enhanced Note Management"]
+Garage["Garage Routes"] --> Prisma
+Garage --> GarageEstimates["Garage Estimate Management"]
+```
+
+**Diagram sources**
+- [claims.ts:1-15](file://backend/src/routes/claims.ts#L1-L15)
+- [admin.ts:1-7](file://backend/src/routes/admin.ts#L1-L7)
+- [garage.ts:1-7](file://backend/src/routes/garage.ts#L1-L7)
+
+**Section sources**
+- [claims.ts:1-15](file://backend/src/routes/claims.ts#L1-L15)
+- [admin.ts:1-7](file://backend/src/routes/admin.ts#L1-L7)
+- [garage.ts:1-7](file://backend/src/routes/garage.ts#L1-L7)
+
+## Performance Considerations
+- **File Uploads**: Enforced size limits and MIME type validation prevent abuse and reduce processing overhead
+- **AI Calls**: Optimized payload handling with base64 encoding and fallback mechanisms for reliability
+- **Background Processing**: Asynchronous damage analysis ensures responsive user experience
+- **Database Queries**: Selective includes and optimized queries reduce loading times for complex relationships
+- **Caching**: Static cost tables and frequently accessed metadata cached where applicable
+- **Garage Workflows**: Efficient filtering and sorting for garage-specific claim lists
+- **Note Management**: Lightweight text operations with minimal performance impact
+
+## Troubleshooting Guide
+Common issues and resolutions:
+- **Environment Variables**: Ensure JWT_SECRET, GEMINI_API_KEY, DATABASE_URL are properly configured
+- **Upload Errors**: Validate file types and sizes; check upload directory permissions and storage availability
+- **AI Parsing Failures**: Fallback behavior provides conservative defaults; retry with clearer images or adjusted prompts
+- **Garage Assignment Issues**: Verify garage exists, is active and approved; check claim status restrictions
+- **Status Transitions**: Validate current status allows requested transition; ensure prerequisites are met
+- **Document Verification**: Check file accessibility; verify AI service connectivity; use admin override when needed
+- **Note Management**: Ensure claim exists before creating notes; validate content requirements; verify admin authentication
+
+Operational tips:
+- Use health endpoint to verify service connectivity and database status
+- Monitor logs for background task failures and AI service errors
+- Leverage admin endpoints to correct document verification states and manage claim statuses
+- Utilize garage endpoints for efficient claim review and estimate management
+
+**Section sources**
+- [index.ts:19-25](file://backend/src/index.ts#L19-L25)
+- [claims.ts:176-229](file://backend/src/routes/claims.ts#L176-L229)
+- [documentVerificationService.ts:76-92](file://backend/src/services/documentVerificationService.ts#L76-L92)
+
+## Conclusion
+The enhanced claims processing API provides a comprehensive, automated workflow from submission to resolution, integrating AI-powered damage assessment, repair estimate generation, document verification, contextual chat assistance, administrative note management, and sophisticated garage assignment workflows. The system now supports a complete multi-stakeholder process involving users, garages, and administrators with robust state management, audit trails, and operational controls. The enhanced architecture balances automation with human oversight to ensure accuracy and compliance while maintaining detailed tracking throughout the entire claims lifecycle.
+
+## Appendices
+
+### HTTP Methods and URL Patterns Summary
+- **Claims Endpoints**:
+  - GET /api/claims/garages *(New)*
+  - POST /api/claims
+  - GET /api/claims
+  - GET /api/claims/:id
+  - PUT /api/claims/:id
+  - PATCH /api/claims/:id/garage *(New)*
+  - POST /api/claims/:id/submit
+  - POST /api/claims/:id/images
+  - DELETE /api/claims/:id/images/:imageId
+  - POST /api/claims/:id/analyze
+  - POST /api/claims/:id/estimate
+  - POST /api/claims/:id/documents
+  - GET /api/claims/:id/documents
+  - POST /api/claims/:id/documents/:docId/verify
+  - GET /api/claims/:id/chat
+  - POST /api/claims/:id/chat
+
+- **Admin Endpoints**:
+  - GET /api/admin/stats
+  - GET /api/admin/users
+  - GET /api/admin/claims
+  - GET /api/admin/claims/:id
+  - PATCH /api/admin/claims/:id/status
+  - GET /api/admin/documents
+  - PATCH /api/admin/documents/:id/approve
+  - PATCH /api/admin/documents/:id/reject
+  - GET /api/admin/claims/:id/notes *(Enhanced)*
+  - POST /api/admin/claims/:id/notes *(Enhanced)*
+  - DELETE /api/admin/notes/:noteId *(Enhanced)*
+  - GET /api/admin/garages *(New)*
+  - PATCH /api/admin/garages/:id/approve *(New)*
+  - PATCH /api/admin/garages/:id/toggle *(New)*
+
+- **Garage Endpoints**:
+  - GET /api/garage/claims *(New)*
+  - GET /api/garage/claims/:id *(New)*
+  - POST /api/garage/claims/:id/estimate *(New)*
+
+**Section sources**
+- [claims.ts:17-532](file://backend/src/routes/claims.ts#L17-L532)
+- [admin.ts:11-300](file://backend/src/routes/admin.ts#L11-L300)
+- [garage.ts:11-136](file://backend/src/routes/garage.ts#L11-L136)
+
+### Enhanced Workflow State Management
+Claim statuses follow an enhanced lifecycle with garage integration:
+- **DRAFT**: Initial state; editable until submission or garage assignment
+- **SUBMITTED**: After submission without garage; triggers AI analysis and estimate generation
+- **GARAGE_REVIEW**: When garage is assigned; awaits garage review and estimate
+- **UNDER_REVIEW**: Administrative review phase
+- **GARAGE_ESTIMATED**: When garage submits detailed estimate
+- **APPROVED**: Claim accepted; payout calculation applied
+- **REJECTED**: Claim declined; reasons documented
+- **COMPLETED**: Finalized; repairs completed and payments processed
+
+```mermaid
+stateDiagram-v2
+[*] --> DRAFT
+DRAFT --> SUBMITTED : "submit (no garage)"
+DRAFT --> GARAGE_REVIEW : "assign garage"
+SUBMITTED --> UNDER_REVIEW : "admin review"
+GARAGE_REVIEW --> GARAGE_ESTIMATED : "garage submits estimate"
+GARAGE_ESTIMATED --> UNDER_REVIEW : "admin review"
+UNDER_REVIEW --> APPROVED : "approve"
+UNDER_REVIEW --> REJECTED : "reject"
+APPROVED --> COMPLETED : "complete"
+REJECTED --> [*]
+COMPLETED --> [*]
+```
+
+**Diagram sources**
+- [schema.prisma:62-71](file://backend/prisma/schema.prisma#L62-L71)
+- [claims.ts:213-222](file://backend/src/routes/claims.ts#L213-L222)
+- [garage.ts:122-126](file://backend/src/routes/garage.ts#L122-L126)
+
+**Section sources**
+- [schema.prisma:62-71](file://backend/prisma/schema.prisma#L62-L71)
+- [claims.ts:213-222](file://backend/src/routes/claims.ts#L213-L222)
+- [garage.ts:122-126](file://backend/src/routes/garage.ts#L122-L126)
 
 ### Example Workflows
 
-#### Claim Submission and AI Analysis
+#### Enhanced Claim Submission with Garage Assignment
 - Steps:
   - Create claim (DRAFT)
   - Upload images
-  - Submit claim (status becomes SUBMITTED)
+  - Assign garage (moves to GARAGE_REVIEW) OR submit directly (moves to SUBMITTED)
   - Background AI analyzes images and generates damage assessment
-  - Repair estimate generated automatically; payout calculated if policy exists
+  - Garage reviews and submits detailed estimate (moves to GARAGE_ESTIMATED)
   - Admin reviews and updates status as needed
+  - Add administrative notes throughout the process
 
 ```mermaid
 flowchart TD
 Start(["Start"]) --> Create["Create Claim (DRAFT)"]
 Create --> UploadImages["Upload Images"]
-UploadImages --> Submit["Submit Claim"]
-Submit --> Analyze["AI Damage Analysis"]
+UploadImages --> AssignGarage{"Assign Garage?"}
+AssignGarage --> |Yes| SubmitWithGarage["Submit with Garage"]
+AssignGarage --> |No| SubmitDirect["Submit Directly"]
+SubmitWithGarage --> GarageReview["GARAGE_REVIEW"]
+SubmitDirect --> Submitted["SUBMITTED"]
+Submitted --> Analyze["AI Damage Analysis"]
+GarageReview --> GarageEstimate["Garage Submits Estimate"]
 Analyze --> Estimate["Generate Repair Estimate"]
-Estimate --> Payout["Calculate Estimated Payout"]
-Payout --> Review["Admin Review"]
-Review --> AddNotes["Add Administrative Notes"]
+GarageEstimate --> AdminReview["Admin Review"]
+Estimate --> AdminReview
+AdminReview --> AddNotes["Add Administrative Notes"]
 AddNotes --> Approve{"Approved?"}
 Approve --> |Yes| Complete["Complete Claim"]
 Approve --> |No| Reject["Reject Claim"]
@@ -517,18 +541,17 @@ Reject --> End
 ```
 
 **Diagram sources**
-- [claims.ts:20-193](file://backend/src/routes/claims.ts#L20-L193)
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
-- [admin.ts:105-123](file://backend/src/routes/admin.ts#L105-L123)
-- [admin.ts:169-219](file://backend/src/routes/admin.ts#L169-L219)
+- [claims.ts:38-274](file://backend/src/routes/claims.ts#L38-L274)
+- [garage.ts:67-136](file://backend/src/routes/garage.ts#L67-L136)
+- [admin.ts:186-222](file://backend/src/routes/admin.ts#L186-L222)
 
-#### Document Verification Flow
+#### Enhanced Document Verification with Admin Override
 - Steps:
   - Upload document
-  - Trigger verification
+  - Trigger AI verification
   - AI returns status and recommendations
-  - Admin approves or rejects if necessary
+  - Admin can approve or reject with reason
+  - Track verification history in admin notes
 
 ```mermaid
 sequenceDiagram
@@ -536,6 +559,7 @@ participant U as "User"
 participant API as "Claims API"
 participant V as "Doc Verification Service"
 participant A as "Admin API"
+participant N as "Note Management"
 U->>API : POST /documents (upload)
 API-->>U : 201 Created
 U->>API : POST /documents/ : id/verify
@@ -544,47 +568,50 @@ V-->>API : VerificationResult
 API-->>U : Result
 A->>API : PATCH /documents/ : id/approve|reject
 API-->>A : Updated Document
+A->>API : POST /claims/ : id/notes (add context)
+API-->>A : 201 Created
 ```
 
 **Diagram sources**
-- [claims.ts:316-397](file://backend/src/routes/claims.ts#L316-L397)
-- [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
-- [admin.ts:151-183](file://backend/src/routes/admin.ts#L151-L183)
+- [claims.ts:398-479](file://backend/src/routes/claims.ts#L398-L479)
+- [documentVerificationService.ts:41-105](file://backend/src/services/documentVerificationService.ts#L41-L105)
+- [admin.ts:186-222](file://backend/src/routes/admin.ts#L186-L222)
 
-#### Administrative Note Management Flow *(New)*
+#### Garage Estimate Submission Flow
 - Steps:
-  - Admin accesses claim detail page
-  - Adds contextual notes with categories (vehicle, document, general)
-  - Reviews existing notes and their timestamps
-  - Deletes notes as needed during the review process
+  - Garage receives claim assignment (GARAGE_REVIEW)
+  - Reviews claim details and damage assessment
+  - Submits detailed estimate with cost breakdown
+  - System automatically updates status to GARAGE_ESTIMATED
+  - Admin reviews garage estimate and makes final decision
 
 ```mermaid
 sequenceDiagram
-participant A as "Admin"
-participant API as "Admin API"
+participant G as "Garage"
+participant API as "Garage API"
 participant DB as "Database"
-A->>API : GET /api/admin/claims/ : id
-API->>DB : Fetch claim with adminNotes
-DB-->>API : Claim + Notes
-API-->>A : Claim Details
-A->>API : POST /api/admin/claims/ : id/notes
-API->>DB : Create AdminNote
-DB-->>API : Created Note
-API-->>A : 201 Created
-A->>API : GET /api/admin/claims/ : id/notes
-API->>DB : Fetch Notes
-DB-->>API : Notes Array
-API-->>A : Notes List
-A->>API : DELETE /api/admin/notes/ : noteId
-API->>DB : Delete Note
-DB-->>API : Success
-API-->>A : 200 OK
+participant A as "Admin API"
+G->>API : GET /garage/claims (list assigned)
+API->>DB : Fetch garage's claims
+DB-->>API : Claims with details
+API-->>G : Claims list
+G->>API : POST /garage/claims/ : id/estimate
+API->>DB : Create estimate & update status
+DB-->>API : Updated claim
+API-->>G : 201 Created
+A->>API : GET /admin/claims/ : id (review)
+API->>DB : Fetch claim with garage estimate
+DB-->>API : Full claim details
+API-->>A : Claim details
+A->>API : PATCH /admin/claims/ : id/status (final decision)
+API-->>A : Updated claim
 ```
 
 **Diagram sources**
-- [admin.ts:169-219](file://backend/src/routes/admin.ts#L169-L219)
-- [schema.prisma:204-213](file://backend/prisma/schema.prisma#L204-L213)
+- [garage.ts:11-136](file://backend/src/routes/garage.ts#L11-L136)
+- [admin.ts:81-127](file://backend/src/routes/admin.ts#L81-L127)
 
 **Section sources**
-- [admin.ts:169-219](file://backend/src/routes/admin.ts#L169-L219)
-- [schema.prisma:204-213](file://backend/prisma/schema.prisma#L204-L213)
+- [garage.ts:11-136](file://backend/src/routes/garage.ts#L11-L136)
+- [admin.ts:81-127](file://backend/src/routes/admin.ts#L81-L127)
+</docs>

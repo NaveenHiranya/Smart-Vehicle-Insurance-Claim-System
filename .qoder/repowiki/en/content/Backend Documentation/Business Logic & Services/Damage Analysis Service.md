@@ -1,3 +1,7 @@
+</think>
+
+Based on my analysis of the codebase, I can see significant enhancements to the Damage Analysis Service that need to be documented. Let me now create the updated documentation:
+
 # Damage Analysis Service
 
 <cite>
@@ -8,18 +12,17 @@
 - [index.ts (types)](file://backend/src/types/index.ts)
 - [claims.ts](file://backend/src/routes/claims.ts)
 - [repairEstimateService.ts](file://backend/src/services/repairEstimateService.ts)
-- [index.ts (server)](file://backend/src/index.ts)
 - [upload.ts](file://backend/src/middleware/upload.ts)
-- [vehicleDetectionService.ts](file://backend/src/services/vehicleDetectionService.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated file path resolution section to document configurable UPLOAD_DIR environment variable
-- Enhanced configuration management section with environment variable details
-- Updated image processing pipeline to reflect improved file path handling
-- Added deployment considerations for different environments
-- Enhanced troubleshooting guide with environment-specific issues
+- Enhanced image handling with prioritization of close-up shots for better damage detection
+- Implemented cost reduction through image token limits (maximum 6 images per analysis)
+- Added automatic repair estimate generation after successful damage analysis
+- Improved JSON response parsing with enhanced fallback mechanisms
+- Optimized Gemini model usage with response mode configuration for cost efficiency
+- Enhanced error handling and logging throughout the pipeline
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -35,141 +38,142 @@
 11. [Appendices](#appendices)
 
 ## Introduction
-This document explains the Damage Analysis Service that processes vehicle images using Google Gemini AI to identify and classify damage types such as dents, scratches, cracks, broken lights, bumper damage, glass damage, and structural issues. It covers the image processing pipeline, prompt engineering strategies, severity assessment logic, JSON response parsing, Prisma database integration for storing assessments and annotating claim images, error handling and fallbacks, performance optimizations, and guidance for customizing detection parameters and extending new damage types.
+This document explains the enhanced Damage Analysis Service that processes vehicle images using Google Gemini AI to identify and classify damage types including dents, scratches, cracks, broken lights, bumper damage, glass damage, and structural issues. The service now features optimized image handling that prioritizes close-up shots, cost reduction through intelligent image selection, automatic repair estimate generation, and improved JSON response parsing with robust fallback mechanisms.
 
-**Updated** The service now uses configurable file path resolution through the UPLOAD_DIR environment variable, enabling flexible deployment across different environments without code modifications.
+**Updated** The service now implements intelligent image prioritization, selecting up to 6 images with close-up shots taking precedence over full vehicle photos to maximize damage detection accuracy while minimizing API costs.
 
 ## Project Structure
-The backend exposes REST endpoints under /api/claims. The claims route triggers background or on-demand damage analysis, which reads uploaded images from a configurable upload directory, calls Gemini, parses structured results, persists assessments, annotates images, and auto-generates repair estimates.
+The backend exposes REST endpoints under /api/claims. The claims route triggers background or on-demand damage analysis, which reads uploaded images from configurable upload directories, calls Gemini with optimized image selection, parses structured results, persists assessments, annotates images, and automatically generates repair estimates.
 
 ```mermaid
 graph TB
 Client["Client App"] --> API["Express Server<br/>/api/claims"]
 API --> ClaimsRoute["Claims Router<br/>POST /:id/analyze"]
 ClaimsRoute --> DAS["DamageAnalysisService.analyzeDamage()"]
+DAS --> ImageSelect["Intelligent Image Selection<br/>Prioritize Close-ups + Max 6 Images"]
 DAS --> Config["Configurable Upload Directory<br/>UPLOAD_DIR Environment Variable"]
 DAS --> Gemini["GoogleGenerativeAI<br/>getGeminiModel()"]
 DAS --> Prisma["Prisma Client<br/>Claim, ClaimImage, DamageAssessment"]
-DAS --> RepairEst["RepairEstimateService.generateRepairEstimate()"]
+DAS --> RepairEst["RepairEstimateService.generateRepairEstimate()<br/>Auto-generated"]
 Config --> FS["File System<br/>Flexible Path Resolution"]
 Prisma --> DB["SQLite Database"]
 ```
 
 **Diagram sources**
-- [claims.ts:270-288](file://backend/src/routes/claims.ts#L270-L288)
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [gemini.ts:6-9](file://backend/src/utils/gemini.ts#L6-L9)
-- [schema.prisma:71-146](file://backend/prisma/schema.prisma#L71-L146)
+- [claims.ts:352-370](file://backend/src/routes/claims.ts#L352-L370)
+- [damageAnalysisService.ts:26-141](file://backend/src/services/damageAnalysisService.ts#L26-L141)
+- [gemini.ts:54-98](file://backend/src/utils/gemini.ts#L54-L98)
+- [schema.prisma:73-166](file://backend/prisma/schema.prisma#L73-L166)
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
 
 **Section sources**
-- [index.ts (server):25-45](file://backend/src/index.ts#L25-L45)
-- [claims.ts:270-288](file://backend/src/routes/claims.ts#L270-L288)
+- [claims.ts:352-370](file://backend/src/routes/claims.ts#L352-L370)
 
 ## Core Components
-- Damage Analysis Service: Orchestrates image reading from configurable upload directories, Gemini invocation, JSON parsing, persistence, image annotation updates, and automatic repair estimate generation.
-- Gemini Utility: Provides a configured GoogleGenerativeAI model instance via environment variables.
-- Types: Strongly typed interfaces for damage items and analysis results.
-- Routes: Expose endpoints to trigger analysis and generate estimates.
-- Repair Estimate Service: Converts damage assessments into itemized cost estimates and optional insurance payout calculations.
-- Prisma Schema: Defines entities for claims, images, damage assessments, repair estimates, and related data.
-- Upload Middleware: Manages file uploads to configurable directories with automatic directory creation.
+- **Enhanced Damage Analysis Service**: Orchestrates intelligent image selection (prioritizing close-ups), Gemini invocation with cost optimization, JSON parsing with robust fallbacks, persistence, image annotation updates, and automatic repair estimate generation.
+- **Optimized Gemini Utility**: Provides configured GoogleGenerativeAI models with cascade fallback and response mode configuration for cost efficiency.
+- **Types**: Strongly typed interfaces for damage items, analysis results, and repair estimates.
+- **Routes**: Expose endpoints to trigger analysis and generate estimates with background processing.
+- **Enhanced Repair Estimate Service**: Converts damage assessments into itemized cost estimates with automatic insurance payout calculations.
+- **Prisma Schema**: Defines entities for claims, images, damage assessments, repair estimates, and related data.
+- **Upload Middleware**: Manages file uploads to configurable directories with automatic directory creation.
 
-**Updated** All components now use consistent file path resolution through the UPLOAD_DIR environment variable for enhanced deployment flexibility.
+**Updated** All components now feature intelligent image selection, automatic repair estimate generation, and enhanced cost optimization through response mode configuration.
 
 **Section sources**
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [gemini.ts:6-9](file://backend/src/utils/gemini.ts#L6-L9)
-- [index.ts (types):12-24](file://backend/src/types/index.ts#L12-L24)
-- [claims.ts:270-314](file://backend/src/routes/claims.ts#L270-L314)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
-- [schema.prisma:71-146](file://backend/prisma/schema.prisma#L71-L146)
+- [damageAnalysisService.ts:26-141](file://backend/src/services/damageAnalysisService.ts#L26-L141)
+- [gemini.ts:54-98](file://backend/src/utils/gemini.ts#L54-L98)
+- [index.ts (types):12-43](file://backend/src/types/index.ts#L12-L43)
+- [claims.ts:352-396](file://backend/src/routes/claims.ts#L352-L396)
+- [repairEstimateService.ts:106-201](file://backend/src/services/repairEstimateService.ts#L106-L201)
+- [schema.prisma:73-166](file://backend/prisma/schema.prisma#L73-L166)
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
 
 ## Architecture Overview
-The service follows a clear pipeline with enhanced file path resolution:
+The service follows an enhanced pipeline with intelligent image selection and automatic post-processing:
 1. Route receives an analyze request for a specific claim.
 2. Service loads claim with images and vehicle context from Prisma.
-3. Images are read from configurable upload directories using UPLOAD_DIR environment variable.
-4. File paths are resolved consistently across all services using path.resolve().
-5. A detailed prompt instructs Gemini to return a strict JSON schema describing damages, severity, drivability, and overall severity.
-6. Gemini response is parsed; if parsing fails, a safe fallback result is used.
-7. Assessment is persisted (create or update), and each claim image's aiAnnotation field is updated based on image type.
-8. Repair estimate generation is triggered automatically after successful analysis.
+3. **Intelligent Image Selection**: Filters and prioritizes DAMAGE_CLOSEUP images first, then adds FULL_VEHICLE images until reaching maximum of 6 images.
+4. Images are read from configurable upload directories using UPLOAD_DIR environment variable.
+5. File paths are resolved consistently across all services using path.resolve().
+6. A detailed prompt instructs Gemini to return a strict JSON schema with response mode enabled for cost efficiency.
+7. Gemini response is parsed with enhanced fallback mechanisms; if parsing fails, a safe fallback result is used.
+8. Assessment is persisted (create or update), and each claim image's aiAnnotation field is updated based on image type.
+9. **Automatic Post-Processing**: Repair estimate generation is triggered automatically after successful analysis.
 
 ```mermaid
 sequenceDiagram
 participant C as "Client"
 participant R as "Claims Router"
 participant S as "DamageAnalysisService"
-participant U as "Upload Config"
+participant IS as "Image Selector"
 participant G as "Gemini Model"
 participant P as "Prisma"
 participant E as "RepairEstimateService"
 C->>R : POST /api/claims/ : id/analyze
 R->>S : analyzeDamage(claimId)
 S->>P : Load claim + images + vehicle
-S->>U : Get UPLOAD_DIR config
-U-->>S : Configured upload directory
-S->>S : Read images from configurable path<br/>path.resolve(uploadDir, relativePath)
-S->>G : generateContent(prompt + images)
+S->>IS : Select optimal images (max 6, prioritize close-ups)
+IS-->>S : Selected images array
+S->>G : generateContent(prompt + selected images)<br/>responseMimeType : application/json
 G-->>S : JSON string response
-S->>S : Parse JSON, fallback if needed
+S->>S : Parse JSON, enhanced fallback if needed
 S->>P : Create/Update DamageAssessment
 S->>P : Update ClaimImage.aiAnnotation per image
-S->>E : generateRepairEstimate(claimId)
+S->>E : generateRepairEstimate(claimId) [automatic]
 E-->>S : Estimate saved
 S-->>R : DamageAnalysisResult
 R-->>C : 200 OK + result
 ```
 
 **Diagram sources**
-- [claims.ts:270-288](file://backend/src/routes/claims.ts#L270-L288)
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [claims.ts:352-370](file://backend/src/routes/claims.ts#L352-L370)
+- [damageAnalysisService.ts:40-141](file://backend/src/services/damageAnalysisService.ts#L40-L141)
+- [gemini.ts:54-98](file://backend/src/utils/gemini.ts#L54-L98)
+- [repairEstimateService.ts:106-201](file://backend/src/services/repairEstimateService.ts#L106-L201)
 
 ## Detailed Component Analysis
 
-### Damage Analysis Pipeline
-- Input validation: Ensures claim exists and has at least one image.
-- Image preparation: Reads files from configurable upload directories using UPLOAD_DIR environment variable, determines MIME type by extension, encodes to base64, and builds inline data parts for Gemini.
-- Prompt engineering: Uses a comprehensive prompt specifying damage categories, severity guidelines, and required JSON output format. Vehicle context is appended to improve relevance.
-- AI call: Invokes Gemini with text prompt and image parts.
-- Response parsing: Extracts JSON from possible markdown code blocks and parses to a typed structure; on failure, returns a minimal safe result indicating manual review.
-- Persistence: Upserts DamageAssessment with damages, drivability assessment, overall severity, and raw AI response.
-- Image annotations: Updates each ClaimImage's aiAnnotation with relevant damages filtered by image type (full vs closeup).
-- Post-processing: Automatically generates a repair estimate for the claim.
+### Enhanced Damage Analysis Pipeline
+- **Input validation**: Ensures claim exists and has at least one image.
+- **Intelligent Image Selection**: Filters images by type, prioritizing DAMAGE_CLOSEUP images first, then adding FULL_VEHICLE images until reaching maximum of 6 images for optimal cost-to-quality ratio.
+- **Image preparation**: Reads files from configurable upload directories using UPLOAD_DIR environment variable, determines MIME type by extension, encodes to base64, and builds inline data parts for Gemini.
+- **Prompt engineering**: Uses comprehensive prompt specifying damage categories, severity guidelines, and required JSON output format with vehicle context appended for relevance.
+- **Optimized AI call**: Invokes Gemini with text prompt and selected images using responseMimeType: 'application/json' for compact, cost-efficient responses.
+- **Enhanced response parsing**: Extracts JSON from possible markdown code blocks with improved error handling; on failure, returns minimal safe result indicating manual review.
+- **Persistence**: Upserts DamageAssessment with damages, drivability assessment, overall severity, and raw AI response.
+- **Image annotations**: Updates each ClaimImage's aiAnnotation with relevant damages filtered by image type (full vs closeup).
+- **Automatic post-processing**: Triggers repair estimate generation immediately after successful analysis without requiring manual intervention.
 
-**Updated** File path resolution now uses configurable UPLOAD_DIR environment variable with proper path resolution for both development and production environments.
+**Updated** The pipeline now features intelligent image selection that prioritizes close-up shots and limits total images to 6, significantly reducing API costs while maintaining detection accuracy.
 
 ```mermaid
 flowchart TD
 Start(["Start analyzeDamage"]) --> Validate["Validate claim and images"]
-Validate --> |OK| Config["Get UPLOAD_DIR from environment"]
+Validate --> |OK| ImageSelect["Select optimal images:<br/>1. Filter DAMAGE_CLOSEUP first<br/>2. Add FULL_VEHICLE images<br/>3. Limit to max 6 images"]
 Validate --> |Fail| Err["Throw error"]
-Config --> Prepare["Read images from configurable path<br/>path.resolve(uploadDir, relativePath)"]
+ImageSelect --> Prepare["Read images from configurable path<br/>path.resolve(uploadDir, relativePath)"]
 Prepare --> Prompt["Build prompt + vehicle context"]
-Prompt --> Call["Call Gemini generateContent"]
-Call --> Parse{"Parse JSON"}
+Prompt --> Call["Call Gemini with responseMimeType: application/json"]
+Call --> Parse{"Parse JSON with enhanced fallback"}
 Parse --> |Success| Persist["Upsert DamageAssessment"]
 Parse --> |Fail| Fallback["Use fallback result"]
 Persist --> Annotate["Update ClaimImage.aiAnnotation"]
 Fallback --> Annotate
-Annotate --> Estimate["Generate repair estimate"]
-Estimate --> End(["Return result"])
+Annotate --> AutoEstimate["Auto-generate repair estimate"]
+AutoEstimate --> End(["Return result"])
 Err --> End
 ```
 
 **Diagram sources**
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+- [damageAnalysisService.ts:40-141](file://backend/src/services/damageAnalysisService.ts#L40-L141)
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
 
 **Section sources**
-- [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
+- [damageAnalysisService.ts:26-141](file://backend/src/services/damageAnalysisService.ts#L26-L141)
 
 ### Configuration Management
-**New Section** The service implements centralized configuration management for file paths and environment-specific settings.
+The service implements centralized configuration management for file paths and environment-specific settings.
 
 - **Upload Directory Configuration**: Uses UPLOAD_DIR environment variable with './uploads' as default fallback for development.
 - **Consistent Path Resolution**: All file operations use path.resolve() to ensure cross-platform compatibility.
@@ -182,10 +186,8 @@ Err --> End
 - Containerized: `UPLOAD_DIR=/app/uploads` for Docker deployments
 
 **Section sources**
-- [damageAnalysisService.ts:67-70](file://backend/src/services/damageAnalysisService.ts#L67-L70)
+- [damageAnalysisService.ts:49-51](file://backend/src/services/damageAnalysisService.ts#L49-L51)
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
-- [index.ts (server):37-38](file://backend/src/index.ts#L37-L38)
-- [vehicleDetectionService.ts:48-51](file://backend/src/services/vehicleDetectionService.ts#L48-L51)
 
 ### Prompt Engineering Strategy
 - Role and scope: Explicitly defines the AI as an automotive damage assessment expert.
@@ -196,7 +198,7 @@ Err --> End
 - Vehicle context: Appends make/model/year/color to ground the analysis.
 
 **Section sources**
-- [damageAnalysisService.ts:7-48](file://backend/src/services/damageAnalysisService.ts#L7-L48)
+- [damageAnalysisService.ts:7-24](file://backend/src/services/damageAnalysisService.ts#L7-L24)
 
 ### Severity Assessment Algorithms
 - AI-driven severity: The prompt includes severity guidelines; Gemini assigns severity per damage and an overall severity.
@@ -204,16 +206,18 @@ Err --> End
 - Cost estimation linkage: Repair estimate service uses severity to select labor rates and paint/material costs, influencing total cost and estimated days.
 
 **Section sources**
-- [damageAnalysisService.ts:42-48](file://backend/src/services/damageAnalysisService.ts#L42-L48)
-- [repairEstimateService.ts:48-58](file://backend/src/services/repairEstimateService.ts#L48-L58)
+- [damageAnalysisService.ts:19-24](file://backend/src/services/damageAnalysisService.ts#L19-L24)
+- [repairEstimateService.ts:75-104](file://backend/src/services/repairEstimateService.ts#L75-L104)
 
-### JSON Response Parsing and Fallback
-- Robust extraction: Attempts to extract JSON from markdown code fences before parsing.
-- Typed result: Parses into a strongly-typed interface ensuring consistent downstream usage.
-- Fallback behavior: On parse failure, logs the raw response and returns a minimal result indicating manual review, preventing pipeline breakage.
+### Enhanced JSON Response Parsing and Fallback
+- **Robust extraction**: Attempts to extract JSON from markdown code fences before parsing with improved error handling.
+- **Typed result**: Parses into a strongly-typed interface ensuring consistent downstream usage.
+- **Enhanced fallback behavior**: On parse failure, logs the raw response and returns a minimal result indicating manual review, preventing pipeline breakage.
+- **Cost optimization**: Uses responseMimeType: 'application/json' configuration to ensure compact JSON responses with fewer tokens.
 
 **Section sources**
-- [damageAnalysisService.ts:85-103](file://backend/src/services/damageAnalysisService.ts#L85-L103)
+- [damageAnalysisService.ts:67-90](file://backend/src/services/damageAnalysisService.ts#L67-L90)
+- [gemini.ts:54-98](file://backend/src/utils/gemini.ts#L54-L98)
 
 ### Prisma Integration and Data Models
 - Entities involved:
@@ -221,6 +225,7 @@ Err --> End
   - ClaimImage: Stores image metadata, type (FULL_VEHICLE or DAMAGE_CLOSEUP), path, label, and aiAnnotation JSON.
   - DamageAssessment: Stores damages JSON, drivability assessment, overall severity, raw AI response, and timestamp.
   - RepairEstimate: Stores itemized costs, totals, and estimated days linked to assessment and claim.
+  - InsurancePayout: Automatically calculated based on repair estimates and policy deductibles.
 - Relationships: One-to-many from Claim to images/documents/chat; one-to-one from Claim to DamageAssessment and RepairEstimate; optional InsurancePayout linked to RepairEstimate.
 
 ```mermaid
@@ -314,19 +319,16 @@ REPAIRESTIMATE ||--o| INSURANCEPAYOUT : "linked to"
 ```
 
 **Diagram sources**
-- [schema.prisma:10-25](file://backend/prisma/schema.prisma#L10-L25)
-- [schema.prisma:27-43](file://backend/prisma/schema.prisma#L27-L43)
-- [schema.prisma:71-94](file://backend/prisma/schema.prisma#L71-L94)
-- [schema.prisma:101-130](file://backend/prisma/schema.prisma#L101-L130)
-- [schema.prisma:132-160](file://backend/prisma/schema.prisma#L132-L160)
+- [schema.prisma:73-166](file://backend/prisma/schema.prisma#L73-L166)
 
 **Section sources**
-- [schema.prisma:71-160](file://backend/prisma/schema.prisma#L71-L160)
+- [schema.prisma:73-166](file://backend/prisma/schema.prisma#L73-L166)
 
 ### API Integration and Workflows
 - Submitting a claim triggers background damage analysis asynchronously to avoid blocking the submit flow.
 - Manual re-analysis can be requested via POST /api/claims/:id/analyze.
-- After analysis, repair estimates can be generated via POST /api/claims/:id/estimate.
+- After analysis, repair estimates are automatically generated without requiring manual intervention.
+- Automatic insurance payout calculation is performed when policies are linked.
 
 ```mermaid
 sequenceDiagram
@@ -339,19 +341,20 @@ API->>API : Validate inputs, set status SUBMITTED
 API->>DAS : analyzeDamage(claimId) [background]
 Note over API,DAS : Non-blocking background task
 API-->>U : 200 OK (claim updated)
-U->>API : POST /api/claims/ : id/estimate
-API->>RES : generateRepairEstimate(claimId)
-RES-->>API : Estimate saved
-API-->>U : 200 OK (estimate)
+Note over DAS,RES : Automatic repair estimate generation
+DAS->>RES : generateRepairEstimate(claimId) [automatic]
+RES-->>DAS : Estimate saved
+U->>API : GET /api/claims/ : id [includes estimate]
+API-->>U : 200 OK (claim with estimate)
 ```
 
 **Diagram sources**
-- [claims.ts:152-193](file://backend/src/routes/claims.ts#L152-L193)
-- [claims.ts:270-314](file://backend/src/routes/claims.ts#L270-L314)
+- [claims.ts:231-274](file://backend/src/routes/claims.ts#L231-L274)
+- [damageAnalysisService.ts:131-137](file://backend/src/services/damageAnalysisService.ts#L131-L137)
 
 **Section sources**
-- [claims.ts:152-193](file://backend/src/routes/claims.ts#L152-L193)
-- [claims.ts:270-314](file://backend/src/routes/claims.ts#L270-L314)
+- [claims.ts:231-274](file://backend/src/routes/claims.ts#L231-L274)
+- [claims.ts:352-396](file://backend/src/routes/claims.ts#L352-L396)
 
 ### Error Handling and Fallback Mechanisms
 - Missing claim or images: Throws descriptive errors early.
@@ -359,24 +362,28 @@ API-->>U : 200 OK (estimate)
 - Background tasks: Errors in background analysis are caught and logged without failing the submit endpoint.
 - Estimate generation: Errors during auto-generation are caught and logged, allowing the rest of the pipeline to continue.
 - File path errors: Enhanced error handling for missing files in configurable upload directories.
+- **Enhanced model fallback**: Gemini utility provides cascade fallback through multiple models with retry logic for transient failures.
 
-**Updated** Improved error handling for file path resolution issues in different deployment environments.
+**Updated** Enhanced error handling includes intelligent model fallback, improved JSON parsing fallbacks, and automatic repair estimate generation with graceful error handling.
 
 **Section sources**
-- [damageAnalysisService.ts:56-62](file://backend/src/services/damageAnalysisService.ts#L56-L62)
-- [damageAnalysisService.ts:85-103](file://backend/src/services/damageAnalysisService.ts#L85-L103)
-- [damageAnalysisService.ts:144-150](file://backend/src/services/damageAnalysisService.ts#L144-L150)
-- [claims.ts:183-186](file://backend/src/routes/claims.ts#L183-L186)
+- [damageAnalysisService.ts:32-38](file://backend/src/services/damageAnalysisService.ts#L32-L38)
+- [damageAnalysisService.ts:72-90](file://backend/src/services/damageAnalysisService.ts#L72-L90)
+- [damageAnalysisService.ts:131-137](file://backend/src/services/damageAnalysisService.ts#L131-L137)
+- [gemini.ts:27-98](file://backend/src/utils/gemini.ts#L27-L98)
+- [claims.ts:264-267](file://backend/src/routes/claims.ts#L264-L267)
 
 ### Performance Considerations
 - Asynchronous background analysis: Submitting a claim does not block on AI processing, improving responsiveness.
+- **Intelligent image selection**: Limits analysis to maximum 6 images with close-up priority, significantly reducing API costs while maintaining accuracy.
+- **Cost optimization**: Uses responseMimeType: 'application/json' configuration for compact responses with fewer output tokens.
 - Efficient image handling: Reads files once and encodes to base64 inline data; MIME detection by extension avoids extra checks.
 - Batched updates: Updates aiAnnotation per image in a loop; consider batching writes if image counts grow large.
 - Environment limits: Ensure adequate memory and disk I/O capacity for multiple large images.
 - Retry strategy: For transient Gemini errors, implement retries with exponential backoff at the Gemini call layer.
 - File system optimization: Configurable upload directories allow placement on high-performance storage systems.
 
-**Updated** Performance benefits from configurable upload directories enable optimal storage placement for different deployment scenarios.
+**Updated** Performance optimizations include intelligent image selection (max 6 images), response mode configuration for cost efficiency, and automatic repair estimate generation.
 
 ### Customization and Extensibility
 - Adding new damage types:
@@ -390,54 +397,57 @@ API-->>U : 200 OK (estimate)
   - Customize how damages are filtered per image type (e.g., map keywords like "close" vs "full").
 - Integrating additional services:
   - Hook into the pipeline after analysis to run third-party validations or notifications.
+- **Enhanced image selection customization**:
+  - Modify MAX_AI_IMAGES constant to balance cost vs accuracy requirements.
+  - Adjust image prioritization logic to favor different image types based on business needs.
 - Environment customization:
   - Configure UPLOAD_DIR for different deployment targets without code changes.
   - Set up separate upload directories for development, staging, and production environments.
 
-**Updated** Enhanced extensibility through environment-based configuration allows seamless deployment across different infrastructure setups.
+**Updated** Enhanced extensibility includes customizable image selection parameters, automatic repair estimate generation, and environment-based configuration.
 
 **Section sources**
-- [damageAnalysisService.ts:7-48](file://backend/src/services/damageAnalysisService.ts#L7-L48)
-- [index.ts (types):12-24](file://backend/src/types/index.ts#L12-L24)
+- [damageAnalysisService.ts:40-46](file://backend/src/services/damageAnalysisService.ts#L40-L46)
+- [damageAnalysisService.ts:7-24](file://backend/src/services/damageAnalysisService.ts#L7-L24)
+- [index.ts (types):12-43](file://backend/src/types/index.ts#L12-L43)
 - [repairEstimateService.ts:4-58](file://backend/src/services/repairEstimateService.ts#L4-L58)
 
 ## Dependency Analysis
 - Express server mounts routes under /api/* and serves static uploads from configurable directory.
 - Claims router depends on:
   - Prisma client for data access.
-  - DamageAnalysisService for AI-based analysis.
-  - RepairEstimateService for cost estimation.
+  - DamageAnalysisService for AI-based analysis with intelligent image selection.
+  - RepairEstimateService for automatic cost estimation.
   - Upload middleware for file handling with configurable paths.
 - DamageAnalysisService depends on:
-  - Gemini utility for model instantiation.
+  - Gemini utility for model instantiation with cascade fallback.
   - Prisma client for reading/writing claim-related data.
   - File system for reading uploaded images from configurable directories.
 - RepairEstimateService depends on Prisma and uses deterministic cost tables to compute estimates.
 
-**Updated** All file system dependencies now use configurable upload directories for enhanced deployment flexibility.
+**Updated** All dependencies now support intelligent image selection, automatic repair estimate generation, and enhanced cost optimization.
 
 ```mermaid
 graph LR
 Server["Express Server"] --> Claims["Claims Router"]
 Claims --> DAS["DamageAnalysisService"]
 Claims --> RES["RepairEstimateService"]
-DAS --> Gemini["Gemini Utility"]
+DAS --> Gemini["Gemini Utility<br/>with Cascade Fallback"]
 DAS --> Prisma["Prisma Client"]
 DAS --> Config["UPLOAD_DIR Configuration"]
 RES --> Prisma
 Config --> FS["File System"]
 Prisma --> DB["SQLite"]
+DAS -.-> ImageSelect["Intelligent Image Selection"]
 ```
 
 **Diagram sources**
-- [index.ts (server):25-45](file://backend/src/index.ts#L25-L45)
 - [claims.ts:1-11](file://backend/src/routes/claims.ts#L1-L11)
 - [damageAnalysisService.ts:1-5](file://backend/src/services/damageAnalysisService.ts#L1-L5)
-- [gemini.ts:1-9](file://backend/src/utils/gemini.ts#L1-L9)
+- [gemini.ts:1-25](file://backend/src/utils/gemini.ts#L1-L25)
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
 
 **Section sources**
-- [index.ts (server):25-45](file://backend/src/index.ts#L25-L45)
 - [claims.ts:1-11](file://backend/src/routes/claims.ts#L1-L11)
 
 ## Performance Considerations
@@ -447,8 +457,10 @@ Prisma --> DB["SQLite"]
 - Monitor disk I/O when reading multiple large images; consider streaming or resizing images before encoding.
 - Profile database write operations; batch updates if necessary to reduce round-trips.
 - Optimize file system performance by placing upload directories on high-speed storage in production environments.
+- **Monitor API costs**: Track image selection patterns and adjust MAX_AI_IMAGES based on cost/performance requirements.
+- **Cache model responses**: Consider implementing response caching for identical image sets to reduce redundant API calls.
 
-**Updated** Performance recommendations now include guidance for optimizing file system performance through strategic upload directory placement.
+**Updated** Performance recommendations include monitoring API costs, optimizing image selection, and implementing response caching strategies.
 
 ## Troubleshooting Guide
 - No images to analyze: Ensure at least one image is uploaded before submitting or analyzing.
@@ -456,38 +468,42 @@ Prisma --> DB["SQLite"]
 - Gemini API key missing: Confirm environment variable GEMINI_API_KEY is set at startup.
 - JSON parse failures: Check the raw AI response stored in aiRawResponse for formatting issues; refine the prompt if needed.
 - Background analysis failures: Inspect logs for background task errors; re-run manual analysis via the analyze endpoint.
-- Estimate generation failures: Ensure a damage assessment exists; check logs for errors during cost calculation.
+- Estimate generation failures: Ensure a damage analysis exists; check logs for errors during cost calculation.
+- **Image selection issues**: Verify image types are correctly tagged (DAMAGE_CLOSEUP vs FULL_VEHICLE) for optimal selection.
+- **High API costs**: Review image selection patterns and consider adjusting MAX_AI_IMAGES constant.
+- **Model fallback issues**: Check logs for model cascade failures and verify API rate limits.
 - **File path resolution issues**: Verify UPLOAD_DIR environment variable is correctly set and accessible.
 - **Missing upload directories**: Ensure upload directories exist or are automatically created by the upload middleware.
 - **Permission errors**: Check file system permissions for the configured upload directory.
 - **Cross-platform path issues**: Verify path separators are handled correctly across different operating systems.
 
-**Updated** Enhanced troubleshooting section includes environment-specific issues related to configurable upload directories.
+**Updated** Enhanced troubleshooting includes guidance for image selection optimization, API cost monitoring, and model fallback debugging.
 
 **Section sources**
-- [damageAnalysisService.ts:56-62](file://backend/src/services/damageAnalysisService.ts#L56-L62)
-- [damageAnalysisService.ts:85-103](file://backend/src/services/damageAnalysisService.ts#L85-L103)
-- [index.ts (server):15-22](file://backend/src/index.ts#L15-L22)
-- [claims.ts:183-186](file://backend/src/routes/claims.ts#L183-L186)
+- [damageAnalysisService.ts:32-38](file://backend/src/services/damageAnalysisService.ts#L32-L38)
+- [damageAnalysisService.ts:72-90](file://backend/src/services/damageAnalysisService.ts#L72-L90)
+- [damageAnalysisService.ts:131-137](file://backend/src/services/damageAnalysisService.ts#L131-L137)
+- [gemini.ts:27-98](file://backend/src/utils/gemini.ts#L27-L98)
+- [claims.ts:264-267](file://backend/src/routes/claims.ts#L264-L267)
 
 ## Conclusion
-The Damage Analysis Service integrates Google Gemini AI with a robust pipeline to classify vehicle damage, assess severity, persist results, annotate images, and generate repair estimates. Its design emphasizes reliability through fallbacks, asynchronous processing, and clear separation of concerns. The recent improvements to configurable file path resolution enhance deployment flexibility across different environments while maintaining consistent functionality. By following the customization guidance, teams can extend damage categories, refine severity logic, integrate additional services, and configure deployment environments while maintaining performance and resilience.
+The enhanced Damage Analysis Service integrates Google Gemini AI with a sophisticated pipeline that intelligently selects optimal images, classifies vehicle damage, assesses severity, persists results, annotates images, and automatically generates repair estimates. The recent improvements include intelligent image prioritization that maximizes detection accuracy while minimizing API costs, automatic repair estimate generation, enhanced JSON response parsing with robust fallbacks, and optimized Gemini model usage with response mode configuration. These enhancements provide significant cost savings while maintaining or improving detection quality, making the service more efficient and scalable for production deployments.
 
-**Updated** The service now provides enhanced deployment flexibility through configurable upload directories, making it suitable for diverse hosting environments from local development to cloud production deployments.
+**Updated** The service now delivers enhanced cost efficiency through intelligent image selection, automatic post-processing capabilities, and optimized API usage patterns suitable for high-volume claim processing scenarios.
 
 ## Appendices
 
 ### API Endpoints Summary
-- POST /api/claims/:id/submit: Submits a claim and triggers background damage analysis.
+- POST /api/claims/:id/submit: Submits a claim and triggers background damage analysis with automatic repair estimate generation.
 - POST /api/claims/:id/analyze: Manually triggers damage analysis and returns the result.
-- POST /api/claims/:id/estimate: Generates a repair estimate based on existing damage assessment.
+- POST /api/claims/:id/estimate: Generates a repair estimate based on existing damage assessment (manual override available).
 
 **Section sources**
-- [claims.ts:152-193](file://backend/src/routes/claims.ts#L152-L193)
-- [claims.ts:270-314](file://backend/src/routes/claims.ts#L270-L314)
+- [claims.ts:231-274](file://backend/src/routes/claims.ts#L231-L274)
+- [claims.ts:352-396](file://backend/src/routes/claims.ts#L352-L396)
 
 ### Environment Configuration
-**New Section** Configuration examples for different deployment scenarios:
+Configuration examples for different deployment scenarios:
 
 **Development (.env):**
 ```bash
@@ -514,6 +530,17 @@ DATABASE_URL=postgresql://user:pass@db-host:5432/app
 ```
 
 **Section sources**
-- [damageAnalysisService.ts:67-70](file://backend/src/services/damageAnalysisService.ts#L67-L70)
+- [damageAnalysisService.ts:49-51](file://backend/src/services/damageAnalysisService.ts#L49-L51)
 - [upload.ts:6-15](file://backend/src/middleware/upload.ts#L6-L15)
-- [index.ts (server):37-38](file://backend/src/index.ts#L37-L38)
+
+### Cost Optimization Guidelines
+- **Image Selection Strategy**: The service automatically prioritizes DAMAGE_CLOSEUP images and limits total images to 6 for optimal cost-to-quality ratio.
+- **Response Mode**: Uses responseMimeType: 'application/json' configuration to ensure compact JSON responses with fewer output tokens.
+- **Model Cascade**: Implements fallback through multiple Gemini models starting with the most cost-effective option.
+- **Background Processing**: Performs analysis asynchronously to avoid blocking user interactions and optimize resource utilization.
+
+### Monitoring and Metrics
+- **API Usage Tracking**: Monitor model usage and fallback patterns through console logs.
+- **Cost Analysis**: Track image selection patterns and adjust MAX_AI_IMAGES based on cost/performance requirements.
+- **Error Rate Monitoring**: Log and monitor JSON parsing failures and model fallback occurrences.
+- **Performance Metrics**: Measure end-to-end processing time from image upload to estimate generation.

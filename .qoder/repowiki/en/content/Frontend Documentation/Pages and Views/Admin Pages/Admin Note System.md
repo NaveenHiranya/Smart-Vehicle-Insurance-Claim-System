@@ -18,9 +18,12 @@
 
 ## Update Summary
 **Changes Made**
-- Updated currency display consistency section to reflect Sri Lankan Rupees formatting across both admin and user interfaces
-- Enhanced Admin Claim Detail Page documentation to include consistent currency formatting
-- Added information about unified monetary display standards across the application
+- Enhanced Admin Claim Detail Page with comprehensive status management system including quick action buttons and advanced status override
+- Improved UI components with better visual feedback, loading states, and user experience enhancements
+- Enhanced note-taking capabilities with category-based organization and real-time updates
+- Added consistent currency formatting across admin and user interfaces using Sri Lankan Rupees (Rs.)
+- Integrated garage estimate comparison features showing AI vs garage estimates side by side
+- Enhanced document approval workflow with reason tracking and status management
 
 ## Table of Contents
 1. Introduction
@@ -34,12 +37,12 @@
 9. Conclusion
 
 ## Introduction
-This document explains the Admin Note System within the Smart Vehicle Insurance Claim System. It focuses on how administrators can add, view, and delete notes attached to claims, and how these notes integrate with claim review workflows. The system provides a secure admin-only API for note management and a React-based admin UI that displays notes alongside claim details and supports quick status changes and document approvals. **Updated**: The administrative interface now maintains consistent currency formatting with the user interface, displaying all monetary values in Sri Lankan Rupees (Rs.) throughout the administrative claim detail page.
+This document explains the Admin Note System within the Smart Vehicle Insurance Claim System. It focuses on how administrators can add, view, and delete notes attached to claims, and how these notes integrate with claim review workflows. The system provides a secure admin-only API for note management and a React-based admin UI that displays notes alongside claim details and supports quick status changes and document approvals. **Updated**: The administrative interface now includes enhanced status management with quick action buttons, comprehensive claim overview with repair estimates and insurance payouts, and consistent currency formatting throughout the interface displaying all monetary values in Sri Lankan Rupees (Rs.).
 
 ## Project Structure
 The Admin Note System spans both backend and frontend:
 - Backend: Express server with Prisma ORM, JWT-based admin authentication, and REST endpoints for notes and related claim operations.
-- Frontend: React application with protected admin routes, an admin dashboard, and a detailed claim page where admins manage notes.
+- Frontend: React application with protected admin routes, an admin dashboard, and a detailed claim page where admins manage notes with enhanced status controls and claim overview.
 
 ```mermaid
 graph TB
@@ -72,38 +75,38 @@ F --> D
 ```
 
 **Diagram sources**
-- [App.tsx:23-49](file://frontend/src/App.tsx#L23-L49)
-- [AdminClaimDetailPage.tsx:1-359](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L1-L359)
-- [ClaimDetailPage.tsx:1-456](file://frontend/src/pages/ClaimDetailPage.tsx#L1-L456)
-- [AdminDashboardPage.tsx:1-130](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L1-L130)
+- [App.tsx:30-68](file://frontend/src/App.tsx#L30-L68)
+- [AdminClaimDetailPage.tsx:23-443](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L23-L443)
+- [ClaimDetailPage.tsx:9-713](file://frontend/src/pages/ClaimDetailPage.tsx#L9-L713)
+- [AdminDashboardPage.tsx:13-132](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L13-L132)
 - [adminApi.ts:1-28](file://frontend/src/services/adminApi.ts#L1-L28)
 - [index.ts:25-62](file://backend/src/index.ts#L25-L62)
-- [admin.ts:1-240](file://backend/src/routes/admin.ts#L1-L240)
+- [admin.ts:1-300](file://backend/src/routes/admin.ts#L1-L300)
 - [adminAuth.ts:1-27](file://backend/src/middleware/adminAuth.ts#L1-L27)
-- [schema.prisma:204-213](file://backend/prisma/schema.prisma#L204-L213)
-- [seedAdmin.ts:9-34](file://backend/src/scripts/seedAdmin.ts#L9-L34)
+- [schema.prisma:209-218](file://backend/prisma/schema.prisma#L209-L218)
+- [seedAdmin.ts:9-39](file://backend/src/scripts/seedAdmin.ts#L9-L39)
 
 **Section sources**
 - [index.ts:25-62](file://backend/src/index.ts#L25-L62)
-- [App.tsx:23-49](file://frontend/src/App.tsx#L23-L49)
+- [App.tsx:30-68](file://frontend/src/App.tsx#L30-L68)
 
 ## Core Components
 - Admin Note Data Model: Stores per-claim notes with category and timestamps.
 - Admin Authentication Middleware: Ensures only authenticated admins access note endpoints.
 - Admin Routes: Provide CRUD endpoints for notes and related claim/document operations.
-- Frontend Admin UI: Displays notes in claim detail view; allows adding, deleting, and viewing categorized notes.
+- Frontend Admin UI: Displays notes in claim detail view; allows adding, deleting, and viewing categorized notes with enhanced status management.
 
 Key responsibilities:
 - Persist notes against claims with categories (vehicle, document, general).
 - Protect endpoints with JWT-based admin checks.
 - Present notes chronologically and allow deletion by admins.
-- **Updated**: Display monetary values consistently using Sri Lankan Rupees (Rs.) format across both admin and user interfaces.
+- **Updated**: Display monetary values consistently using Sri Lankan Rupees (Rs.) format across both admin and user interfaces with enhanced claim overview and status management.
 
 **Section sources**
-- [schema.prisma:204-213](file://backend/prisma/schema.prisma#L204-L213)
+- [schema.prisma:209-218](file://backend/prisma/schema.prisma#L209-L218)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:169-219](file://backend/src/routes/admin.ts#L169-L219)
-- [AdminClaimDetailPage.tsx:80-97](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L80-L97)
+- [admin.ts:172-222](file://backend/src/routes/admin.ts#L172-L222)
+- [AdminClaimDetailPage.tsx:82-99](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L82-L99)
 
 ## Architecture Overview
 The Admin Note System follows a standard client-server architecture:
@@ -128,22 +131,22 @@ RT->>DB : Create AdminNote linked to Claim
 DB-->>RT : Created note
 RT-->>API : 201 Created
 API-->>FE : Response
-FE->>API : GET /api/admin/claims/ : id (includes adminNotes)
-API->>BE : Request
-BE->>RT : Get claim with adminNotes
-RT->>DB : Query Claim + AdminNote[]
-DB-->>RT : Claim with notes
-RT-->>API : JSON
-API-->>FE : Render notes list
+FE->>API : PATCH /api/admin/claims/ : id/status {status}
+API->>BE : Request with new status
+BE->>RT : Status update handler
+RT->>DB : Update claim status
+DB-->>RT : Updated claim
+RT-->>API : 200 OK
+API-->>FE : Refresh claim data
 ```
 
 **Diagram sources**
-- [AdminClaimDetailPage.tsx:80-97](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L80-L97)
+- [AdminClaimDetailPage.tsx:43-61](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L43-L61)
 - [adminApi.ts:7-14](file://frontend/src/services/adminApi.ts#L7-L14)
 - [index.ts:40-45](file://backend/src/index.ts#L40-L45)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:183-208](file://backend/src/routes/admin.ts#L183-L208)
-- [schema.prisma:204-213](file://backend/prisma/schema.prisma#L204-L213)
+- [admin.ts:109-127](file://backend/src/routes/admin.ts#L109-L127)
+- [schema.prisma:73-100](file://backend/prisma/schema.prisma#L73-L100)
 
 ## Detailed Component Analysis
 
@@ -177,11 +180,11 @@ CLAIM ||--o{ ADMIN_NOTE : "has many"
 ```
 
 **Diagram sources**
-- [schema.prisma:71-95](file://backend/prisma/schema.prisma#L71-L95)
-- [schema.prisma:204-213](file://backend/prisma/schema.prisma#L204-L213)
+- [schema.prisma:73-100](file://backend/prisma/schema.prisma#L73-L100)
+- [schema.prisma:209-218](file://backend/prisma/schema.prisma#L209-L218)
 
 **Section sources**
-- [schema.prisma:204-213](file://backend/prisma/schema.prisma#L204-L213)
+- [schema.prisma:209-218](file://backend/prisma/schema.prisma#L209-L218)
 
 ### Admin Authentication Middleware
 - Validates Bearer token from Authorization header.
@@ -208,7 +211,7 @@ IsAdmin --> |Yes| Next["Proceed to handler"]
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 
-### Admin Routes for Notes
+### Enhanced Admin Routes for Notes and Status Management
 Endpoints:
 - GET /api/admin/claims/:id/notes
   - Returns notes for a claim ordered by creation time descending.
@@ -216,10 +219,13 @@ Endpoints:
   - Creates a new note with validation for content and category.
 - DELETE /api/admin/notes/:noteId
   - Deletes a note by ID.
+- PATCH /api/admin/claims/:id/status
+  - Updates claim status with validation for valid status values.
 
 Behavior:
 - All endpoints require admin authentication.
 - Content is trimmed; invalid category defaults to general.
+- Status updates validate against predefined status enum values.
 - Errors return appropriate status codes and messages.
 
 ```mermaid
@@ -240,28 +246,31 @@ RT->>DB : Create AdminNote
 DB-->>RT : New note
 RT-->>API : 201 Created
 API-->>FE : Success response
-FE->>API : DELETE /api/admin/notes/ : noteId
-API->>RT : DELETE /notes/ : noteId
-RT->>DB : Delete note by id
-DB-->>RT : OK
-RT-->>API : {message}
-API-->>FE : Remove from UI
+FE->>API : PATCH /api/admin/claims/ : id/status {status}
+API->>RT : PATCH /claims/ : id/status
+RT->>DB : Update claim status
+DB-->>RT : Updated claim
+RT-->>API : 200 OK
+API-->>FE : Refresh claim data
 ```
 
 **Diagram sources**
-- [admin.ts:169-219](file://backend/src/routes/admin.ts#L169-L219)
+- [admin.ts:109-222](file://backend/src/routes/admin.ts#L109-L222)
 - [adminApi.ts:7-14](file://frontend/src/services/adminApi.ts#L7-L14)
 
 **Section sources**
-- [admin.ts:169-219](file://backend/src/routes/admin.ts#L169-L219)
+- [admin.ts:109-222](file://backend/src/routes/admin.ts#L109-L222)
 
-### Frontend Admin UI for Notes
+### Enhanced Frontend Admin UI for Notes and Status Management
 - AdminClaimDetailPage:
   - Displays existing notes with category badges and timestamps.
   - Provides input to add a note with category selection.
   - Supports deleting notes with confirmation.
   - Integrates with adminApi to call backend endpoints.
-  - **Updated**: Displays repair estimates and insurance payouts with consistent Sri Lankan Rupees formatting (Rs.) throughout the interface.
+  - **Enhanced**: Comprehensive status management with quick action buttons (Approve, Reject, Under Review, Complete) and advanced status override dropdown.
+  - **Enhanced**: Full claim overview with damage assessment, repair estimates, insurance payouts, and garage estimate comparisons.
+  - **Enhanced**: Consistent currency formatting using Sri Lankan Rupees (Rs.) throughout all monetary displays.
+  - **Enhanced**: Real-time status updates with loading states and error handling.
 - AdminProtectedRoute:
   - Guards admin routes by checking for adminToken in localStorage.
 - AdminDashboardPage:
@@ -275,6 +284,8 @@ class AdminClaimDetailPage {
 +state noteCategory
 +handleAddNote()
 +handleDeleteNote(noteId)
++handleStatusChange()
++handleQuickStatus(status)
 +displayCurrencyValues()
 }
 class AdminProtectedRoute {
@@ -289,33 +300,56 @@ AdminDashboardPage --> AdminProtectedRoute : "uses"
 ```
 
 **Diagram sources**
-- [AdminClaimDetailPage.tsx:21-97](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L21-L97)
+- [AdminClaimDetailPage.tsx:23-443](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L23-L443)
 - [AdminProtectedRoute.tsx:3-6](file://frontend/src/components/AdminProtectedRoute.tsx#L3-L6)
-- [AdminDashboardPage.tsx:12-24](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L12-L24)
+- [AdminDashboardPage.tsx:13-132](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L13-L132)
 
 **Section sources**
-- [AdminClaimDetailPage.tsx:80-97](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L80-L97)
-- [AdminClaimDetailPage.tsx:210-223](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L210-L223)
+- [AdminClaimDetailPage.tsx:43-175](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L43-L175)
+- [AdminClaimDetailPage.tsx:82-99](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L82-L99)
+- [AdminClaimDetailPage.tsx:206-312](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L206-L312)
 - [AdminProtectedRoute.tsx:3-6](file://frontend/src/components/AdminProtectedRoute.tsx#L3-L6)
-- [AdminDashboardPage.tsx:12-24](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L12-L24)
+- [AdminDashboardPage.tsx:13-132](file://frontend/src/pages/admin/AdminDashboardPage.tsx#L13-L132)
 
-### Currency Display Consistency
-**Updated** The administrative claim detail page now displays monetary values consistently with the user interface using Sri Lankan Rupees (Rs.) formatting throughout the administrative interface.
+### Enhanced Currency Display and Claim Overview
+**Enhanced** The administrative claim detail page now provides comprehensive claim overview with consistent currency formatting using Sri Lankan Rupees (Rs.) throughout the interface, including repair estimates, insurance payouts, and garage estimate comparisons.
 
 Key features:
-- Repair estimates display parts, labor, and total costs with Rs. prefix
+- Repair estimates display parts, labor, paint materials, and total costs with Rs. prefix
 - Insurance payout amounts show deductible, covered amount, and estimated payout with Rs. formatting
-- Consistent number formatting using `.toLocaleString()` method
-- Unified visual presentation across both admin and user claim detail pages
+- Garage estimate comparisons showing AI vs garage estimates side by side with difference calculations
+- Consistent number formatting using `.toLocaleString()` method throughout the interface
+- Color-coded sections for better visual distinction (blue for parts, purple for labor, green for payouts)
 
 Implementation details:
 - All monetary values use the format `Rs. {value.toLocaleString()}`
-- Consistent styling with color-coded sections (blue for parts, purple for labor, green for payouts)
+- Enhanced garage estimate section with normalized item processing and totals calculation
+- Real-time comparison between AI estimates and garage estimates
 - Proper number formatting with thousands separators for better readability
 
 **Section sources**
-- [AdminClaimDetailPage.tsx:210-223](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L210-L223)
-- [ClaimDetailPage.tsx:229-261](file://frontend/src/pages/ClaimDetailPage.tsx#L229-L261)
+- [AdminClaimDetailPage.tsx:206-312](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L206-L312)
+- [ClaimDetailPage.tsx:291-346](file://frontend/src/pages/ClaimDetailPage.tsx#L291-L346)
+
+### Enhanced Status Management System
+**Enhanced** The admin interface now includes comprehensive status management with quick action buttons and advanced status override capabilities.
+
+Key features:
+- Quick action buttons for common status changes (Approve, Reject, Under Review, Complete)
+- Advanced status override dropdown with all possible statuses
+- Visual feedback with loading states and disabled states for current status
+- Color-coded status indicators with consistent styling
+- Real-time status updates with automatic claim data refresh
+
+Implementation details:
+- Status colors defined for each status type (DRAFT, SUBMITTED, UNDER_REVIEW, etc.)
+- Validation to prevent duplicate status changes
+- Error handling with user-friendly alerts
+- Integration with backend status update endpoint
+
+**Section sources**
+- [AdminClaimDetailPage.tsx:8-21](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L8-L21)
+- [AdminClaimDetailPage.tsx:43-175](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L43-L175)
 
 ### Seed Admin User
 - Purpose: Create or ensure an admin user exists in the database for initial setup.
@@ -324,12 +358,13 @@ Implementation details:
   - Creates admin user with hashed password if not present.
 
 **Section sources**
-- [seedAdmin.ts:9-34](file://backend/src/scripts/seedAdmin.ts#L9-L34)
+- [seedAdmin.ts:9-39](file://backend/src/scripts/seedAdmin.ts#L9-L39)
 
 ## Dependency Analysis
 - Frontend dependencies:
   - React Router for routing and navigation.
   - Axios for HTTP requests with interceptors for auth headers and error handling.
+  - Lucide React for icons used throughout the enhanced UI.
 - Backend dependencies:
   - Express for routing and middleware.
   - Prisma Client for database access.
@@ -340,6 +375,7 @@ Implementation details:
 graph LR
 FE["Frontend<br/>React + Vite"] --> AX["axios"]
 FE --> RR["react-router-dom"]
+FE --> LC["lucide-react"]
 FE --> AP["adminApi.ts"]
 AP --> BE["Express Server"]
 BE --> PR["Prisma Client"]
@@ -364,11 +400,14 @@ BE --> BC["bcryptjs (seed)"]
   - Debounce rapid note submissions to avoid redundant requests.
 - Frontend state:
   - Minimize re-renders by updating local state efficiently after mutations.
+  - Optimized status change handling with immediate UI feedback.
 - Security:
   - Ensure CORS and environment variables are correctly configured to prevent unnecessary failures.
-- **Updated**: Currency formatting performance:
-  - Using `.toLocaleString()` for efficient number formatting
-  - Minimal computational overhead for currency display
+- **Enhanced**: Performance improvements:
+  - Efficient currency formatting using `.toLocaleString()` method
+  - Optimized garage estimate calculations with normalized data processing
+  - Reduced network requests through efficient data fetching strategies
+  - Loading states and optimistic UI updates for better user experience
 
 [No sources needed since this section provides general guidance]
 
@@ -382,16 +421,20 @@ Common issues and resolutions:
   - Empty note content or invalid category; validate inputs before submission.
 - Database connectivity:
   - Health check endpoint indicates DB reachability; confirm DATABASE_URL and migrations.
-- **Updated**: Currency display issues:
+- **Enhanced**: Status management issues:
+  - If status changes fail, verify the status value is valid and matches backend enum values.
+  - Check for proper error handling in status update requests.
+- **Enhanced**: Currency display issues:
   - If monetary values don't display correctly, verify that claim data includes proper numeric values for repair estimates and insurance payouts.
   - Ensure `.toLocaleString()` method is available in the browser environment.
+  - Check for proper data normalization in garage estimate processing.
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:183-208](file://backend/src/routes/admin.ts#L183-L208)
+- [admin.ts:109-127](file://backend/src/routes/admin.ts#L109-L127)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 
 ## Conclusion
-The Admin Note System enables administrators to annotate claims with categorized notes, supporting thorough review workflows. It combines secure admin-only endpoints with a user-friendly interface, integrating seamlessly into the broader claim management system. **Updated**: The system now maintains consistent currency formatting across both administrative and user interfaces, displaying all monetary values in Sri Lankan Rupees (Rs.) for improved user experience and consistency. Proper authentication, validation, and clear data models ensure reliability and maintainability.
+The Admin Note System enables administrators to annotate claims with categorized notes, supporting thorough review workflows with enhanced status management and comprehensive claim oversight. It combines secure admin-only endpoints with a user-friendly interface that now includes quick action buttons, detailed claim overviews, and consistent currency formatting. The system integrates seamlessly into the broader claim management system with improved user experience and reliability. **Enhanced**: The system now provides comprehensive status management with quick actions, detailed claim overviews with repair estimates and insurance payouts, consistent currency formatting across both administrative and user interfaces displaying all monetary values in Sri Lankan Rupees (Rs.), and enhanced garage estimate comparisons for better decision-making. Proper authentication, validation, and clear data models ensure reliability and maintainability.
 
 [No sources needed since this section summarizes without analyzing specific files]

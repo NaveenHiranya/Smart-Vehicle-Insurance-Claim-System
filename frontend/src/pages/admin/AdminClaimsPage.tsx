@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { Search, Filter, ThumbsUp } from 'lucide-react';
+import { Search, Filter, ThumbsUp, Users, Car, X } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
@@ -12,23 +12,51 @@ const statusColors: Record<string, string> = {
 const severityColors: Record<string, string> = {
   MINOR: 'bg-green-100 text-green-700', MODERATE: 'bg-yellow-100 text-yellow-700', SEVERE: 'bg-red-100 text-red-700',
 };
-const statuses = ['ALL', 'DRAFT', 'SUBMITTED', 'GARAGE_REVIEW', 'GARAGE_ESTIMATED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED'];
+const statuses = ['ALL', 'PENDING', 'DRAFT', 'SUBMITTED', 'GARAGE_REVIEW', 'GARAGE_ESTIMATED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED'];
+// PENDING is a virtual filter combining every in-progress status
+const PENDING_STATUSES = 'SUBMITTED,UNDER_REVIEW,GARAGE_REVIEW,GARAGE_ESTIMATED';
 
 export function AdminClaimsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [claims, setClaims] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const s = searchParams.get('status');
+    return s && statuses.includes(s) ? s : 'ALL';
+  });
   const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  // Scope filters arriving from the Users/Vehicles tabs (?user= / ?vehicle=)
+  const userFilter = searchParams.get('user');
+  const vehicleFilter = searchParams.get('vehicle');
 
   const load = () => {
     const params = new URLSearchParams();
-    if (statusFilter !== 'ALL') params.set('status', statusFilter);
+    if (statusFilter === 'PENDING') params.set('status', PENDING_STATUSES);
+    else if (statusFilter !== 'ALL') params.set('status', statusFilter);
     if (search.trim()) params.set('search', search.trim());
+    if (userFilter) params.set('user', userFilter);
+    if (vehicleFilter) params.set('vehicle', vehicleFilter);
     adminApi.get(`/claims?${params}`).then((r) => setClaims(r.data)).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [statusFilter]);
+  useEffect(() => { load(); }, [statusFilter, userFilter, vehicleFilter]);
+
+  // Keep the URL in sync so dashboard links (?status=...) land on the right filter and are shareable
+  const applyStatusFilter = (s: string) => {
+    setStatusFilter(s);
+    const next = new URLSearchParams(searchParams);
+    if (s === 'ALL') next.delete('status');
+    else next.set('status', s);
+    setSearchParams(next, { replace: true });
+  };
+
+  const clearScopeFilter = (key: 'user' | 'vehicle') => {
+    const next = new URLSearchParams(searchParams);
+    next.delete(key);
+    setSearchParams(next, { replace: true });
+  };
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); load(); };
 
@@ -64,14 +92,42 @@ export function AdminClaimsPage() {
           <Filter className="h-4 w-4 text-gray-400" />
           <div className="flex flex-wrap gap-1">
             {statuses.map((s) => (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition ${statusFilter === s ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                {s.replace('_', ' ')}
+              <button key={s} onClick={() => applyStatusFilter(s)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+                  statusFilter === s
+                    ? s === 'PENDING' ? 'bg-yellow-500 text-white' : 'bg-primary-600 text-white'
+                    : s === 'PENDING' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {s === 'PENDING' ? 'Pending' : s.replace('_', ' ')}
               </button>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Scope filter chips — arrived from Users/Vehicles tabs */}
+      {(userFilter || vehicleFilter) && (
+        <div className="flex flex-wrap gap-2 mb-5">
+          {userFilter && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-xs text-blue-700 font-medium">
+              <Users className="h-3 w-3" />
+              User: {claims[0]?.user ? `${claims[0].user.firstName} ${claims[0].user.lastName}` : 'selected user'}
+              <button onClick={() => clearScopeFilter('user')} className="hover:text-blue-900" title="Clear user filter">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {vehicleFilter && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 border border-purple-200 rounded-full text-xs text-purple-700 font-medium">
+              <Car className="h-3 w-3" />
+              Vehicle: {claims[0]?.vehicle ? `${claims[0].vehicle.year} ${claims[0].vehicle.make} ${claims[0].vehicle.model}` : 'selected vehicle'}
+              <button onClick={() => clearScopeFilter('vehicle')} className="hover:text-purple-900" title="Clear vehicle filter">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">

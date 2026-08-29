@@ -16,6 +16,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
+import { AdminVehiclesPage } from './pages/admin/AdminVehiclesPage';
 import { AdminClaimsPage } from './pages/admin/AdminClaimsPage';
 import { AdminClaimDetailPage } from './pages/admin/AdminClaimDetailPage';
 import { AdminDocumentsPage } from './pages/admin/AdminDocumentsPage';
@@ -49,6 +50,7 @@ function App() {
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminLayout><AdminDashboardPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/users" element={<AdminProtectedRoute><AdminLayout><AdminUsersPage /></AdminLayout></AdminProtectedRoute>} />
+          <Route path="/admin/vehicles" element={<AdminProtectedRoute><AdminLayout><AdminVehiclesPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/claims" element={<AdminProtectedRoute><AdminLayout><AdminClaimsPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/claims/:id" element={<AdminProtectedRoute><AdminLayout><AdminClaimDetailPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/documents" element={<AdminProtectedRoute><AdminLayout><AdminDocumentsPage /></AdminLayout></AdminProtectedRoute>} />

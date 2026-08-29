@@ -15,6 +15,11 @@ model User {
   lastName     String
   phone        String?
   address      String?
+  // Insurance company records filled in by an admin
+  nic          String?   // National Identity Card number (user registration)
+  licenseType  String?   // Driving license class (e.g. A, B, B1, C)
+  annualFee    Float?    // Annual insurance fee (LKR)
+  joinedAt     DateTime? // Day the user joined the insurance company
   isAdmin      Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
