@@ -10,6 +10,7 @@
 - [damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
 - [documentVerificationService.ts](file://backend/src/services/documentVerificationService.ts)
 - [repairEstimateService.ts](file://backend/src/services/repairEstimateService.ts)
+- [payoutService.ts](file://backend/src/services/payoutService.ts)
 - [vehicleDetectionService.ts](file://backend/src/services/vehicleDetectionService.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
 - [index.ts (types)](file://backend/src/types/index.ts)
@@ -21,12 +22,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added GARAGE_REVIEW and GARAGE_ESTIMATED status transitions to the claim workflow
-- Integrated garage authentication and authorization system
-- Enhanced claim submission process to support garage assignment
-- Added garage-specific endpoints for claim management and estimate submission
-- Updated frontend interfaces to support garage workflow participation
-- Modified admin status management to include new garage-related statuses
+- Added automatic policy linking when none is specified during claim creation
+- Implemented intelligent search for most recent active policy
+- Enhanced payout calculation service with complex business logic for deductibles, coverage percentages, and vehicle valuation caps
+- Updated garage estimate submission to trigger automatic payout recalculation
+- Improved frontend display of vehicle valuation cap information
 
 ## Table of Contents
 1. Introduction
@@ -53,6 +53,7 @@ NCP["NewClaimPage.tsx"]
 GDP["GarageDashboardPage.tsx"]
 GCDP["GarageClaimDetailPage.tsx"]
 ADP["AdminClaimDetailPage.tsx"]
+CDP["ClaimDetailPage.tsx"]
 end
 subgraph "Backend API"
 R_CLAIMS["routes/claims.ts"]
@@ -68,6 +69,7 @@ S_EST["services/repairEstimateService.ts"]
 S_DOC["services/documentVerificationService.ts"]
 S_ASS["services/claimAssistantService.ts"]
 S_VEH["services/vehicleDetectionService.ts"]
+S_PAYOUT["services/payoutService.ts"]
 end
 subgraph "Data Layer"
 DB["Prisma Client<br/>schema.prisma"]
@@ -76,6 +78,7 @@ NCP --> R_CLAIMS
 GDP --> R_GARAGE
 GCDP --> R_GARAGE
 ADP --> R_ADMIN
+CDP --> R_CLAIMS
 R_CLAIMS --> S_DAM
 R_CLAIMS --> S_EST
 R_CLAIMS --> S_DOC
@@ -83,47 +86,51 @@ R_CLAIMS --> S_ASS
 R_GARAGE --> DB
 R_ADMIN --> DB
 S_DAM --> DB
-S_EST --> DB
+S_EST --> S_PAYOUT
 S_DOC --> DB
 S_ASS --> DB
 S_VEH --> DB
+S_PAYOUT --> DB
 ```
 
 **Diagram sources**
-- [claims.ts:1-476](file://backend/src/routes/claims.ts#L1-L476)
+- [claims.ts:1-554](file://backend/src/routes/claims.ts#L1-L554)
 - [garage.ts:1-136](file://backend/src/routes/garage.ts#L1-L136)
 - [admin.ts:1-300](file://backend/src/routes/admin.ts#L1-L300)
-- [schema.prisma:1-256](file://backend/prisma/schema.prisma#L1-L256)
+- [schema.prisma:1-282](file://backend/prisma/schema.prisma#L1-L282)
+- [payoutService.ts:1-67](file://backend/src/services/payoutService.ts#L1-L67)
 
 **Section sources**
-- [claims.ts:1-476](file://backend/src/routes/claims.ts#L1-L476)
+- [claims.ts:1-554](file://backend/src/routes/claims.ts#L1-L554)
 - [garage.ts:1-136](file://backend/src/routes/garage.ts#L1-L136)
 - [admin.ts:1-300](file://backend/src/routes/admin.ts#L1-L300)
-- [schema.prisma:1-256](file://backend/prisma/schema.prisma#L1-L256)
+- [schema.prisma:1-282](file://backend/prisma/schema.prisma#L1-L282)
 
 ## Core Components
-- Claim Submission and Validation: Enforces required fields and ensures at least one image before submission; sets initial status to SUBMITTED or GARAGE_REVIEW depending on garage assignment.
+- **Enhanced Claim Submission and Validation**: Enforces required fields and ensures at least one image before submission; automatically links policies when none is specified; sets initial status to SUBMITTED or GARAGE_REVIEW depending on garage assignment.
+- **Automatic Policy Linking**: When no policy is specified during claim creation, the system intelligently searches for the user's most recent active policy based on end date.
 - **Enhanced Garage Integration**: Authorized garages can now participate in claim assessment through dedicated authentication and claim management interfaces.
 - AI Damage Assessment: Analyzes uploaded images to identify damages, classify severity, and assess drivability.
-- Repair Estimate Generation: Computes itemized costs for parts, labor, and materials; calculates total cost and estimated repair days; derives insurance payout estimates based on policy deductible.
-- **Garage Estimate Submission**: Professional repair shops can submit detailed estimates with itemized costs, labor hours, and repair timelines.
+- **Enhanced Repair Estimate Generation**: Computes itemized costs for parts, labor, and materials; calculates total cost and estimated repair days; derives insurance payout estimates with complex business logic including deductibles, coverage percentages, and vehicle valuation caps.
+- **Garage Estimate Submission**: Professional repair shops can submit detailed estimates with itemized costs, labor hours, and repair timelines; triggers automatic payout recalculation.
 - Document Verification: Validates uploaded documents for readability, completeness, and potential issues; updates verification status.
 - AI Chat Assistant: Provides contextual responses about claim status, assessments, estimates, and next steps; persists conversation as an audit trail.
 - Data Model: Defines claims, vehicles, policies, images, assessments, estimates, payouts, documents, chat messages, and garage relationships with relationships and enums.
 
 **Section sources**
-- [claims.ts:39-76](file://backend/src/routes/claims.ts#L39-L76)
-- [claims.ts:175-218](file://backend/src/routes/claims.ts#L175-L218)
+- [claims.ts:39-98](file://backend/src/routes/claims.ts#L39-L98)
+- [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
 - [garage.ts:67-133](file://backend/src/routes/garage.ts#L67-L133)
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [repairEstimateService.ts:107-170](file://backend/src/services/repairEstimateService.ts#L107-L170)
+- [payoutService.ts:11-67](file://backend/src/services/payoutService.ts#L11-L67)
 - [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
 - [claimAssistantService.ts:19-129](file://backend/src/services/claimAssistantService.ts#L19-L129)
-- [schema.prisma:62-71](file://backend/prisma/schema.prisma#L62-L71)
-- [schema.prisma:220-255](file://backend/prisma/schema.prisma#L220-L255)
+- [schema.prisma:68-126](file://backend/prisma/schema.prisma#L68-L126)
+- [schema.prisma:266-282](file://backend/prisma/schema.prisma#L266-L282)
 
 ## Architecture Overview
-The claim workflow integrates user input, AI services, garage participation, and persistent storage to automate and assist claim processing with professional repair shop involvement.
+The claim workflow integrates user input, AI services, garage participation, and persistent storage to automate and assist claim processing with professional repair shop involvement and intelligent policy management.
 
 ```mermaid
 sequenceDiagram
@@ -133,12 +140,13 @@ participant API as "routes/claims.ts"
 participant Garage as "Garage Interface"
 participant DAM as "damageAnalysisService.ts"
 participant EST as "repairEstimateService.ts"
+participant PAYOUT as "payoutService.ts"
 participant DOC as "documentVerificationService.ts"
 participant ASS as "claimAssistantService.ts"
 participant DB as "Prisma schema"
 User->>FE : Fill incident info + upload photos + select garage
-FE->>API : POST /claims (create draft with garageId)
-API->>DB : Create Claim (status=DRAFT)
+FE->>API : POST /claims (create draft with auto-linked policy)
+API->>DB : Create Claim (status=DRAFT, auto-link policy if none specified)
 FE->>API : POST /claims/ : id/images (attach images)
 FE->>API : POST /claims/ : id/submit
 API->>DB : Update Claim status=SUBMITTED or GARAGE_REVIEW
@@ -146,10 +154,12 @@ Note over API,DB : If garageId present -> GARAGE_REVIEW, else SUBMITTED
 API->>DAM : analyzeDamage(claimId) [background]
 DAM->>DB : Save DamageAssessment
 DAM->>EST : generateRepairEstimate(claimId)
-EST->>DB : Save RepairEstimate + InsurancePayout
+EST->>PAYOUT : recalculatePayout(claimId)
+PAYOUT->>DB : Save InsurancePayout with complex calculations
 Garage->>API : GET /garage/claims (assigned claims)
 Garage->>API : POST /garage/claims/ : id/estimate (submit estimate)
 API->>DB : Save GarageEstimate + Update status=GARAGE_ESTIMATED
+API->>PAYOUT : recalculatePayout(claimId) [triggered by garage estimate]
 User->>API : POST /claims/ : id/documents (upload docs)
 API->>DOC : verifyDocument(docId)
 DOC->>DB : Update Document verificationStatus
@@ -159,21 +169,22 @@ ASS->>DB : Persist ChatMessage (audit trail)
 ```
 
 **Diagram sources**
-- [claims.ts:39-76](file://backend/src/routes/claims.ts#L39-L76)
-- [claims.ts:175-218](file://backend/src/routes/claims.ts#L175-L218)
-- [garage.ts:12-36](file://backend/src/routes/garage.ts#L12-L36)
+- [claims.ts:39-98](file://backend/src/routes/claims.ts#L39-L98)
+- [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
 - [garage.ts:67-133](file://backend/src/routes/garage.ts#L67-L133)
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [repairEstimateService.ts:107-170](file://backend/src/services/repairEstimateService.ts#L107-L170)
+- [payoutService.ts:11-67](file://backend/src/services/payoutService.ts#L11-L67)
 - [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
 - [claimAssistantService.ts:19-129](file://backend/src/services/claimAssistantService.ts#L19-L129)
-- [schema.prisma:62-71](file://backend/prisma/schema.prisma#L62-L71)
+- [schema.prisma:68-126](file://backend/prisma/schema.prisma#L68-L126)
 
 ## Detailed Component Analysis
 
-### Enhanced Claim Submission Process
+### Enhanced Claim Submission Process with Automatic Policy Linking
 - Required fields: vehicleId, incidentDate, incidentLocation, incidentDescription. Optional fields include policyId, garageId, weatherConditions, hasPoliceReport.
-- **Enhanced Garage Assignment**: Claims can now be assigned to authorized garages during submission by including garageId in the request.
+- **Automatic Policy Linking**: When no policyId is provided during claim creation, the system automatically searches for the user's most recent active policy based on end date. If no active policy exists, it falls back to the most recent policy regardless of expiration status.
+- **Policy Validation**: When a policyId is explicitly provided, the system validates that the policy belongs to the current user.
 - Validation:
   - Backend validates required fields on create.
   - On submit, requires at least one image; otherwise returns an error.
@@ -188,7 +199,14 @@ flowchart TD
 Start(["Submit Claim"]) --> Validate["Validate required fields"]
 Validate --> Valid{"All required fields present?"}
 Valid --> |No| ErrFields["Return 400: Missing fields"]
-Valid --> |Yes| CheckImages["Check images attached"]
+Valid --> |Yes| CheckPolicy{"Policy specified?"}
+CheckPolicy --> |No| AutoLink["Find most recent active policy"]
+CheckPolicy --> |Yes| ValidatePolicy["Validate policy ownership"]
+AutoLink --> SetPolicy["Set linkedPolicyId"]
+ValidatePolicy --> HasPolicy{"Policy belongs to user?"}
+HasPolicy --> |No| ErrPolicy["Return 404: Policy not found"]
+HasPolicy --> |Yes| SetPolicy
+SetPolicy --> CheckImages["Check images attached"]
 CheckImages --> HasImages{"At least one image?"}
 HasImages --> |No| ErrImages["Return 400: Upload images first"]
 HasImages --> |Yes| CheckGarage{"Garage assigned?"}
@@ -200,12 +218,43 @@ TriggerAI --> End(["Done"])
 ```
 
 **Diagram sources**
-- [claims.ts:39-76](file://backend/src/routes/claims.ts#L39-L76)
-- [claims.ts:175-218](file://backend/src/routes/claims.ts#L175-L218)
+- [claims.ts:39-98](file://backend/src/routes/claims.ts#L39-L98)
+- [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
 
 **Section sources**
-- [claims.ts:39-76](file://backend/src/routes/claims.ts#L39-L76)
-- [claims.ts:175-218](file://backend/src/routes/claims.ts#L175-L218)
+- [claims.ts:39-98](file://backend/src/routes/claims.ts#L39-L98)
+- [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
+
+### Enhanced Payout Calculation Service
+- **Complex Business Logic**: The payout calculation service implements sophisticated business rules for determining insurance payouts.
+- **Deductible Application**: Subtracts the policy deductible from the base estimate total.
+- **Coverage Percentage**: Applies the policy's coverage percentage to the amount after deductible.
+- **Vehicle Valuation Cap**: Caps the final covered amount at the vehicle's insured valuation when set.
+- **Garage Estimate Priority**: Uses garage estimates as the primary basis when available, falling back to AI-generated estimates.
+- **Automatic Recalculation**: Triggers payout recalculation whenever estimates change (both AI and garage estimates).
+
+```mermaid
+flowchart TD
+Start(["Recalculate Payout"]) --> Load["Load Claim + Policy + Vehicle + Estimates"]
+Load --> BaseTotal{"Garage estimate exists?"}
+BaseTotal --> |Yes| UseGarage["Use garage estimate total"]
+BaseTotal --> |No| UseAI["Use AI repair estimate total"]
+UseGarage --> CalcAfterDeductible["Calculate after deductible"]
+UseAI --> CalcAfterDeductible
+CalcAfterDeductible --> ApplyCoverage["Apply coverage percentage"]
+ApplyCoverage --> CheckValuation{"Vehicle valuation set?"}
+CheckValuation --> |Yes| CapAmount["Cap at vehicle valuation"]
+CheckValuation --> |No| SkipCap["Skip valuation cap"]
+CapAmount --> SavePayout["Save/update InsurancePayout"]
+SkipCap --> SavePayout
+SavePayout --> End(["Done"])
+```
+
+**Diagram sources**
+- [payoutService.ts:11-67](file://backend/src/services/payoutService.ts#L11-L67)
+
+**Section sources**
+- [payoutService.ts:11-67](file://backend/src/services/payoutService.ts#L11-L67)
 
 ### Garage Authentication and Authorization
 - **Garage Registration**: New garages can register with required information including license number, specialties, and contact details.
@@ -247,6 +296,7 @@ API-->>GarageUI : Return claim data
 - **Claim Details**: Full claim information including vehicle details, images, AI assessments, and existing estimates.
 - **Estimate Submission**: Garages can submit detailed repair estimates with itemized costs, labor hours, and notes.
 - **Status Updates**: Automatic status transition to GARAGE_ESTIMATED when estimates are submitted.
+- **Payout Recalculation**: Garage estimate submission triggers automatic payout recalculation with vehicle valuation caps.
 
 ```mermaid
 flowchart TD
@@ -256,7 +306,8 @@ SelectClaim --> Assess["Review AI Assessment + Images"]
 Assess --> CreateEstimate["Create/Edit Repair Estimate"]
 CreateEstimate --> SubmitEstimate["Submit Estimate"]
 SubmitEstimate --> UpdateStatus["Update Claim Status = GARAGE_ESTIMATED"]
-UpdateStatus --> End(["Complete"])
+UpdateStatus --> RecalculatePayout["Recalculate Payout with Vehicle Cap"]
+RecalculatePayout --> End(["Complete"])
 ```
 
 **Diagram sources**
@@ -298,12 +349,12 @@ Note over DAM,API : Auto-trigger repair estimate generation
 
 **Diagram sources**
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
-- [claims.ts:296-314](file://backend/src/routes/claims.ts#L296-L314)
+- [claims.ts:374-392](file://backend/src/routes/claims.ts#L374-L392)
 
 **Section sources**
 - [damageAnalysisService.ts:50-153](file://backend/src/services/damageAnalysisService.ts#L50-L153)
 
-### Repair Estimate Generation
+### Enhanced Repair Estimate Generation
 - Inputs: DamageAssessment items with type, severity, location, description, affectedParts.
 - Cost Calculation:
   - Uses predefined cost ranges for parts and labor hours by damage type and severity.
@@ -313,7 +364,7 @@ Note over DAM,API : Auto-trigger repair estimate generation
   - Estimates repair days based on total labor hours divided by standard daily capacity.
 - Outputs:
   - Creates or updates RepairEstimate with itemized details and totals.
-  - If a policy is linked, computes covered amount and estimated payout after applying deductible; stores InsurancePayout.
+  - **Enhanced Payout Calculation**: Automatically triggers payout recalculation with complex business logic including deductibles, coverage percentages, and vehicle valuation caps.
 
 ```mermaid
 flowchart TD
@@ -321,19 +372,17 @@ Start(["Generate Estimate"]) --> Load["Load Claim + DamageAssessment + Policy"]
 Load --> Items["Map damages to estimate items"]
 Items --> Costs["Compute part/labor/materials per item"]
 Costs --> Totals["Sum totals and compute estimatedDays"]
-Totals --> Payout{"Policy linked?"}
-Payout --> |Yes| CalcPayout["Apply deductible -> coveredAmount & estimatedPayout"]
-Payout --> |No| SkipPayout["Skip payout calculation"]
-CalcPayout --> Save["Save RepairEstimate + InsurancePayout"]
-SkipPayout --> Save
-Save --> End(["Done"])
+Totals --> SaveEstimate["Save RepairEstimate"]
+SaveEstimate --> RecalculatePayout["Call recalculatePayout()"]
+RecalculatePayout --> End(["Done"])
 ```
 
 **Diagram sources**
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [repairEstimateService.ts:107-170](file://backend/src/services/repairEstimateService.ts#L107-L170)
+- [payoutService.ts:11-67](file://backend/src/services/payoutService.ts#L11-L67)
 
 **Section sources**
-- [repairEstimateService.ts:104-199](file://backend/src/services/repairEstimateService.ts#L104-L199)
+- [repairEstimateService.ts:107-170](file://backend/src/services/repairEstimateService.ts#L107-L170)
 
 ### Document Verification Workflow
 - Supported types: LICENSE, REGISTRATION, ACCIDENT_REPORT, REPAIR_ESTIMATE.
@@ -360,11 +409,11 @@ DOC-->>API : Return result
 
 **Diagram sources**
 - [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
-- [claims.ts:405-423](file://backend/src/routes/claims.ts#L405-L423)
+- [claims.ts:483-501](file://backend/src/routes/claims.ts#L483-L501)
 
 **Section sources**
 - [documentVerificationService.ts:41-106](file://backend/src/services/documentVerificationService.ts#L41-L106)
-- [claims.ts:405-423](file://backend/src/routes/claims.ts#L405-L423)
+- [claims.ts:483-501](file://backend/src/routes/claims.ts#L483-L501)
 
 ### Enhanced Claim Status Transitions and Audit Trail
 - **Enhanced Statuses**: DRAFT, SUBMITTED, UNDER_REVIEW, GARAGE_REVIEW, GARAGE_ESTIMATED, APPROVED, REJECTED, COMPLETED.
@@ -393,25 +442,26 @@ COMPLETED --> [*]
 ```
 
 **Diagram sources**
-- [schema.prisma:62-71](file://backend/prisma/schema.prisma#L62-L71)
-- [claims.ts:175-218](file://backend/src/routes/claims.ts#L175-L218)
+- [schema.prisma:88-97](file://backend/prisma/schema.prisma#L88-L97)
+- [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
 - [garage.ts:122-126](file://backend/src/routes/garage.ts#L122-L126)
 - [admin.ts:109-127](file://backend/src/routes/admin.ts#L109-L127)
 
 **Section sources**
-- [schema.prisma:62-71](file://backend/prisma/schema.prisma#L62-L71)
-- [claims.ts:175-218](file://backend/src/routes/claims.ts#L175-L218)
+- [schema.prisma:88-97](file://backend/prisma/schema.prisma#L88-L97)
+- [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
 - [garage.ts:122-126](file://backend/src/routes/garage.ts#L122-L126)
 - [admin.ts:109-127](file://backend/src/routes/admin.ts#L109-L127)
 
 ### Frontend Claim Creation Flow
 - Steps: Incident Info, Full Vehicle Photos, Damage Close-up Photos, Review & Submit.
 - **Enhanced Garage Selection**: Users can now select from available authorized garages during claim creation.
+- **Automatic Policy Display**: Shows the automatically linked policy when none is explicitly selected.
 - Validation:
   - Requires vehicle selection, incident date/location/description.
   - Requires at least one full vehicle photo before proceeding.
 - Submission:
-  - Creates claim, uploads images, then submits; navigates to claim detail page.
+  - Creates claim with automatic policy linking, uploads images, then submits; navigates to claim detail page.
 
 ```mermaid
 flowchart TD
@@ -420,7 +470,7 @@ Step1 --> Step2["Full Vehicle Photos"]
 Step2 --> Step3["Damage Close-up Photos"]
 Step3 --> Step4["Select Garage (Optional)"]
 Step4 --> Step5["Review & Submit"]
-Step5 --> Submit["Create claim + upload images + submit"]
+Step5 --> Submit["Create claim + auto-link policy + upload images + submit"]
 Submit --> Navigate["Navigate to claim detail"]
 ```
 
@@ -446,6 +496,7 @@ Completed --> Detail
 Detail --> EditEstimate["Edit/Create Estimate"]
 EditEstimate --> Submit["Submit Estimate"]
 Submit --> Update["Update Status to GARAGE_ESTIMATED"]
+Update --> Recalculate["Recalculate Payout with Vehicle Cap"]
 ```
 
 **Diagram sources**
@@ -459,7 +510,7 @@ Submit --> Update["Update Status to GARAGE_ESTIMATED"]
 - Services encapsulate AI integrations and database operations.
 - Prisma schema defines entities and relationships used across services.
 - Types define shared interfaces for requests/responses and service outputs.
-- **Enhanced Dependencies**: Garage authentication middleware and dedicated garage routes add new dependency layers.
+- **Enhanced Dependencies**: Garage authentication middleware and dedicated garage routes add new dependency layers; payout service is now integrated with both repair estimate and garage estimate workflows.
 
 ```mermaid
 graph LR
@@ -473,29 +524,32 @@ R_G["routes/garage.ts"] --> MG["middleware/garageAuth.ts"]
 R_A["routes/admin.ts"] --> MA["middleware/adminAuth.ts"]
 S1 --> T["types/index.ts"]
 S2 --> T
+S2 --> S5["payoutService.ts"]
 S3 --> T
 S4 --> T
 S1 --> P["prisma/schema.prisma"]
 S2 --> P
 S3 --> P
 S4 --> P
+S5 --> P
 R_G --> P
 R_A --> P
 ```
 
 **Diagram sources**
-- [claims.ts:1-476](file://backend/src/routes/claims.ts#L1-L476)
+- [claims.ts:1-554](file://backend/src/routes/claims.ts#L1-L554)
 - [garage.ts:1-136](file://backend/src/routes/garage.ts#L1-L136)
 - [admin.ts:1-300](file://backend/src/routes/admin.ts#L1-L300)
 - [index.ts:1-51](file://backend/src/types/index.ts#L1-L51)
-- [schema.prisma:1-256](file://backend/prisma/schema.prisma#L1-L256)
+- [schema.prisma:1-282](file://backend/prisma/schema.prisma#L1-L282)
+- [payoutService.ts:1-67](file://backend/src/services/payoutService.ts#L1-L67)
 
 **Section sources**
-- [claims.ts:1-476](file://backend/src/routes/claims.ts#L1-L476)
+- [claims.ts:1-554](file://backend/src/routes/claims.ts#L1-L554)
 - [garage.ts:1-136](file://backend/src/routes/garage.ts#L1-L136)
 - [admin.ts:1-300](file://backend/src/routes/admin.ts#L1-L300)
 - [index.ts:1-51](file://backend/src/types/index.ts#L1-L51)
-- [schema.prisma:1-256](file://backend/prisma/schema.prisma#L1-L256)
+- [schema.prisma:1-282](file://backend/prisma/schema.prisma#L1-L282)
 
 ## Performance Considerations
 - Image handling: Reading and encoding images to base64 for AI calls can be memory-intensive; consider streaming or optimizing image sizes where possible.
@@ -504,30 +558,34 @@ R_A --> P
 - Caching: Consider caching frequent lookups (e.g., vehicle/policy data) if read-heavy workloads emerge.
 - Rate limits: Respect external AI provider rate limits and implement exponential backoff for retries.
 - **Garage Performance**: Garage authentication and claim filtering should be optimized for concurrent access patterns.
+- **Payout Calculation Optimization**: The recalculatePayout function is called multiple times during the workflow; consider batching or caching strategies for high-volume scenarios.
 
 [No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
 - Missing required fields on claim creation: Ensure vehicleId, incidentDate, incidentLocation, and incidentDescription are provided.
 - No images on submit: At least one image must be attached before submitting; otherwise, the request will fail.
+- **Policy Linking Issues**: When no policy is specified, the system automatically finds the most recent active policy; check user's policy history if unexpected policy is linked.
 - **Garage Assignment Issues**: Verify garage exists, is approved, and is active before assigning to claims.
 - Damage analysis failures: If AI parsing fails, a fallback assessment is stored; manual review may be required.
 - Document verification unreadable: If the document image is blurry or damaged, the system marks it UNREADABLE; prompt users to re-upload clearer images.
 - Estimate generation errors: Requires a valid DamageAssessment; ensure damage analysis completes successfully before generating estimates.
+- **Payout Calculation Errors**: Ensure vehicle valuation is properly set; check policy deductible and coverage percentage values.
 - **Garage Authentication Errors**: Check JWT token validity, garage approval status, and account activation.
 - Chat assistant errors: Verify claim exists and that chat history retrieval succeeds; check AI model availability.
 
 **Section sources**
-- [claims.ts:39-76](file://backend/src/routes/claims.ts#L39-L76)
-- [claims.ts:175-218](file://backend/src/routes/claims.ts#L175-L218)
+- [claims.ts:39-98](file://backend/src/routes/claims.ts#L39-L98)
+- [claims.ts:253-296](file://backend/src/routes/claims.ts#L253-L296)
 - [garageAuth.ts:1-30](file://backend/src/middleware/garageAuth.ts#L1-L30)
 - [damageAnalysisService.ts:85-103](file://backend/src/services/damageAnalysisService.ts#L85-L103)
 - [documentVerificationService.ts:78-94](file://backend/src/services/documentVerificationService.ts#L78-L94)
 - [repairEstimateService.ts:114-116](file://backend/src/services/repairEstimateService.ts#L114-L116)
+- [payoutService.ts:11-67](file://backend/src/services/payoutService.ts#L11-L67)
 - [claimAssistantService.ts:36-38](file://backend/src/services/claimAssistantService.ts#L36-L38)
 
 ## Conclusion
-The system implements a comprehensive, AI-assisted claims processing workflow that automates damage assessment, generates repair estimates, verifies documents, and maintains an auditable chat history. The enhanced workflow now includes authorized garage participation through GARAGE_REVIEW and GARAGE_ESTIMATED statuses, allowing professional repair shops to assess damages and submit detailed estimates. The modular architecture separates concerns between routing, services, and data modeling, enabling extensibility for custom claim types, additional workflow stages, and business rule modifications.
+The system implements a comprehensive, AI-assisted claims processing workflow that automates damage assessment, generates repair estimates, verifies documents, and maintains an auditable chat history. The enhanced workflow now includes automatic policy linking when none is specified, intelligent search for the most recent active policy, and sophisticated payout calculation with complex business logic including deductibles, coverage percentages, and vehicle valuation caps. The integration of authorized garage participation through GARAGE_REVIEW and GARAGE_ESTIMATED statuses allows professional repair shops to assess damages and submit detailed estimates. The modular architecture separates concerns between routing, services, and data modeling, enabling extensibility for custom claim types, additional workflow stages, and business rule modifications.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -538,26 +596,30 @@ The system implements a comprehensive, AI-assisted claims processing workflow th
 - Add new document types in the DocumentType enum and update validation logic in the document upload route.
 - Introduce new AI prompts in services to handle specialized damage categories or document formats.
 - **Garage Extensions**: Add new garage capabilities such as real-time communication, scheduling integration, or advanced diagnostic tools.
+- **Policy Extensions**: Enhance automatic policy linking logic to support more sophisticated criteria beyond just expiration dates.
 
 **Section sources**
-- [schema.prisma:62-71](file://backend/prisma/schema.prisma#L62-L71)
-- [schema.prisma:168-173](file://backend/prisma/schema.prisma#L168-L173)
-- [claims.ts:342-379](file://backend/src/routes/claims.ts#L342-L379)
+- [schema.prisma:88-97](file://backend/prisma/schema.prisma#L88-L97)
+- [schema.prisma:194-199](file://backend/prisma/schema.prisma#L194-L199)
+- [claims.ts:374-392](file://backend/src/routes/claims.ts#L374-L392)
 
 ### Business Rule Modifications
 - Adjust cost ranges and labor rates in repair estimate calculations to reflect regional pricing or vendor agreements.
 - Modify validation rules for claim submission (e.g., require police report for certain severities).
 - Implement notification triggers upon status changes (e.g., email/SMS on APPROVED/REJECTED) by adding hooks in route handlers.
 - **Garage Business Rules**: Define approval workflows, specialty matching algorithms, and performance metrics for garage participation.
+- **Payout Business Rules**: Customize deductible amounts, coverage percentages, and vehicle valuation cap logic in the payout calculation service.
 
 **Section sources**
-- [repairEstimateService.ts:4-58](file://backend/src/services/repairEstimateService.ts#L4-L58)
-- [claims.ts:39-76](file://backend/src/routes/claims.ts#L39-L76)
+- [repairEstimateService.ts:5-60](file://backend/src/services/repairEstimateService.ts#L5-L60)
+- [claims.ts:39-98](file://backend/src/routes/claims.ts#L39-L98)
 - [garageAuth.ts:11-56](file://backend/src/routes/garageAuth.ts#L11-L56)
+- [payoutService.ts:11-67](file://backend/src/services/payoutService.ts#L11-L67)
 
 ### Enhanced Workflow Scenarios
 - **Standard Flow**: User submits claim → AI assessment → Admin review → Approval/Rejection
 - **Garage Flow**: User submits claim with garage → Garage review → Garage estimate → Admin review → Approval/Rejection
 - **Hybrid Flow**: User submits claim → AI assessment → Garage estimate → Admin comparison → Approval/Rejection
+- **Automatic Policy Flow**: User submits claim without policy → System auto-links most recent active policy → Standard processing continues
 
 [No sources needed since this section provides conceptual workflow examples]

@@ -387,7 +387,14 @@ router.post('/:id/analyze', async (req: AuthRequest, res: Response) => {
     res.json(assessment);
   } catch (error) {
     console.error('Analyze damage error:', error);
-    res.status(500).json({ error: 'Failed to analyze damage.' });
+    // Known preconditions surface as actionable 400s; anything else is an AI-side
+    // hiccup the user can retry (the cascade has already exhausted the models).
+    const message = error instanceof Error ? error.message : '';
+    if (message.includes('images')) {
+      res.status(400).json({ error: message });
+      return;
+    }
+    res.status(502).json({ error: 'AI damage analysis failed. Please try again in a moment.' });
   }
 });
 

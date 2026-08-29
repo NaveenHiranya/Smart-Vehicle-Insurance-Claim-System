@@ -21,19 +21,21 @@
 - [RegisterPage.tsx](file://frontend/src/pages/RegisterPage.tsx)
 - [DashboardPage.tsx](file://frontend/src/pages/DashboardPage.tsx)
 - [ClaimDetailPage.tsx](file://frontend/src/pages/ClaimDetailPage.tsx)
+- [PoliciesPage.tsx](file://frontend/src/pages/PoliciesPage.tsx)
 - [AdminLoginPage.tsx](file://frontend/src/pages/admin/AdminLoginPage.tsx)
 - [AdminClaimDetailPage.tsx](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx)
 - [AdminDocumentsPage.tsx](file://frontend/src/pages/admin/AdminDocumentsPage.tsx)
+- [AdminPoliciesPage.tsx](file://frontend/src/pages/admin/AdminPoliciesPage.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated all references from "FastClaim" to "Flash Claim" branding throughout the application
-- Updated application title in index.html to "Flash Claim"
-- Updated layout components to reflect new "Flash Claim" branding with "Smart Claims" tagline
-- Updated login and registration pages with new "Flash Claim" branding
-- Updated admin login page with new "Flash Claim" branding and "Admin Portal" subtitle
-- Enhanced documentation to reflect current Flash Claim branding throughout the application
+- Added comprehensive policy management system with user-facing and admin interfaces
+- Implemented new PoliciesPage.tsx with policy activation flow showing existing policies alongside available built-in plans
+- Added AdminPoliciesPage.tsx for template management with CRUD operations for insurance plan templates
+- Enhanced navigation to include Policy pages in both user and admin layouts
+- Integrated policy template system with backend API endpoints for plan management
+- Updated routing configuration to support new policy management features
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -41,14 +43,15 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considering)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Policy Management System](#policy-management-system)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considering)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive frontend documentation for the React-based user interface of Flash Claim, a modern vehicle insurance claim management system. The application features consistent "Flash Claim" branding across all user-facing components, including headers, login pages, registration pages, and admin interfaces. It covers component hierarchy, routing with React Router, state management via Context API, API integration using Axios, styling with Tailwind CSS, responsive design, accessibility considerations, composition patterns, prop interfaces, event handling, error boundaries, build configuration with Vite, and centralized URL resolution utilities for file uploads.
+This document provides comprehensive frontend documentation for the React-based user interface of Flash Claim, a modern vehicle insurance claim management system. The application features consistent "Flash Claim" branding across all user-facing components, including headers, login pages, registration pages, and admin interfaces. It covers component hierarchy, routing with React Router, state management via Context API, API integration using Axios, styling with Tailwind CSS, responsive design, accessibility considerations, composition patterns, prop interfaces, event handling, error boundaries, build configuration with Vite, and centralized URL resolution utilities for file uploads. **Updated** The system now includes a comprehensive policy management feature allowing users to activate insurance plans and administrators to manage policy templates.
 
 ## Project Structure
 The frontend is a Vite + React application using TypeScript, Tailwind CSS, and React Router. The entry point renders the root App inside StrictMode, which configures routing, authentication context, and protected routes. Layouts wrap page components to provide consistent navigation and Flash Claim branding. Services encapsulate HTTP calls with Axios interceptors for token injection and error handling. Types define shared data models used across pages and services. A centralized utility handles URL resolution for uploaded files across different environments.
@@ -61,27 +64,29 @@ APP --> ROUTER["React Router Routes"]
 APP --> AUTH["AuthProvider (AuthContext)"]
 ROUTER --> LAYOUTS["Layout / AdminLayout<br/>Branding: Flash Claim"]
 ROUTER --> PAGES["Pages (Dashboard, Login, etc.)"]
+ROUTER --> POLICIES["Policies Pages<br/>User & Admin Interfaces"]
 PAGES --> SERVICES["API Services (api.ts, adminApi.ts)"]
 PAGES --> UTILS["Utilities (uploadUrl.ts)"]
 SERVICES --> TYPES["Shared Types (types/index.ts)"]
 UTILS --> TYPES
+POLICIES --> SERVICES
 ```
 
 **Diagram sources**
 - [index.html:7](file://frontend/index.html#L7)
 - [main.tsx:1-11](file://frontend/src/main.tsx#L1-L11)
-- [App.tsx:1-56](file://frontend/src/App.tsx#L1-L56)
+- [App.tsx:1-75](file://frontend/src/App.tsx#L1-L75)
 - [Layout.tsx:33-34](file://frontend/src/components/Layout.tsx#L33-L34)
 - [AdminLayout.tsx:36-37](file://frontend/src/components/AdminLayout.tsx#L36-L37)
 - [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 - [adminApi.ts:1-26](file://frontend/src/services/adminApi.ts#L1-L26)
 - [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
-- [types/index.ts:1-150](file://frontend/src/types/index.ts#L1-L150)
+- [types/index.ts:1-270](file://frontend/src/types/index.ts#L1-L270)
 
 **Section sources**
 - [index.html:1-14](file://frontend/index.html#L1-L14)
 - [main.tsx:1-11](file://frontend/src/main.tsx#L1-L11)
-- [App.tsx:1-56](file://frontend/src/App.tsx#L1-L56)
+- [App.tsx:1-75](file://frontend/src/App.tsx#L1-L75)
 
 ## Core Components
 - Authentication Context: Centralized state for user session, token persistence, login/register/logout/profile updates.
@@ -103,12 +108,12 @@ Key responsibilities:
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
 - [ProtectedRoute.tsx:1-21](file://frontend/src/components/ProtectedRoute.tsx#L1-L21)
 - [AdminProtectedRoute.tsx:1-8](file://frontend/src/components/AdminProtectedRoute.tsx#L1-L8)
-- [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
-- [AdminLayout.tsx:1-74](file://frontend/src/components/AdminLayout.tsx#L1-L74)
+- [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
+- [AdminLayout.tsx:1-94](file://frontend/src/components/AdminLayout.tsx#L1-L94)
 - [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 - [adminApi.ts:1-26](file://frontend/src/services/adminApi.ts#L1-L26)
 - [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
-- [types/index.ts:1-150](file://frontend/src/types/index.ts#L1-L150)
+- [types/index.ts:1-270](file://frontend/src/types/index.ts#L1-L270)
 
 ## Architecture Overview
 The application uses a layered architecture:
@@ -155,15 +160,15 @@ end
 - Root router wraps the app with BrowserRouter and AuthProvider.
 - Public routes: login, register, admin login.
 - Protected user routes: dashboard, vehicles, policies, claims, profile.
-- Protected admin routes: admin dashboard, users, claims, documents.
+- Protected admin routes: admin dashboard, users, claims, documents, policies.
 - Redirects: root path redirects to dashboard; admin root redirects to admin login.
 
 ```mermaid
 flowchart TD
 Start(["App Mount"]) --> Router["Routes Configuration"]
 Router --> Public["Public Routes<br/>/login, /register, /admin/login"]
-Router --> UserProtected["Protected User Routes<br/>/dashboard, /vehicles, /claims, /profile"]
-Router --> AdminProtected["Protected Admin Routes<br/>/admin/dashboard, /admin/users, /admin/claims, /admin/documents"]
+Router --> UserProtected["Protected User Routes<br/>/dashboard, /vehicles, /claims, /profile, /policies"]
+Router --> AdminProtected["Protected Admin Routes<br/>/admin/dashboard, /admin/users, /admin/claims, /admin/documents, /admin/policies"]
 UserProtected --> GuardU["ProtectedRoute checks user"]
 AdminProtected --> GuardA["AdminProtectedRoute checks adminToken"]
 GuardU --> |Not Auth| ToLogin["Redirect to /login"]
@@ -173,12 +178,12 @@ GuardA --> |Auth| RenderAdmin["Render AdminLayout + Page<br/>Flash Claim Admin B
 ```
 
 **Diagram sources**
-- [App.tsx:23-51](file://frontend/src/App.tsx#L23-L51)
+- [App.tsx:37-60](file://frontend/src/App.tsx#L37-L60)
 - [ProtectedRoute.tsx:4-20](file://frontend/src/components/ProtectedRoute.tsx#L4-L20)
 - [AdminProtectedRoute.tsx:3-7](file://frontend/src/components/AdminProtectedRoute.tsx#L3-L7)
 
 **Section sources**
-- [App.tsx:1-56](file://frontend/src/App.tsx#L1-L56)
+- [App.tsx:1-75](file://frontend/src/App.tsx#L1-L75)
 
 ### Authentication and Global State
 - AuthContext exposes user, token, loading, and actions: login, register, logout, updateProfile.
@@ -227,7 +232,7 @@ LP["Pages (Dashboard, Vehicles, Claims, Policies, Profile)"]
 end
 subgraph "Admin Area - Flash Claim Admin"
 AL["AdminLayout.tsx<br/>Brand: Flash Claim<br/>Subtitle: Admin Panel"]
-AP["Admin Pages (Dashboard, Users, Claims, Documents)"]
+AP["Admin Pages (Dashboard, Users, Claims, Documents, Policies)"]
 end
 UL --> LP
 AL --> AP
@@ -238,8 +243,8 @@ AL --> AP
 - [AdminLayout.tsx:36-37](file://frontend/src/components/AdminLayout.tsx#L36-L37)
 
 **Section sources**
-- [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
-- [AdminLayout.tsx:1-74](file://frontend/src/components/AdminLayout.tsx#L1-L74)
+- [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
+- [AdminLayout.tsx:1-94](file://frontend/src/components/AdminLayout.tsx#L1-L94)
 
 ### API Integration Patterns
 - Base URLs: User API at /api, Admin API at /api/admin.
@@ -355,8 +360,8 @@ Browser->>Browser : Load image from resolved URL
 **Section sources**
 - [vite.config.ts:1-21](file://frontend/vite.config.ts#L1-L21)
 - [index.css:1-39](file://frontend/src/index.css#L1-L39)
-- [Layout.tsx:25-173](file://frontend/src/components/Layout.tsx#L25-L173)
-- [AdminLayout.tsx:28-70](file://frontend/src/components/AdminLayout.tsx#L28-L70)
+- [Layout.tsx:25-176](file://frontend/src/components/Layout.tsx#L25-L176)
+- [AdminLayout.tsx:28-90](file://frontend/src/components/AdminLayout.tsx#L28-L90)
 
 ### Accessibility Considerations
 - Semantic HTML elements (nav, main, aside).
@@ -391,6 +396,91 @@ Browser->>Browser : Load image from resolved URL
 - [index.html:1-14](file://frontend/index.html#L1-L14)
 - [main.tsx:1-11](file://frontend/src/main.tsx#L1-L11)
 
+## Policy Management System
+
+### User Policy Activation Flow
+The user-facing PoliciesPage provides a comprehensive interface for managing insurance policies:
+
+- **Existing Policies Display**: Shows user's current policies with status indicators (active/expired)
+- **Available Plans Section**: Displays built-in insurance plans grouped by coverage type
+- **Plan Activation**: One-click activation of available plans with confirmation dialog
+- **Policy Deletion**: Ability to remove policies with confirmation prompts
+
+```mermaid
+sequenceDiagram
+participant User as "User"
+participant PoliciesPage as "PoliciesPage"
+participant API as "Backend API"
+User->>PoliciesPage : View Insurance Policies
+PoliciesPage->>API : GET /policies
+API-->>PoliciesPage : User's policies
+PoliciesPage->>API : GET /policies/templates
+API-->>PoliciesPage : Available plans
+User->>PoliciesPage : Click "Activate Plan"
+PoliciesPage->>API : POST /policies/activate
+API-->>PoliciesPage : Success response
+PoliciesPage->>PoliciesPage : Refresh policy list
+```
+
+**Diagram sources**
+- [PoliciesPage.tsx:13-21](file://frontend/src/pages/PoliciesPage.tsx#L13-L21)
+- [PoliciesPage.tsx:25-37](file://frontend/src/pages/PoliciesPage.tsx#L25-L37)
+
+### Admin Template Management
+The AdminPoliciesPage provides complete CRUD functionality for managing insurance plan templates:
+
+- **Template Creation**: Form-based creation of new insurance plans with validation
+- **Template Editing**: Edit existing plans with pre-populated form fields
+- **Active/Inactive Toggle**: Control plan availability to users
+- **Template Deletion**: Remove plans with safety warnings about existing policies
+
+```mermaid
+flowchart TD
+Admin["Admin User"] --> Create["Create New Plan"]
+Admin --> Edit["Edit Existing Plan"]
+Admin --> Toggle["Toggle Active Status"]
+Admin --> Delete["Delete Plan"]
+Create --> Validate["Form Validation"]
+Validate --> Save["Save to Backend"]
+Save --> List["Update Template List"]
+Edit --> Modify["Modify Fields"]
+Modify --> Save
+Toggle --> Update["Update isActive Status"]
+Update --> List
+Delete --> Confirm["Confirm Deletion"]
+Confirm --> Remove["Remove from Database"]
+Remove --> List
+```
+
+**Diagram sources**
+- [AdminPoliciesPage.tsx:62-97](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L62-L97)
+- [AdminPoliciesPage.tsx:99-117](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L99-L117)
+
+### Policy Data Models
+The system uses comprehensive TypeScript interfaces to ensure type safety:
+
+- **PolicyTemplate**: Defines the structure for built-in insurance plans
+- **InsurancePolicy**: Represents user-activated policies
+- **Enhanced User Model**: Includes latest policy information for admin views
+
+Key fields include coverage type, deductible amounts, annual fees, coverage percentages, and validity periods.
+
+**Section sources**
+- [types/index.ts:61-89](file://frontend/src/types/index.ts#L61-L89)
+- [PoliciesPage.tsx:1-132](file://frontend/src/pages/PoliciesPage.tsx#L1-L132)
+- [AdminPoliciesPage.tsx:1-268](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L1-L268)
+
+### Navigation Integration
+Both user and admin layouts have been updated to include Policy navigation:
+
+- **User Layout**: Added "Policies" link in main navigation with FileText icon
+- **Admin Layout**: Added "Policies" link in admin navigation with ShieldCheck icon
+- **Responsive Design**: Navigation adapts to mobile and desktop views seamlessly
+
+**Section sources**
+- [Layout.tsx:7-13](file://frontend/src/components/Layout.tsx#L7-L13)
+- [AdminLayout.tsx:5-13](file://frontend/src/components/AdminLayout.tsx#L5-L13)
+
 ## Dependency Analysis
 High-level dependencies among core modules:
 
@@ -401,10 +491,14 @@ App --> PR["ProtectedRoute.tsx"]
 App --> APR["AdminProtectedRoute.tsx"]
 App --> L["Layout.tsx<br/>Flash Claim Branding"]
 App --> AL["AdminLayout.tsx<br/>Flash Claim Admin Branding"]
+App --> PP["PoliciesPage.tsx"]
+App --> APP["AdminPoliciesPage.tsx"]
 Pages["Pages"] --> Auth
 Pages --> API["api.ts"]
 Pages --> AAPI["adminApi.ts"]
 Pages --> Utils["uploadUrl.ts"]
+PP --> API
+APP --> AAPI
 Auth --> API
 PR --> Auth
 APR --> LocalStorage["localStorage"]
@@ -414,20 +508,22 @@ Utils --> Types
 ```
 
 **Diagram sources**
-- [App.tsx:1-56](file://frontend/src/App.tsx#L1-L56)
+- [App.tsx:1-75](file://frontend/src/App.tsx#L1-L75)
 - [AuthContext.tsx:1-82](file://frontend/src/context/AuthContext.tsx#L1-L82)
 - [ProtectedRoute.tsx:1-21](file://frontend/src/components/ProtectedRoute.tsx#L1-L21)
 - [AdminProtectedRoute.tsx:1-8](file://frontend/src/components/AdminProtectedRoute.tsx#L1-L8)
-- [Layout.tsx:1-176](file://frontend/src/components/Layout.tsx#L1-L176)
-- [AdminLayout.tsx:1-74](file://frontend/src/components/AdminLayout.tsx#L1-L74)
+- [Layout.tsx:1-180](file://frontend/src/components/Layout.tsx#L1-L180)
+- [AdminLayout.tsx:1-94](file://frontend/src/components/AdminLayout.tsx#L1-L94)
+- [PoliciesPage.tsx:1-132](file://frontend/src/pages/PoliciesPage.tsx#L1-L132)
+- [AdminPoliciesPage.tsx:1-268](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L1-L268)
 - [api.ts:1-36](file://frontend/src/services/api.ts#L1-L36)
 - [adminApi.ts:1-26](file://frontend/src/services/adminApi.ts#L1-L26)
 - [uploadUrl.ts:1-16](file://frontend/src/utils/uploadUrl.ts#L1-L16)
-- [types/index.ts:1-150](file://frontend/src/types/index.ts#L1-L150)
+- [types/index.ts:1-270](file://frontend/src/types/index.ts#L1-L270)
 
 **Section sources**
-- [App.tsx:1-56](file://frontend/src/App.tsx#L1-L56)
-- [types/index.ts:1-150](file://frontend/src/types/index.ts#L1-L150)
+- [App.tsx:1-75](file://frontend/src/App.tsx#L1-L75)
+- [types/index.ts:1-270](file://frontend/src/types/index.ts#L1-L270)
 
 ## Performance Considerations
 - Use code splitting and lazy loading for heavy pages to reduce initial bundle size.
@@ -437,6 +533,7 @@ Utils --> Types
 - Keep network requests minimal; batch where possible.
 - Monitor bundle size and tree-shaking effectiveness.
 - Centralized URL resolution reduces redundant logic across components.
+- **Policy Management**: Efficient data fetching with parallel API calls for policies and templates.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -446,6 +543,7 @@ Common issues and resolutions:
 - Mobile sidebar not closing: Ensure overlay click handlers are bound and state toggles correctly.
 - Image loading issues: Verify uploadUrl is properly imported and filePath values are correct. Check environment variable configuration for production deployments.
 - Branding inconsistencies: Ensure all user-facing components display "Flash Claim" branding consistently.
+- **Policy Issues**: Verify policy template IDs are valid and active before attempting activation. Check backend API endpoints for proper error handling.
 
 **Section sources**
 - [api.ts:22-33](file://frontend/src/services/api.ts#L22-L33)
@@ -455,15 +553,15 @@ Common issues and resolutions:
 - [uploadUrl.ts:11-15](file://frontend/src/utils/uploadUrl.ts#L11-L15)
 
 ## Conclusion
-The frontend is structured around a clear separation of concerns: routing and layout orchestration with Flash Claim branding, centralized authentication state, robust API integration with interceptors, centralized URL resolution utilities for file uploads, and consistent styling with Tailwind CSS. The modular design supports scalability and maintainability. Adding error boundaries and further performance optimizations will enhance resilience and user experience. The recent branding update to "Flash Claim" provides a more focused and memorable identity for the vehicle insurance claim management system.
+The frontend is structured around a clear separation of concerns: routing and layout orchestration with Flash Claim branding, centralized authentication state, robust API integration with interceptors, centralized URL resolution utilities for file uploads, and consistent styling with Tailwind CSS. **Updated** The addition of comprehensive policy management capabilities enhances the system's ability to handle insurance plan activation and administration. The modular design supports scalability and maintainability. Adding error boundaries and further performance optimizations will enhance resilience and user experience. The recent branding update to "Flash Claim" provides a more focused and memorable identity for the vehicle insurance claim management system.
 
 ## Appendices
 
 ### Key Data Models
-- User, Vehicle, InsurancePolicy, Claim, Document, ChatMessage, and related types define the domain model used across pages and services.
+- User, Vehicle, InsurancePolicy, PolicyTemplate, Claim, Document, ChatMessage, and related types define the domain model used across pages and services.
 
 **Section sources**
-- [types/index.ts:1-150](file://frontend/src/types/index.ts#L1-L150)
+- [types/index.ts:1-270](file://frontend/src/types/index.ts#L1-L270)
 
 ### Example Page Workflows
 
@@ -540,3 +638,27 @@ The Flash Claim branding has been consistently applied across all user-facing co
 - [LoginPage.tsx:35](file://frontend/src/pages/LoginPage.tsx#L35)
 - [RegisterPage.tsx:37](file://frontend/src/pages/RegisterPage.tsx#L37)
 - [AdminLoginPage.tsx:43](file://frontend/src/pages/admin/AdminLoginPage.tsx#L43)
+
+### Policy Management Implementation Details
+
+#### Policy Activation Flow
+The policy activation system provides a seamless user experience:
+
+- **Template Discovery**: Users can browse available insurance plans grouped by coverage type
+- **Activation Process**: One-click activation with confirmation dialog showing plan details
+- **Status Management**: Real-time updates showing active vs expired policies
+- **Error Handling**: User-friendly error messages for failed activations
+
+#### Admin Template Management
+Administrators have comprehensive control over insurance plan templates:
+
+- **CRUD Operations**: Full create, read, update, delete functionality for plan templates
+- **Validation**: Comprehensive form validation ensuring data integrity
+- **Status Control**: Ability to toggle plan availability for users
+- **Usage Tracking**: Display of active policy counts per template
+
+**Section sources**
+- [PoliciesPage.tsx:25-37](file://frontend/src/pages/PoliciesPage.tsx#L25-L37)
+- [AdminPoliciesPage.tsx:62-97](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L62-L97)
+- [App.tsx:44](file://frontend/src/App.tsx#L44)
+- [App.tsx:57](file://frontend/src/App.tsx#L57)

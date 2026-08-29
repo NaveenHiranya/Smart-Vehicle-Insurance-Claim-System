@@ -12,6 +12,7 @@ import garageAuthRoutes from './routes/garageAuth.js';
 import garageRoutes from './routes/garage.js';
 import generalChatRoutes from './routes/generalChat.js';
 import prisma from './utils/prisma.js';
+import { seedPolicyTemplates } from './services/policyTemplateSeeder.js';
 
 dotenv.config();
 
@@ -63,8 +64,17 @@ app.get('/api/health', async (_req, res) => {
 // Error handler
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Flash Claim server running on port ${PORT}`);
-});
+(async () => {
+  // Built-in policy plans must exist in every environment — production databases
+  // start empty otherwise. Seeding is idempotent and never blocks startup on failure.
+  try {
+    await seedPolicyTemplates();
+  } catch (error) {
+    console.error('[startup] Policy template seeding failed:', error);
+  }
+  app.listen(PORT, () => {
+    console.log(`Flash Claim server running on port ${PORT}`);
+  });
+})();
 
 export default app;

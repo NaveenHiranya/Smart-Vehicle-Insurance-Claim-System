@@ -22,7 +22,10 @@ export function ClaimDetailPage() {
   const [imgUploading, setImgUploading] = useState(false);
   const [newImageType, setNewImageType] = useState<'FULL_VEHICLE' | 'DAMAGE_CLOSEUP'>('FULL_VEHICLE');
   const [reanalyzeAt, setReanalyzeAt] = useState(0);
+  const [analyzeError, setAnalyzeError] = useState<{ message: string; retryable: boolean } | null>(null);
+  const [retryIn, setRetryIn] = useState(0);
   const pollStartRef = useRef<number>(0);
+  const retryCountRef = useRef(0);
 
   const fetchClaim = async () => {
     try {
@@ -32,18 +35,27 @@ export function ClaimDetailPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchClaim(); }, [id]);
+  useEffect(() => {
+    retryCountRef.current = 0;
+    setAnalyzeError(null);
+    setRetryIn(0);
+    fetchClaim();
+  }, [id]);
 
   // Background AI analysis runs right after claim submission — poll until the result appears
-  const analysisPending = !!claim && claim.status !== 'DRAFT' && (claim.images?.length || 0) > 0 && !claim.damageAssessment;
+  const analysisPending = !!claim && claim.status !== 'DRAFT' && (claim.images?.length || 0) > 0 && !claim.damageAssessment && !analyzeError;
 
   useEffect(() => {
     if (!analysisPending) { pollStartRef.current = 0; return; }
     if (pollStartRef.current === 0) pollStartRef.current = Date.now();
-    if (Date.now() - pollStartRef.current > 120000) return; // stop polling after 2 minutes
+    if (Date.now() - pollStartRef.current > 120000) {
+      // The submit-time analysis never landed — say so instead of spinning forever
+      setAnalyzeError({ message: 'AI analysis did not complete — the AI service may be unavailable right now.', retryable: true });
+      return;
+    }
     const timer = setTimeout(() => { fetchClaim(); }, 5000);
     return () => clearTimeout(timer);
-  }, [claim]);
+  }, [claim, analysisPending]);
 
   // Re-analysis triggered after image edits — poll until a newer assessment lands
   const reanalyzing = reanalyzeAt > 0
@@ -79,14 +91,42 @@ export function ClaimDetailPage() {
     }
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (auto = false) => {
+    if (!id) return;
+    if (!auto) retryCountRef.current = 0; // a manual retry earns a fresh auto-retry budget
+    setAnalyzeError(null);
     setAnalyzing(true);
+    // Fresh windows for the pending spinner and the re-analysis poll
+    pollStartRef.current = Date.now();
+    if (claim?.damageAssessment) setReanalyzeAt(Date.now());
     try {
       await api.post(`/claims/${id}/analyze`);
+      retryCountRef.current = 0;
       await fetchClaim();
-    } catch (err) { alert('Analysis failed'); }
-    finally { setAnalyzing(false); }
+    } catch (err: any) {
+      setReanalyzeAt(0);
+      const detail = err.response?.data?.error;
+      setAnalyzeError({
+        message: detail || 'AI analysis failed — the AI service may be unavailable right now.',
+        // 400s are precondition problems (e.g. no readable images) — retrying won't help
+        retryable: err.response?.status !== 400,
+      });
+    } finally { setAnalyzing(false); }
   };
+
+  // "Reanalyze soon": after a failed analysis, retry automatically (max twice),
+  // then keep the banner with a manual Retry button.
+  useEffect(() => {
+    if (!analyzeError?.retryable) { setRetryIn(0); return; }
+    if (retryCountRef.current >= 2) return;
+    setRetryIn(30);
+    const tick = setInterval(() => setRetryIn((s) => Math.max(0, s - 1)), 1000);
+    const timer = setTimeout(() => {
+      retryCountRef.current += 1;
+      handleAnalyze(true);
+    }, 30000);
+    return () => { clearInterval(tick); clearTimeout(timer); };
+  }, [analyzeError]);
 
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>, docType: string) => {
     const file = e.target.files?.[0];
@@ -112,8 +152,13 @@ export function ClaimDetailPage() {
   // After images change, re-run the AI assessment in the background so the damage report
   // (and the estimate derived from it) stays in sync — visible to the user, admin and garage.
   const triggerReanalysis = () => {
+    setAnalyzeError(null);
+    pollStartRef.current = Date.now();
     setReanalyzeAt(Date.now());
-    api.post(`/claims/${id}/analyze`).catch(() => setReanalyzeAt(0));
+    api.post(`/claims/${id}/analyze`).catch(() => {
+      setReanalyzeAt(0);
+      setAnalyzeError({ message: 'AI re-analysis failed — the previous assessment is still shown.', retryable: true });
+    });
   };
 
   const shouldReanalyze = !!(claim && (claim.status !== 'DRAFT' || claim.damageAssessment));
@@ -369,7 +414,7 @@ export function ClaimDetailPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4 gap-2">
               <h2 className="text-lg font-semibold text-gray-900">Damage Assessment</h2>
-              <button onClick={handleAnalyze} disabled={analyzing || analysisPending || reanalyzing || (claim.images?.length || 0) === 0}
+              <button onClick={() => handleAnalyze()} disabled={analyzing || analysisPending || reanalyzing || (claim.images?.length || 0) === 0}
                 className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0">
                 <RefreshCw className={`h-3.5 w-3.5 ${(analyzing || analysisPending || reanalyzing) ? 'animate-spin' : ''}`} /> {(analyzing || analysisPending || reanalyzing) ? 'Analyzing...' : claim.damageAssessment ? 'Re-analyze' : 'Analyze'}
               </button>
@@ -378,6 +423,24 @@ export function ClaimDetailPage() {
               <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-3">
                 <RefreshCw className="h-4 w-4 text-blue-600 animate-spin shrink-0" />
                 <p className="text-sm text-blue-700">Photos changed — AI is re-analyzing and updating the estimate. Results will appear here automatically.</p>
+              </div>
+            )}
+            {analyzeError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-red-800">AI is not working correctly right now</p>
+                  <p className="text-xs text-red-600 mt-0.5">{analyzeError.message}</p>
+                  {analyzeError.retryable && retryCountRef.current < 2 && retryIn > 0 && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> Re-analyzing automatically in {retryIn}s…
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => handleAnalyze()} disabled={analyzing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0">
+                  <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? 'animate-spin' : ''}`} /> Retry now
+                </button>
               </div>
             )}
             {claim.damageAssessment ? (

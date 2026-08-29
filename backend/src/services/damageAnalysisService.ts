@@ -1,27 +1,111 @@
-import fs from 'fs';
-import path from 'path';
-import { generateContentWithFallback } from '../utils/gemini.js';
 import prisma from '../utils/prisma.js';
-import { DamageAnalysisResult } from '../types/index.js';
+import { generateContentWithFallback } from '../utils/gemini.js';
+import { buildImageParts } from '../utils/imageUtils.js';
+import { DamageAnalysisResult, DamageItem } from '../types/index.js';
 
-const DAMAGE_ANALYSIS_PROMPT = `You are a vehicle damage assessor. Examine the images and list every visible damage: dents, scratches, cracks, broken lights, bumper/glass/wheel/panel/structural damage.
+const DAMAGE_TYPES = [
+  'dent', 'scratch', 'crack', 'broken_light', 'bumper_damage',
+  'glass_damage', 'panel_deformation', 'wheel_damage', 'structural_damage', 'other',
+] as const;
 
-Respond with ONLY a valid JSON object in this exact format:
-{
-  "damages": [
-    {
-      "type": "dent|scratch|crack|broken_light|bumper_damage|glass_damage|panel_deformation|wheel_damage|structural_damage|other",
-      "severity": "MINOR|MODERATE|SEVERE",
-      "location": "short position, e.g. front-left bumper",
-      "description": "one short sentence"
-    }
-  ],
-  "drivabilityAssessment": "one short sentence on safety to drive",
-  "overallSeverity": "MINOR|MODERATE|SEVERE"
+const SEVERITIES = ['MINOR', 'MODERATE', 'SEVERE'] as const;
+type Severity = (typeof SEVERITIES)[number];
+
+// The response shape is enforced by the API itself (responseSchema): the model
+// physically cannot wrap the JSON in prose or invent field names, so parsing is
+// deterministic instead of best-effort.
+const DAMAGE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    damages: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          type: { type: 'STRING', enum: [...DAMAGE_TYPES] },
+          severity: { type: 'STRING', enum: [...SEVERITIES] },
+          location: { type: 'STRING' },
+          description: { type: 'STRING' },
+        },
+        required: ['type', 'severity', 'location', 'description'],
+      },
+    },
+    drivabilityAssessment: { type: 'STRING' },
+    overallSeverity: { type: 'STRING', enum: [...SEVERITIES] },
+  },
+  required: ['damages', 'drivabilityAssessment', 'overallSeverity'],
+};
+
+// Short and rule-based — the schema already carries the shape, so the prompt only
+// has to teach the model HOW to assess, not how to format.
+const DAMAGE_ANALYSIS_PROMPT = `You are a vehicle damage assessor. Inspect the photos and list every distinct instance of visible damage: dents, scratches, cracks, broken lights, bumper, glass, wheel, panel or structural damage.
+
+Rules:
+- One entry per damaged area; merge damage that overlaps on the same panel.
+- MINOR = cosmetic only. MODERATE = functional damage, still drivable. SEVERE = safety-critical or structural.
+- location: short area name, e.g. "front-left bumper".
+- description: one short sentence.
+- No visible damage: empty damages array and overallSeverity MINOR.`;
+
+const MAX_AI_IMAGES = 6;
+const MAX_DAMAGES = 20;
+
+function normalizeType(raw: unknown): string {
+  const key = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  return (DAMAGE_TYPES as readonly string[]).includes(key) ? key : 'other';
 }
 
-Severity: MINOR = cosmetic only; MODERATE = functional damage, likely drivable; SEVERE = safety-critical or structural.
-No visible damage: empty damages array, overallSeverity "MINOR". No other text.`;
+function normalizeSeverity(raw: unknown): Severity {
+  const key = String(raw ?? '').trim().toUpperCase();
+  return (SEVERITIES as readonly string[]).includes(key) ? (key as Severity) : 'MODERATE';
+}
+
+const SEVERITY_RANK: Record<Severity, number> = { MINOR: 0, MODERATE: 1, SEVERE: 2 };
+
+const DRIVABILITY_DEFAULTS: Record<Severity, string> = {
+  MINOR: 'Safe to drive — cosmetic damage only.',
+  MODERATE: 'Drivable with caution; the damage should be repaired soon.',
+  SEVERE: 'May not be safe to drive — professional inspection advised before driving.',
+};
+
+/**
+ * Parses and normalizes the model output into the exact shape the rest of the
+ * system expects. The schema makes clean JSON the norm; this guards against any
+ * remaining edge case (wrapped JSON, missing fields, wrong enum casing) so a
+ * slightly-off response can never break the estimate calculation downstream.
+ */
+export function parseDamageAnalysis(raw: string): DamageAnalysisResult {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('AI response did not contain a JSON object.');
+  }
+  const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+
+  const damages: DamageItem[] = (Array.isArray(parsed.damages) ? parsed.damages : [])
+    .slice(0, MAX_DAMAGES)
+    .map((d: Record<string, unknown>) => {
+      const type = normalizeType(d.type);
+      return {
+        type,
+        severity: normalizeSeverity(d.severity),
+        location: String(d.location ?? 'unspecified area').trim().slice(0, 120) || 'unspecified area',
+        description: String(d.description ?? '').trim().slice(0, 300) || `${type.replace(/_/g, ' ')} damage.`,
+      };
+    });
+
+  const overallRaw = String(parsed.overallSeverity ?? '').trim().toUpperCase();
+  const overallSeverity: Severity = (SEVERITIES as readonly string[]).includes(overallRaw)
+    ? (overallRaw as Severity)
+    : damages.reduce<Severity>((max, d) => (SEVERITY_RANK[d.severity] > SEVERITY_RANK[max] ? d.severity : max), 'MINOR');
+
+  const drivabilityAssessment =
+    String(parsed.drivabilityAssessment ?? '').trim().slice(0, 300) || DRIVABILITY_DEFAULTS[overallSeverity];
+
+  return { damages, drivabilityAssessment, overallSeverity };
+}
 
 export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResult> {
   const claim = await prisma.claim.findUnique({
@@ -37,57 +121,32 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
     throw new Error('No images to analyze');
   }
 
-  // Image tokens dominate the cost of each analysis — cap how many are sent.
-  // Damage close-ups carry the damage detail, so they are prioritized; full-vehicle
-  // shots only fill the remaining slots (context/orientation).
-  const MAX_AI_IMAGES = 6;
-  const closeups = claim.images.filter((img) => img.type === 'DAMAGE_CLOSEUP');
-  const fulls = claim.images.filter((img) => img.type !== 'DAMAGE_CLOSEUP');
-  const selectedImages = [...closeups, ...fulls].slice(0, MAX_AI_IMAGES);
-
-  // Prepare image data for Gemini
-  const uploadDir = process.env.UPLOAD_DIR || './uploads';
-  const imageParts = selectedImages.map((img: { filePath: string }) => {
-    const filePath = path.resolve(uploadDir, img.filePath.replace(/^\/uploads\//, ''));
-    const imageData = fs.readFileSync(filePath);
-    const mimeType = path.extname(filePath).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg';
-    return {
-      inlineData: {
-        data: imageData.toString('base64'),
-        mimeType,
-      },
-    };
-  });
+  // Images are downscaled before upload — full-size phone photos are the main
+  // cause of slow scans and payload-limit 400s. Closeups carry the damage
+  // detail, so they are prioritized for the limited slots.
+  const imageParts = await buildImageParts(claim.images, MAX_AI_IMAGES);
+  if (imageParts.length === 0) {
+    throw new Error('No readable images to analyze');
+  }
 
   const vehicleContext = `Vehicle: ${claim.vehicle.year} ${claim.vehicle.make} ${claim.vehicle.model}, Color: ${claim.vehicle.color}`;
-  const fullPrompt = `${DAMAGE_ANALYSIS_PROMPT}\n\n${vehicleContext}`;
 
-  // JSON response mode: guarantees a compact JSON payload with no prose/markdown
-  // wrapper — fewer output tokens, faster and cheaper.
-  const { text: responseText, modelUsed } = await generateContentWithFallback([fullPrompt, ...imageParts], {
-    responseMimeType: 'application/json',
-  });
-  console.log(`[damageAnalysis] Used model: ${modelUsed}, images: ${imageParts.length}/${claim.images.length}`);
-
-  // Parse the JSON response
-  let analysisResult: DamageAnalysisResult;
-  try {
-    // Extract JSON from response (handle potential markdown code blocks)
-    let jsonStr = responseText;
-    const jsonMatch = responseText.match(/```json?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1].trim();
+  const { text: responseText, modelUsed } = await generateContentWithFallback(
+    [DAMAGE_ANALYSIS_PROMPT, vehicleContext, ...imageParts],
+    {
+      responseMimeType: 'application/json',
+      responseSchema: DAMAGE_SCHEMA,
+      temperature: 0.1,
     }
-    analysisResult = JSON.parse(jsonStr) as DamageAnalysisResult;
-  } catch {
-    console.error('Failed to parse Gemini response:', responseText);
-    // Fallback result
-    analysisResult = {
-      damages: [],
-      drivabilityAssessment: 'Unable to complete automated assessment. Manual review required.',
-      overallSeverity: 'MINOR',
-    };
-  }
+  );
+  console.log(
+    `[damageAnalysis] model=${modelUsed} images=${imageParts.length}/${claim.images.length} chars=${responseText.length}`
+  );
+
+  // Schema-enforced output plus normalization — a hard parse failure now means
+  // something is genuinely wrong, so it surfaces as an error instead of being
+  // silently stored as an empty assessment.
+  const analysisResult = parseDamageAnalysis(responseText);
 
   // Save or update damage assessment
   const existingAssessment = await prisma.damageAssessment.findUnique({
@@ -128,7 +187,7 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
     });
   }
 
-  // Auto-generate repair estimate after damage analysis
+  // Auto-generate repair estimate after damage analysis (local calculation — fast)
   try {
     const { generateRepairEstimate } = await import('./repairEstimateService.js');
     await generateRepairEstimate(claimId);

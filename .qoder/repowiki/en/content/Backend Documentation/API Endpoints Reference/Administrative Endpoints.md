@@ -12,17 +12,18 @@
 - [AdminUsersPage.tsx](file://frontend/src/pages/admin/AdminUsersPage.tsx)
 - [AdminGaragesPage.tsx](file://frontend/src/pages/admin/AdminGaragesPage.tsx)
 - [AdminVehiclesPage.tsx](file://frontend/src/pages/admin/AdminVehiclesPage.tsx)
+- [AdminPoliciesPage.tsx](file://frontend/src/pages/admin/AdminPoliciesPage.tsx)
 - [garageAuth.ts](file://backend/src/routes/garageAuth.ts)
 - [adminApi.ts](file://frontend/src/services/adminApi.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive vehicle management section with GET/POST endpoints for listing and creating vehicles, plus valuation management
-- Enhanced user management with PATCH /api/admin/users/:id for updating insurance records and DELETE /api/admin/users/:id for cascade deletion
-- Improved claims endpoint with comma-separated status lists support and additional filtering by user ID and vehicle ID
-- Updated project structure diagram to include vehicle management functionality
-- Enhanced API reference summary with new vehicle management endpoints
+- Added complete CRUD operations for policy templates management (GET/POST/PATCH/DELETE /api/admin/policy-templates)
+- Enhanced user management with new policy assignment endpoint (POST /api/admin/users/:id/policies) for assigning insurance policies to users
+- Added vehicle valuation management endpoint (PATCH /api/admin/vehicles/:id/valuation) for setting claim payout caps
+- Updated frontend integration with comprehensive policy template management interface
+- Enhanced user policy workflow with built-in plan selection and custom policy creation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,10 +38,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, system monitoring, and analytics. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation.
+This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, and analytics. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation.
 
 ## Project Structure
-The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Added comprehensive vehicle management capabilities including listing vehicles, creating new vehicles, and setting vehicle valuations for claim payout capping.
+The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive policy template management and enhanced user policy assignment capabilities.
 
 ```mermaid
 graph TB
@@ -51,6 +52,7 @@ ADocP["AdminDocumentsPage"]
 AUsrP["AdminUsersPage"]
 AGarP["AdminGaragesPage"]
 AVehP["AdminVehiclesPage"]
+APolP["AdminPoliciesPage"]
 AdminAPI["adminApi (axios)"]
 end
 subgraph "Backend"
@@ -65,6 +67,7 @@ ADocP --> AdminAPI
 AUsrP --> AdminAPI
 AGarP --> AdminAPI
 AVehP --> AdminAPI
+APolP --> AdminAPI
 AdminAPI --> App
 App --> AdminRoutes
 AdminRoutes --> AdminAuth
@@ -81,6 +84,7 @@ AdminRoutes --> Prisma
 - [AdminUsersPage.tsx:10-12](file://frontend/src/pages/admin/AdminUsersPage.tsx#L10-L12)
 - [AdminGaragesPage.tsx:9-12](file://frontend/src/pages/admin/AdminGaragesPage.tsx#L9-L12)
 - [AdminVehiclesPage.tsx:31-57](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L57)
+- [AdminPoliciesPage.tsx:19-37](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L19-L37)
 - [adminApi.ts:7-14](file://frontend/src/services/adminApi.ts#L7-L14)
 
 **Section sources**
@@ -90,21 +94,21 @@ AdminRoutes --> Prisma
 
 ## Core Components
 - Admin Authorization Middleware: Validates JWT and ensures the authenticated user has admin privileges before allowing access to any admin endpoint.
-- Admin Routes: Provide endpoints for statistics, users listing, vehicle management, claims listing/detail/status updates, documents verification approvals/rejections, and garage management operations.
+- Admin Routes: Provide endpoints for statistics, users listing, vehicle management, claims listing/detail/status updates, documents verification approvals/rejections, garage management operations, and policy template management.
 - Frontend Admin Services: Axios client that automatically attaches Bearer tokens from localStorage and redirects on auth errors.
 
 Key responsibilities:
 - Enforce role-based access control for all admin endpoints.
-- Provide read-only and write operations for claims, documents, vehicles, and garages.
+- Provide read-only and write operations for claims, documents, vehicles, garages, and policy templates.
 - Expose dashboard statistics and health check endpoints.
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:11-591](file://backend/src/routes/admin.ts#L11-L591)
+- [admin.ts:11-716](file://backend/src/routes/admin.ts#L11-L716)
 - [adminApi.ts:7-24](file://frontend/src/services/adminApi.ts#L7-L24)
 
 ## Architecture Overview
-Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes comprehensive vehicle management workflow supporting vehicle listing, creation, and valuation management for claim payout capping.
+Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes comprehensive policy template management workflow supporting template CRUD operations and user policy assignment with built-in plan selection.
 
 ```mermaid
 sequenceDiagram
@@ -120,13 +124,13 @@ MA-->>AR : Allow or reject
 AR->>DB : Query counts and groups
 DB-->>AR : Stats data
 AR-->>FE : JSON stats
-Note over FE,DB : New vehicle management workflow<br/>GET /api/admin/vehicles -> POST create -> PATCH valuation
+Note over FE,DB : New policy template workflow<br/>GET/POST/PATCH/DELETE templates -> Assign to users
 ```
 
 **Diagram sources**
 - [index.ts:40-45](file://backend/src/index.ts#L40-L45)
 - [admin.ts:11-26](file://backend/src/routes/admin.ts#L11-L26)
-- [admin.ts:127-227](file://backend/src/routes/admin.ts#L127-L227)
+- [admin.ts:356-453](file://backend/src/routes/admin.ts#L356-L453)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 
 ## Detailed Component Analysis
@@ -189,18 +193,22 @@ AR-->>FE : { userCount, claimsByStatus, docCount, pendingDocs }
   - GET /api/admin/users
   - PATCH /api/admin/users/:id
   - DELETE /api/admin/users/:id
+  - POST /api/admin/users/:id/policies
 - Purposes:
   - List all non-admin users with basic profile info, related counts (vehicles, claims), and detailed vehicle information.
   - Update user insurance records including phone, address, NIC, license type, annual fee, and joined date.
   - Delete users with cascade deletion of associated vehicles, claims, and policies.
+  - Assign insurance policies to users using built-in templates or custom configurations.
 - Request parameters:
   - PATCH /api/admin/users/:id supports partial updates with validation for numeric fields and dates.
+  - POST /api/admin/users/:id/policies accepts templateId for built-in plans or custom coverageType, deductible, coveragePercent, annualFee.
 - Response schemas:
   - List: Array of user objects including id, email, firstName, lastName, phone, address, createdAt, nic, licenseType, annualFee, joinedAt, and _count for vehicles and claims, plus detailed vehicle information.
   - Update: Updated user object with selected fields.
   - Delete: Success message.
+  - Policy Assignment: Created policy object with 201 status.
 - Usage:
-  - AdminUsersPage renders users with expandable details, edit modal for insurance records, and delete confirmation with cascade warning.
+  - AdminUsersPage renders users with expandable details, edit modal for insurance records, delete confirmation with cascade warning, and policy assignment modal with built-in plan selection.
 
 ```mermaid
 sequenceDiagram
@@ -220,18 +228,22 @@ FE->>API : DELETE /api/admin/users/ : id
 AR->>DB : Delete user with cascade
 DB-->>AR : Success
 AR-->>FE : { message : 'User deleted.' }
+FE->>API : POST /api/admin/users/ : id/policies { templateId, coverageType, deductible, coveragePercent, annualFee }
+AR->>DB : Create policy with validation and sync user annual fee
+DB-->>AR : Created policy
+AR-->>FE : Created policy (201)
 ```
 
 **Diagram sources**
-- [admin.ts:28-125](file://backend/src/routes/admin.ts#L28-L125)
-- [AdminUsersPage.tsx:10-72](file://frontend/src/pages/admin/AdminUsersPage.tsx#L10-L72)
+- [admin.ts:28-248](file://backend/src/routes/admin.ts#L28-L248)
+- [AdminUsersPage.tsx:10-442](file://frontend/src/pages/admin/AdminUsersPage.tsx#L10-L442)
 
 **Section sources**
-- [admin.ts:28-125](file://backend/src/routes/admin.ts#L28-L125)
-- [AdminUsersPage.tsx:10-72](file://frontend/src/pages/admin/AdminUsersPage.tsx#L10-L72)
+- [admin.ts:28-248](file://backend/src/routes/admin.ts#L28-L248)
+- [AdminUsersPage.tsx:10-442](file://frontend/src/pages/admin/AdminUsersPage.tsx#L10-L442)
 
 ### Vehicle Management
-**New Section** - Comprehensive vehicle administration capabilities for managing registered vehicles and their valuations.
+**Enhanced Section** - Comprehensive vehicle administration capabilities for managing registered vehicles, their valuations, and claim payout capping.
 
 - Endpoints:
   - GET /api/admin/vehicles
@@ -250,7 +262,7 @@ AR-->>FE : { message : 'User deleted.' }
   - Create: Created vehicle object with 201 status.
   - Valuation: Updated vehicle object with modified valuation field.
 - Usage:
-  - AdminVehiclesPage displays vehicles with owner information, search functionality, add vehicle modal, and valuation editing interface.
+  - AdminVehiclesPage displays vehicles with owner information, search functionality, add vehicle modal, and valuation editing interface with real-time payout recalculation.
 
 ```mermaid
 sequenceDiagram
@@ -267,18 +279,18 @@ AR->>DB : Create vehicle with validation
 DB-->>AR : Created vehicle
 AR-->>FE : Created vehicle (201)
 FE->>API : PATCH /api/admin/vehicles/ : id/valuation { valuation }
-AR->>DB : Update vehicle valuation
+AR->>DB : Update vehicle valuation and recalculate payouts
 DB-->>AR : Updated vehicle
 AR-->>FE : Updated vehicle
 ```
 
 **Diagram sources**
-- [admin.ts:127-227](file://backend/src/routes/admin.ts#L127-L227)
-- [AdminVehiclesPage.tsx:31-113](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L113)
+- [admin.ts:250-352](file://backend/src/routes/admin.ts#L250-L352)
+- [AdminVehiclesPage.tsx:31-337](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L337)
 
 **Section sources**
-- [admin.ts:127-227](file://backend/src/routes/admin.ts#L127-L227)
-- [AdminVehiclesPage.tsx:31-113](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L113)
+- [admin.ts:250-352](file://backend/src/routes/admin.ts#L250-L352)
+- [AdminVehiclesPage.tsx:31-337](file://frontend/src/pages/admin/AdminVehiclesPage.tsx#L31-L337)
 - [schema.prisma:32-50](file://backend/prisma/schema.prisma#L32-L50)
 
 ### Claims Review and Status Updates
@@ -317,11 +329,11 @@ AR-->>FE : Updated claim
 ```
 
 **Diagram sources**
-- [admin.ts:330-418](file://backend/src/routes/admin.ts#L330-L418)
+- [admin.ts:455-543](file://backend/src/routes/admin.ts#L455-L543)
 - [AdminClaimsPage.tsx:19-70](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L19-L70)
 
 **Section sources**
-- [admin.ts:330-418](file://backend/src/routes/admin.ts#L330-L418)
+- [admin.ts:455-543](file://backend/src/routes/admin.ts#L455-L543)
 - [AdminClaimsPage.tsx:19-70](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L19-L70)
 
 ### Documents Verification Approvals
@@ -360,11 +372,11 @@ AR-->>FE : Updated document
 ```
 
 **Diagram sources**
-- [admin.ts:420-531](file://backend/src/routes/admin.ts#L420-L531)
+- [admin.ts:545-656](file://backend/src/routes/admin.ts#L545-L656)
 - [AdminDocumentsPage.tsx:28-69](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L28-L69)
 
 **Section sources**
-- [admin.ts:420-531](file://backend/src/routes/admin.ts#L420-L531)
+- [admin.ts:545-656](file://backend/src/routes/admin.ts#L545-L656)
 - [AdminDocumentsPage.tsx:28-69](file://frontend/src/pages/admin/AdminDocumentsPage.tsx#L28-L69)
 
 ### Garage Management Operations
@@ -403,15 +415,17 @@ AR-->>FE : Updated garage
 ```
 
 **Diagram sources**
-- [admin.ts:533-588](file://backend/src/routes/admin.ts#L533-L588)
+- [admin.ts:658-713](file://backend/src/routes/admin.ts#L658-L713)
 - [AdminGaragesPage.tsx:9-26](file://frontend/src/pages/admin/AdminGaragesPage.tsx#L9-L26)
 
 **Section sources**
-- [admin.ts:533-588](file://backend/src/routes/admin.ts#L533-L588)
+- [admin.ts:658-713](file://backend/src/routes/admin.ts#L658-L713)
 - [AdminGaragesPage.tsx:9-26](file://frontend/src/pages/admin/AdminGaragesPage.tsx#L9-L26)
 - [schema.prisma:220-238](file://backend/prisma/schema.prisma#L220-L238)
 
 ### Policy Templates Management
+**New Section** - Complete CRUD operations for managing built-in insurance policy templates that users can select when purchasing policies.
+
 - Endpoints:
   - GET /api/admin/policy-templates
   - POST /api/admin/policy-templates
@@ -428,11 +442,11 @@ AR-->>FE : Updated garage
   - List: Array of policy template objects with counts for associated policies.
   - Create/Update/Delete: Template objects or success messages.
 - Usage:
-  - Provides standardized insurance plan configurations for users to select from when purchasing policies.
+  - AdminPoliciesPage provides comprehensive template management interface with create/edit modals, active/inactive status toggling, and deletion with usage warnings.
 
 ```mermaid
 sequenceDiagram
-participant FE as "Admin UI"
+participant FE as "AdminPoliciesPage"
 participant API as "Express App"
 participant AR as "Admin Router"
 participant DB as "Prisma Client"
@@ -444,13 +458,23 @@ FE->>API : POST /api/admin/policy-templates { name, coverageType, deductible, co
 AR->>DB : Create template with validation
 DB-->>AR : Created template
 AR-->>FE : Created template (201)
+FE->>API : PATCH /api/admin/policy-templates/ : id { ... }
+AR->>DB : Update template with selective fields
+DB-->>AR : Updated template
+AR-->>FE : Updated template
+FE->>API : DELETE /api/admin/policy-templates/ : id
+AR->>DB : Delete template
+DB-->>AR : Success
+AR-->>FE : { message : 'Policy plan deleted.' }
 ```
 
 **Diagram sources**
-- [admin.ts:229-328](file://backend/src/routes/admin.ts#L229-L328)
+- [admin.ts:356-453](file://backend/src/routes/admin.ts#L356-L453)
+- [AdminPoliciesPage.tsx:19-268](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L19-L268)
 
 **Section sources**
-- [admin.ts:229-328](file://backend/src/routes/admin.ts#L229-L328)
+- [admin.ts:356-453](file://backend/src/routes/admin.ts#L356-L453)
+- [AdminPoliciesPage.tsx:19-268](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L19-L268)
 
 ### System Health Monitoring
 - Endpoint: GET /api/health
@@ -545,6 +569,14 @@ Common issues and resolutions:
 - **New**: Claims filtering issues:
   - Comma-separated status lists must not contain spaces after commas.
   - User and vehicle filters work independently or together.
+- **New**: Policy template issues:
+  - Template creation requires name, coverageType, deductible, coveragePercent, and annualFee.
+  - Coverage percent must be between 1 and 100.
+  - Deductible and annual fee must be non-negative numbers.
+- **New**: User policy assignment issues:
+  - Policy assignment requires either templateId or complete custom policy details.
+  - Built-in templates must be active to be selectable.
+  - User annual fee is automatically synced with assigned policy premium amount.
 - Garage approval workflow:
   - Garage registration requires admin approval before login is allowed.
   - Approved garages are automatically activated upon approval.
@@ -552,15 +584,14 @@ Common issues and resolutions:
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:56-125](file://backend/src/routes/admin.ts#L56-L125)
-- [admin.ts:127-227](file://backend/src/routes/admin.ts#L127-L227)
-- [admin.ts:330-418](file://backend/src/routes/admin.ts#L330-L418)
-- [admin.ts:533-588](file://backend/src/routes/admin.ts#L533-L588)
+- [admin.ts:56-248](file://backend/src/routes/admin.ts#L56-L248)
+- [admin.ts:250-453](file://backend/src/routes/admin.ts#L250-L453)
+- [admin.ts:455-713](file://backend/src/routes/admin.ts#L455-L713)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 - [garageAuth.ts:74-82](file://backend/src/routes/garageAuth.ts#L74-L82)
 
 ## Conclusion
-The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, comprehensive vehicle management with valuation controls, claims review and status updates with enhanced filtering, document verification approvals/rejections, and garage management operations. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
+The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, comprehensive vehicle management with valuation controls, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -589,7 +620,13 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Response: { message: 'User deleted.' }
   - Access: Admin only
 
-- **NEW** GET /api/admin/vehicles
+- **NEW** POST /api/admin/users/:id/policies
+  - Description: Assigns insurance policy to user using built-in template or custom configuration.
+  - Request body: { templateId?, coverageType?, deductible?, coveragePercent?, annualFee? }
+  - Response: Created policy object with 201 status.
+  - Access: Admin only
+
+- GET /api/admin/vehicles
   - Description: Lists all vehicles with owner information, claim counts, and search/filter capabilities.
   - Query params: ?user=userId&search=query
   - Response: Array of vehicle objects with user relationship and _count for claims.
@@ -655,24 +692,24 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Response: Updated garage object with toggled isActive field.
   - Access: Admin only
 
-- GET /api/admin/policy-templates
+- **NEW** GET /api/admin/policy-templates
   - Description: Lists all policy templates with counts for associated policies.
   - Response: Array of policy template objects with _count for policies.
   - Access: Admin only
 
-- POST /api/admin/policy-templates
+- **NEW** POST /api/admin/policy-templates
   - Description: Creates a new policy template with validation.
   - Request body: { name, coverageType, description?, deductible, coveragePercent, annualFee, isActive? }
   - Response: Created policy template object (201 status).
   - Access: Admin only
 
-- PATCH /api/admin/policy-templates/:id
+- **NEW** PATCH /api/admin/policy-templates/:id
   - Description: Updates an existing policy template with selective field updates.
   - Request body: Partial template fields with validation.
   - Response: Updated policy template object.
   - Access: Admin only
 
-- DELETE /api/admin/policy-templates/:id
+- **NEW** DELETE /api/admin/policy-templates/:id
   - Description: Deletes a policy template while preserving associated policies.
   - Response: { message: 'Policy plan deleted.' }
   - Access: Admin only
@@ -683,5 +720,5 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Access: Public
 
 **Section sources**
-- [admin.ts:11-591](file://backend/src/routes/admin.ts#L11-L591)
+- [admin.ts:11-716](file://backend/src/routes/admin.ts#L11-L716)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)

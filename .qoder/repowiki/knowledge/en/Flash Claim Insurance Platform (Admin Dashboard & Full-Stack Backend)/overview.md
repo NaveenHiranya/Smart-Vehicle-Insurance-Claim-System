@@ -1,1 +1,0 @@
-Full-stack vehicle insurance claim platform with a separate admin dashboard for reviewing users, vehicles, claims, documents, and garages, backed by an Express/Prisma API and a React/Vite frontend.

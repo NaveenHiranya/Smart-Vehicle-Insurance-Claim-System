@@ -1,1 +1,0 @@
-Express 5 + TypeScript backend with Prisma Client over SQLite; JWT-based auth with bcryptjs; Google Generative AI (`@google/generative-ai`) for image/document analysis; Zod v4 for validation. Frontend is Vite + React 19 + Tailwind CSS 4 + React Router v7, with axios interceptors handling per-role auth tokens.

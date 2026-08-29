@@ -1,6 +1,5 @@
-import fs from 'fs';
-import path from 'path';
 import { generateContentWithFallback } from '../utils/gemini.js';
+import { loadImagePart, resolveUploadPath } from '../utils/imageUtils.js';
 import prisma from '../utils/prisma.js';
 import { DocumentVerificationResult } from '../types/index.js';
 
@@ -48,29 +47,24 @@ export async function verifyDocument(documentId: string): Promise<DocumentVerifi
     throw new Error('Document not found');
   }
 
-  const uploadDir = process.env.UPLOAD_DIR || './uploads';
-  const filePath = path.resolve(uploadDir, document.filePath.replace(/^\/uploads\//, ''));
+  const filePath = resolveUploadPath(document.filePath);
 
-  if (!fs.existsSync(filePath)) {
-    throw new Error('Document file not found on disk');
+  // Resized before upload — keeps the request small and fast
+  const imagePart = await loadImagePart(filePath);
+  if (!imagePart) {
+    throw new Error('Document file not found or unreadable on disk');
   }
-
-  const imageData = fs.readFileSync(filePath);
-  const mimeType = path.extname(filePath).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg';
 
   const context = `Document type submitted as: ${document.type}.
 Claim context: Vehicle is a ${document.claim.vehicle.year} ${document.claim.vehicle.make} ${document.claim.vehicle.model}.
 Policyholder name: ${document.claim.user.firstName} ${document.claim.user.lastName}.`;
 
-  const { text: responseText, modelUsed } = await generateContentWithFallback([
-    `${DOCUMENT_VERIFICATION_PROMPT}\n\n${context}`,
+  const { text: responseText, modelUsed } = await generateContentWithFallback(
+    [`${DOCUMENT_VERIFICATION_PROMPT}\n\n${context}`, imagePart],
     {
-      inlineData: {
-        data: imageData.toString('base64'),
-        mimeType,
-      },
-    },
-  ]);
+      responseMimeType: 'application/json',
+    }
+  );
   console.log(`[docVerification] Used model: ${modelUsed}`);
 
   let verificationResult: DocumentVerificationResult;

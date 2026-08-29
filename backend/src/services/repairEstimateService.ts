@@ -79,8 +79,9 @@ function calculateItem(damage: DamageItem): RepairEstimateItem {
 
   const partsRange = getCostRange(config.parts, severity, damage.type);
   const laborRange = getCostRange(config.laborHours, severity, damage.type);
-  const laborRate = LABOR_RATES[severity] || 95;
-  const paintMaterials = PAINT_MATERIALS[severity] || 100;
+  // Severity is normalized upstream, but keep a sane rate if an unknown value sneaks in
+  const laborRate = LABOR_RATES[severity] || LABOR_RATES.MODERATE;
+  const paintMaterials = PAINT_MATERIALS[severity] || PAINT_MATERIALS.MODERATE;
 
   const partCost = getMidpoint(partsRange);
   const laborHours = parseFloat((getMidpoint(laborRange) / 2).toFixed(1));

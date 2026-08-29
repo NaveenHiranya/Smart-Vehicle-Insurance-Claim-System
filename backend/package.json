@@ -12,7 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "seed": "tsx src/scripts/seedAdmin.ts"
+    "seed": "tsx src/scripts/seedAdmin.ts && tsx src/scripts/seedPolicyTemplates.ts"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +27,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "prisma": "^6.19.3",
+    "sharp": "^0.35.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
