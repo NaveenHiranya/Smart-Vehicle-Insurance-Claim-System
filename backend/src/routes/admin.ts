@@ -1,8 +1,11 @@
 import { Router, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import prisma from '../utils/prisma.js';
 import { adminAuthMiddleware } from '../middleware/adminAuth.js';
 import { AuthRequest } from '../types/index.js';
 import { recalculatePayout } from '../services/payoutService.js';
+import { analyzeDamage } from '../services/damageAnalysisService.js';
 
 const router = Router();
 router.use(adminAuthMiddleware);
@@ -539,6 +542,60 @@ router.patch('/claims/:id/status', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Admin status update error:', error);
     res.status(500).json({ error: 'Failed to update claim status.' });
+  }
+});
+
+// POST /api/admin/claims/:id/analyze — re-run the AI damage analysis
+router.post('/claims/:id/analyze', async (req: AuthRequest, res: Response) => {
+  try {
+    const claim = await prisma.claim.findUnique({ where: { id: param(req, 'id') } });
+    if (!claim) {
+      res.status(404).json({ error: 'Claim not found.' });
+      return;
+    }
+
+    const assessment = await analyzeDamage(param(req, 'id'));
+    res.json(assessment);
+  } catch (error) {
+    console.error('Admin analyze damage error:', error);
+    // Same mapping as the user-facing analyze route: precondition problems are
+    // actionable 400s, everything else is an AI-side hiccup worth retrying.
+    const message = error instanceof Error ? error.message : '';
+    if (message.includes('images')) {
+      res.status(400).json({ error: message });
+      return;
+    }
+    res.status(502).json({ error: 'AI damage analysis failed. Please try again in a moment.' });
+  }
+});
+
+// DELETE /api/admin/claims/:id — removes the claim, its AI results and uploaded files
+router.delete('/claims/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const claim = await prisma.claim.findUnique({
+      where: { id: param(req, 'id') },
+      include: { images: true, documents: true },
+    });
+    if (!claim) {
+      res.status(404).json({ error: 'Claim not found.' });
+      return;
+    }
+
+    // Uploaded files live outside the DB — remove them from disk too
+    // (all related rows cascade via onDelete: Cascade)
+    const uploadDir = process.env.UPLOAD_DIR || './uploads';
+    for (const file of [...claim.images, ...claim.documents]) {
+      const filePath = path.resolve(uploadDir, file.filePath.replace(/^\/uploads\//, ''));
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    await prisma.claim.delete({ where: { id: claim.id } });
+    res.json({ message: 'Claim deleted.' });
+  } catch (error) {
+    console.error('Admin delete claim error:', error);
+    res.status(500).json({ error: 'Failed to delete claim.' });
   }
 });
 

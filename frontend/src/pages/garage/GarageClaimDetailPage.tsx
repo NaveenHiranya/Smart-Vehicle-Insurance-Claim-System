@@ -10,6 +10,7 @@ export function GarageClaimDetailPage() {
   const navigate = useNavigate();
   const [claim, setClaim] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [parts, setParts] = useState<EstimatePartRow[]>([]);
   const [laborHours, setLaborHours] = useState(0);
   const [laborRate, setLaborRate] = useState(DEFAULT_LABOR_RATE);
@@ -30,7 +31,8 @@ export function GarageClaimDetailPage() {
       setLaborRate(source.laborRate);
       setPaintMaterials(source.paintMaterials);
       if (existing) setNotes(existing.notes || '');
-    }).finally(() => setLoading(false));
+    }).catch(() => setError('Failed to load this claim. It may not exist or is not assigned to your garage.'))
+    .finally(() => setLoading(false));
 
   useEffect(() => { fetchClaim(); }, [id]);
 
@@ -74,7 +76,9 @@ export function GarageClaimDetailPage() {
       });
       await fetchClaim();
       setEditMode(false);
-    } catch { alert('Failed to submit estimate'); }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to submit estimate');
+    }
     finally { setSaving(false); }
   };
 
@@ -83,6 +87,25 @@ export function GarageClaimDetailPage() {
   };
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600" /></div>;
+  if (error && !claim) {
+    return (
+      <div className="max-w-lg mx-auto bg-white rounded-xl shadow-sm border border-red-200 p-10 text-center mt-10">
+        <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+        <h2 className="text-lg font-bold text-gray-900 mb-2">Could not open this claim</h2>
+        <p className="text-sm text-gray-500 mb-6">{error}</p>
+        <div className="flex justify-center gap-3">
+          <button onClick={() => { setError(''); setLoading(true); fetchClaim(); }}
+            className="px-5 py-2.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700">
+            Try Again
+          </button>
+          <button onClick={() => navigate('/garage/claims')}
+            className="px-5 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+            Back to Claims
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!claim) return null;
 
   const hasAiAssessment = !!claim.damageAssessment;

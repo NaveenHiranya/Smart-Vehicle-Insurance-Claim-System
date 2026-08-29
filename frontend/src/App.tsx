@@ -27,6 +27,7 @@ import { GarageLayout } from './components/GarageLayout';
 import { GarageLoginPage } from './pages/garage/GarageLoginPage';
 import { GarageRegisterPage } from './pages/garage/GarageRegisterPage';
 import { GarageDashboardPage } from './pages/garage/GarageDashboardPage';
+import { GarageClaimsPage } from './pages/garage/GarageClaimsPage';
 import { GarageClaimDetailPage } from './pages/garage/GarageClaimDetailPage';
 
 function App() {
@@ -63,6 +64,7 @@ function App() {
           <Route path="/garage/login" element={<GarageLoginPage />} />
           <Route path="/garage/register" element={<GarageRegisterPage />} />
           <Route path="/garage/dashboard" element={<GarageProtectedRoute><GarageLayout><GarageDashboardPage /></GarageLayout></GarageProtectedRoute>} />
+          <Route path="/garage/claims" element={<GarageProtectedRoute><GarageLayout><GarageClaimsPage /></GarageLayout></GarageProtectedRoute>} />
           <Route path="/garage/claims/:id" element={<GarageProtectedRoute><GarageLayout><GarageClaimDetailPage /></GarageLayout></GarageProtectedRoute>} />
           <Route path="/garage" element={<Navigate to="/garage/login" replace />} />
         </Routes>

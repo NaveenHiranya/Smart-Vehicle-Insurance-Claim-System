@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw } from 'lucide-react';
 import { uploadUrl } from '../../utils/uploadUrl';
 import { normalizeGarageItems, estimateTotals } from '../../utils/garageEstimate';
 
@@ -31,6 +31,10 @@ export function AdminClaimDetailPage() {
   const [noteText, setNoteText] = useState('');
   const [noteCategory, setNoteCategory] = useState('general');
   const [noteSaving, setNoteSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const fetchClaim = () =>
     adminApi.get(`/claims/${id}`).then((r) => {
@@ -98,6 +102,29 @@ export function AdminClaimDetailPage() {
     } catch { alert('Failed to delete note'); }
   };
 
+  const handleReanalyze = async () => {
+    setAnalyzing(true);
+    setAnalyzeError('');
+    try {
+      await adminApi.post(`/claims/${id}/analyze`);
+      await fetchClaim();
+    } catch (err: any) {
+      setAnalyzeError(err.response?.data?.error || 'AI damage analysis failed. Please try again.');
+    } finally { setAnalyzing(false); }
+  };
+
+  const handleDeleteClaim = async () => {
+    setDeleting(true);
+    try {
+      await adminApi.delete(`/claims/${id}`);
+      navigate('/admin/claims');
+    } catch {
+      alert('Failed to delete claim');
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-400"></div></div>;
   if (!claim) return null;
 
@@ -154,7 +181,59 @@ export function AdminClaimDetailPage() {
             <CheckCircle className="h-4 w-4" />
             Mark Completed
           </button>
+          <button
+            onClick={handleReanalyze}
+            disabled={analyzing || claim.images?.length === 0}
+            title={claim.images?.length === 0 ? 'No images to analyze' : "Re-run the AI damage analysis on this claim's photos"}
+            className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-40 transition shadow-sm"
+          >
+            <RefreshCw className={`h-4 w-4 ${analyzing ? 'animate-spin' : ''}`} />
+            {analyzing ? 'Analyzing...' : 'Re-analyze Damage'}
+          </button>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-red-600 border border-red-300 rounded-lg text-sm font-semibold hover:bg-red-50 transition shadow-sm"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Claim
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-red-600 font-medium">Delete claim and all its data permanently?</span>
+              <button
+                onClick={handleDeleteClaim}
+                disabled={deleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Yes, delete'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
+
+        {analyzing && (
+          <div className="mb-4 p-3 bg-purple-50 border border-purple-100 rounded-lg flex items-center gap-3">
+            <RefreshCw className="h-4 w-4 text-purple-600 animate-spin shrink-0" />
+            <p className="text-sm text-purple-700">AI is re-analyzing the damage photos. This usually takes 5–30 seconds — results will appear automatically.</p>
+          </div>
+        )}
+        {analyzeError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-3">
+            <p className="text-sm text-red-700">{analyzeError}</p>
+            <button onClick={handleReanalyze} disabled={analyzing}
+              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 disabled:opacity-50 whitespace-nowrap">
+              Retry now
+            </button>
+          </div>
+        )}
 
         {/* Advanced status change */}
         <details className="group">
