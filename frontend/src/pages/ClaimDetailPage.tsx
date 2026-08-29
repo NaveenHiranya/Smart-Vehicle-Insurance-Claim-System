@@ -320,7 +320,7 @@ export function ClaimDetailPage() {
                   <>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Garage Estimate Submitted</span>
-                      <span className="text-xs text-gray-500">{new Date(claim.garageEstimate.submittedAt).toLocaleString()}</span>
+                      <span className="text-xs text-gray-500">{new Date(claim.garageEstimate.estimateDate ?? claim.garageEstimate.submittedAt).toLocaleDateString()}</span>
                     </div>
                     {claim.repairEstimate && (
                       <div className="grid grid-cols-2 gap-3 mb-4 p-3 bg-blue-50 rounded-lg">

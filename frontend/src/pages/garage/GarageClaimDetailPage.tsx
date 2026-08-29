@@ -16,6 +16,7 @@ export function GarageClaimDetailPage() {
   const [laborRate, setLaborRate] = useState(DEFAULT_LABOR_RATE);
   const [paintMaterials, setPaintMaterials] = useState(0);
   const [notes, setNotes] = useState('');
+  const [estimateDate, setEstimateDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
@@ -31,6 +32,12 @@ export function GarageClaimDetailPage() {
       setLaborRate(source.laborRate);
       setPaintMaterials(source.paintMaterials);
       if (existing) setNotes(existing.notes || '');
+      // Estimate date is editable — prefill with the stored one (fallback: today)
+      setEstimateDate(
+        existing?.estimateDate
+          ? new Date(existing.estimateDate).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10)
+      );
     }).catch(() => setError('Failed to load this claim. It may not exist or is not assigned to your garage.'))
     .finally(() => setLoading(false));
 
@@ -66,13 +73,17 @@ export function GarageClaimDetailPage() {
     setParts((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  // An estimate needs at least one cost line — a part, labor hours, or paint/materials
+  const hasAnyCost = parts.length > 0 || laborHours > 0 || paintMaterials > 0;
+
   const handleSubmit = async () => {
-    if (parts.length === 0) return;
+    if (!hasAnyCost) return;
     setSaving(true);
     try {
       await garageApi.post(`/claims/${id}/estimate`, {
         items: { parts, laborHours, laborRate, paintMaterials },
         ...totals, notes: notes || null,
+        estimateDate: new Date(`${estimateDate}T00:00:00`).toISOString(),
       });
       await fetchClaim();
       setEditMode(false);
@@ -180,9 +191,17 @@ export function GarageClaimDetailPage() {
       {/* Estimate Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900">
-            {hasGarageEstimate ? 'Your Submitted Estimate' : 'Garage Repair Estimate'}
-          </h2>
+          <div>
+            <h2 className="font-semibold text-gray-900">
+              {hasGarageEstimate ? 'Your Submitted Estimate' : 'Garage Repair Estimate'}
+            </h2>
+            {hasGarageEstimate && !editMode && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                Estimate date: {new Date(claim.garageEstimate.estimateDate ?? claim.garageEstimate.submittedAt).toLocaleDateString()}
+                {' '}&middot; submitted {new Date(claim.garageEstimate.submittedAt).toLocaleString()}
+              </p>
+            )}
+          </div>
           {!editMode && !hasGarageEstimate && (
             <button onClick={() => setEditMode(true)}
               className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700">
@@ -329,11 +348,16 @@ export function GarageClaimDetailPage() {
         </div>
 
         {editMode && (
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="mt-4 flex flex-wrap items-end gap-3">
             <button onClick={addPart}
               className="flex items-center gap-1 px-3 py-2 border border-orange-300 text-orange-700 rounded-lg text-sm hover:bg-orange-50">
               <Plus className="h-4 w-4" /> Add Part
             </button>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <label htmlFor="estimate-date" className="text-sm font-medium text-gray-700">Estimate date</label>
+              <input id="estimate-date" type="date" value={estimateDate} onChange={(e) => setEstimateDate(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none" />
+            </div>
           </div>
         )}
 
@@ -354,8 +378,9 @@ export function GarageClaimDetailPage() {
         {/* Submit button */}
         {editMode && (
           <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
-            <button onClick={handleSubmit} disabled={saving || parts.length === 0}
-              className="flex items-center gap-2 px-6 py-2.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50">
+            <button onClick={handleSubmit} disabled={saving || !hasAnyCost}
+              title={!hasAnyCost ? 'Add at least one part, labor hour, or paint cost first' : undefined}
+              className="flex items-center gap-2 px-6 py-2.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed">
               <Save className="h-4 w-4" /> {saving ? 'Submitting...' : hasGarageEstimate ? 'Update Estimate' : 'Submit Estimate'}
             </button>
           </div>

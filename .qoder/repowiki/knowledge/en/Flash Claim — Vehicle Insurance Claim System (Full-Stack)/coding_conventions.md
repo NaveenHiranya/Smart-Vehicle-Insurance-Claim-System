@@ -1,6 +1,0 @@
-- Each Express route group lives in its own `routes/<feature>.ts` file and is mounted under a namespaced path in `src/index.ts` (e.g. `/api/admin`, `/api/garage`).
-- Authentication is enforced per-route via reusable middleware: `authMiddleware` for user routes and `adminAuthMiddleware` / `garageAuthMiddleware` for role-scoped routes, applied at router level rather than per handler.
-- Handlers wrap body parsing in explicit validation blocks that return `{ error: '...' }` with appropriate 400/401/403 status codes before touching the database.
-- Database access goes exclusively through the Prisma client imported from `utils/prisma.js`; raw SQL is not used.
-- Frontend routes are grouped by role in `App.tsx` and guarded by a matching `<XxxProtectedRoute>` wrapper that redirects unauthenticated visitors to the role-specific login page.
-- API clients are split by role (`services/api.ts`, `services/adminApi.ts`, `services/garageApi.ts`) so each frontend subsystem talks to its own base URL prefix.

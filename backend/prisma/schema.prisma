@@ -290,6 +290,8 @@ model GarageEstimate {
   totalCost      Float
   estimatedDays  Int
   notes          String?
+  // Date the estimate applies to — set by the garage; older rows fall back to submittedAt
+  estimateDate   DateTime?
   submittedAt    DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

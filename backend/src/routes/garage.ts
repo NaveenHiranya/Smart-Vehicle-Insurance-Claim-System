@@ -86,11 +86,32 @@ router.post('/claims/:id/estimate', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const { items, totalPartsCost, totalLaborCost, totalCost, estimatedDays, notes } = req.body;
+    const { items, totalPartsCost, totalLaborCost, totalCost, estimatedDays, notes, estimateDate } = req.body;
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      res.status(400).json({ error: 'At least one repair item is required.' });
+    // The frontend sends the estimate layout as an object — { parts, laborHours,
+    // laborRate, paintMaterials } — while a bare array is accepted as a legacy
+    // parts-only shape. Either way the estimate must contain at least one cost
+    // line: a part, labor hours, or paint/materials.
+    const parts: any[] = Array.isArray(items)
+      ? items
+      : Array.isArray(items?.parts) ? items.parts : [];
+    const laborHours = Array.isArray(items) ? 0 : Number(items?.laborHours) || 0;
+    const paintMaterials = Array.isArray(items) ? 0 : Number(items?.paintMaterials) || 0;
+
+    if (parts.length === 0 && laborHours <= 0 && paintMaterials <= 0) {
+      res.status(400).json({ error: 'At least one repair item, labor hour, or paint/material cost is required.' });
       return;
+    }
+
+    // Estimate date is chosen by the garage (defaults to the submission moment)
+    let estimateDateValue: Date | undefined;
+    if (estimateDate != null && estimateDate !== '') {
+      const parsed = new Date(String(estimateDate));
+      if (Number.isNaN(parsed.getTime())) {
+        res.status(400).json({ error: 'Invalid estimate date.' });
+        return;
+      }
+      estimateDateValue = parsed;
     }
 
     const estimateData = {
@@ -108,7 +129,8 @@ router.post('/claims/:id/estimate', async (req: AuthRequest, res: Response) => {
     if (existing) {
       estimate = await prisma.garageEstimate.update({
         where: { claimId },
-        data: estimateData,
+        // estimateDate stays untouched when the request omits it
+        data: { ...estimateData, estimateDate: estimateDateValue },
       });
     } else {
       estimate = await prisma.garageEstimate.create({
@@ -116,6 +138,7 @@ router.post('/claims/:id/estimate', async (req: AuthRequest, res: Response) => {
           claimId,
           garageId,
           ...estimateData,
+          estimateDate: estimateDateValue ?? new Date(),
         },
       });
     }

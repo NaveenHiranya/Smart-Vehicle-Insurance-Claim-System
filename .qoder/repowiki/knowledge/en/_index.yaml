@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-08-29T13:30:25Z"
+exported_at: "2026-08-29T14:30:42Z"
 modules:
     "":
-        dir_name: Flash Claim — Vehicle Insurance Claim System (Full-Stack)
-        title: Flash Claim — Vehicle Insurance Claim System (Full-Stack)
+        dir_name: Vehicle-Based Insurance Claim Platform (Backend & Frontend)
+        title: Vehicle-Based Insurance Claim Platform (Backend & Frontend)
         scope: []
         source_files: []
         children: []

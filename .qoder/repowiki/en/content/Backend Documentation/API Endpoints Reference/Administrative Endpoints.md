@@ -21,11 +21,11 @@
 
 ## Update Summary
 **Changes Made**
-- Removed user policy management endpoints (POST /api/admin/users/:id/policies) that allowed assigning policies directly to users
-- Added comprehensive vehicle management endpoints including GET /api/admin/vehicles for listing vehicles, PATCH /api/admin/vehicles/:id/verify for verification workflow, and POST /api/admin/vehicles/:id/policy for vehicle-specific policy management
-- Updated admin statistics to include pending vehicle counts (pendingVehicles field)
-- Enhanced vehicle verification system with status tracking and notes support
-- Implemented vehicle insurance policy management with template-based and custom policy creation
+- Added new PATCH endpoint `/api/admin/claims/:id/final-value` for setting or clearing final claimable values for insurance claims
+- Enhanced claim management with insurer-approved final payout amounts that override computed estimates
+- Updated frontend AdminClaimDetailPage with final value input and validation
+- Added timestamp tracking for when final values are set using `finalValueSetAt` field
+- Implemented proper validation for non-negative numbers and null clearing functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -40,10 +40,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, and analytics. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation. **Updated** Now includes enhanced vehicle management capabilities with verification workflows and vehicle-specific policy management, replacing the previous user-centric policy assignment approach.
+This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, and analytics. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation. **Updated** Now includes enhanced claim management capabilities with insurer-approved final payout amounts that override computed estimates, replacing the previous purely automated calculation approach.
 
 ## Project Structure
-The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive vehicle management workflows with verification status tracking and per-vehicle insurance policy management.
+The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive claim final value management with UI integration for setting insurer-approved payouts.
 
 ```mermaid
 graph TB
@@ -113,6 +113,7 @@ Key responsibilities:
 - **New**: Handle AI-powered claim re-analysis with comprehensive error handling.
 - **New**: Manage secure claim deletion with automatic file cleanup.
 - **Enhanced**: Comprehensive vehicle management with verification status tracking and per-vehicle insurance policy management.
+- **New**: Set insurer-approved final claimable values that override automated calculations.
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
@@ -120,7 +121,7 @@ Key responsibilities:
 - [adminApi.ts:7-24](file://frontend/src/services/adminApi.ts#L7-L24)
 
 ## Architecture Overview
-Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes advanced vehicle management workflows supporting verification status tracking and per-vehicle insurance policy management with automatic payout recalculation.
+Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes advanced vehicle management workflows supporting verification status tracking, per-vehicle insurance policy management, and insurer-approved final claimable value management with automatic payout recalculation.
 
 ```mermaid
 sequenceDiagram
@@ -144,13 +145,14 @@ DS->>DB : Save/update assessment
 DB-->>DS : Assessment saved
 DS-->>AR : Analysis result
 AR-->>FE : JSON assessment
-Note over FE,DB : Enhanced vehicle management<br/>PATCH /api/admin/vehicles/ : id/verify -> Status update
+Note over FE,DB : Enhanced vehicle management<br/>PATCH /api/admin/vehicles/ : id/verify -> Status update<br/>PATCH /api/admin/claims/ : id/final-value -> Final payout approval
 ```
 
 **Diagram sources**
 - [index.ts:40-45](file://backend/src/index.ts#L40-L45)
 - [admin.ts:11-26](file://backend/src/routes/admin.ts#L11-L26)
 - [admin.ts:548-600](file://backend/src/routes/admin.ts#L548-L600)
+- [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
 
@@ -330,14 +332,17 @@ AR-->>FE : Policy (201/200)
   - PATCH /api/admin/claims/:id/status
   - **NEW** POST /api/admin/claims/:id/analyze
   - **NEW** DELETE /api/admin/claims/:id
+  - **NEW** PATCH /api/admin/claims/:id/final-value
 - Purposes:
   - List claims with enhanced filtering including comma-separated status lists, search across user names, emails, vehicle make/model, and scope filtering by user ID or vehicle ID.
   - Retrieve detailed claim information including user, vehicle, policy, images, assessments, estimates, payouts, documents, and chat messages.
   - Update claim status to one of the allowed values.
   - **New**: Re-run AI damage analysis on existing claims to refresh assessments and repair estimates.
   - **New**: Delete claims with comprehensive file cleanup including associated images and documents.
+  - **New**: Set insurer-approved final claimable values that override automated calculations with proper validation and timestamp tracking.
 - Request parameters:
   - GET /api/admin/claims?status=SUBMITTED,UNDER_REVIEW&search=query&user=userId&vehicle=vehicleId
+  - PATCH /api/admin/claims/:id/final-value accepts finalClaimableValue (number or null to clear)
 - Allowed statuses: DRAFT, SUBMITTED, UNDER_REVIEW, GARAGE_REVIEW, GARAGE_ESTIMATED, APPROVED, REJECTED, COMPLETED
 - Response schemas:
   - List: Array of claims with included user, vehicle, damage assessment summary, and counts for images/documents.
@@ -345,9 +350,10 @@ AR-->>FE : Policy (201/200)
   - Status update: Updated claim object.
   - **New**: Re-analysis returns updated damage assessment with AI analysis results.
   - **New**: Deletion returns success message after file cleanup.
+  - **New**: Final value update returns updated claim with finalClaimableValue and finalValueSetAt timestamp.
 - Usage:
   - AdminClaimsPage filters and searches claims with comma-separated status support, approves claims by updating status to APPROVED, and scopes views by user or vehicle.
-  - **New**: AdminClaimDetailPage provides re-analysis button with loading states and error handling, plus delete confirmation workflow.
+  - **New**: AdminClaimDetailPage provides re-analysis button with loading states and error handling, delete confirmation workflow, and final value input with validation for setting insurer-approved payouts.
 
 ```mermaid
 sequenceDiagram
@@ -365,6 +371,10 @@ DS->>DB : Save/update assessment
 DB-->>DS : Assessment saved
 DS-->>AR : Analysis result
 AR-->>FE : Updated assessment
+FE->>API : PATCH /api/admin/claims/ : id/final-value { finalClaimableValue }
+AR->>DB : Update finalClaimableValue and finalValueSetAt
+DB-->>AR : Updated claim
+AR-->>FE : Updated claim
 FE->>API : DELETE /api/admin/claims/ : id
 AR->>DB : Fetch claim with images/documents
 DB-->>AR : Claim data
@@ -376,12 +386,14 @@ AR-->>FE : { message : 'Claim deleted.' }
 
 **Diagram sources**
 - [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
+- [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [AdminClaimsPage.tsx:19-70](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L19-L70)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
 
 **Section sources**
 - [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
+- [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [AdminClaimsPage.tsx:19-70](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L19-L70)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 
@@ -561,7 +573,7 @@ API-->>FE : { status, service, db }
 - Frontend admin pages depend on:
   - adminApi axios instance which injects Authorization headers and handles auth errors.
   - **New**: AdminVehiclesPage with comprehensive vehicle management, verification workflow, and policy assignment.
-  - **New**: AdminClaimDetailPage with re-analysis and delete functionality.
+  - **New**: AdminClaimDetailPage with re-analysis, delete functionality, and final value management.
 - Data models used by admin endpoints:
   - User, Vehicle, Claim, Document, DamageAssessment, RepairEstimate, InsurancePayout, ChatMessage, Garage, PolicyTemplate, InsurancePolicy.
 
@@ -613,6 +625,10 @@ AdminAPI --> AdminRoutes
   - Vehicle verification and policy assignment trigger automatic payout recalculation for affected claims.
   - Verification status changes are optimized with minimal database updates.
   - Policy template selection reduces data entry overhead and ensures consistency.
+- **New**: Final value management performance:
+  - Final value updates are lightweight database operations with immediate effect.
+  - Timestamp tracking uses efficient DateTime operations.
+  - Value validation occurs at the API layer to prevent unnecessary database writes.
 
 [No sources needed since this section provides general guidance]
 
@@ -637,6 +653,12 @@ Common issues and resolutions:
   - File cleanup occurs before database deletion to ensure consistency.
   - Missing files are handled gracefully without blocking deletion.
   - Frontend requires explicit confirmation before deletion to prevent accidental data loss.
+- **New**: Final value management issues:
+  - Final value must be a non-negative number or null to clear the value.
+  - Setting final value overrides the computed estimate shown to customers.
+  - Clearing final value restores the automated calculation.
+  - Timestamp tracking records when final values are set for audit purposes.
+  - Frontend validates input before sending to backend and shows appropriate error messages.
 - **Enhanced**: Vehicle management issues:
   - Vehicle creation requires all mandatory fields (userId, make, model, year, licensePlate, color).
   - Year validation must be between 1900 and 2100.
@@ -663,6 +685,7 @@ Common issues and resolutions:
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [admin.ts:56-865](file://backend/src/routes/admin.ts#L56-L865)
+- [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
@@ -670,7 +693,7 @@ Common issues and resolutions:
 - [garageAuth.ts:74-82](file://backend/src/routes/garageAuth.ts#L74-L82)
 
 ## Conclusion
-The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, **enhanced** vehicle management with verification workflows and per-vehicle insurance policy management, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. **Updated** The system now includes comprehensive vehicle management capabilities with verification status tracking, vehicle-specific policy assignment using built-in templates or custom entries, and automatic payout recalculation. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
+The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, **enhanced** vehicle management with verification workflows and per-vehicle insurance policy management, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. **Updated** The system now includes comprehensive vehicle management capabilities with verification status tracking, vehicle-specific policy assignment using built-in templates or custom entries, automatic payout recalculation, and insurer-approved final claimable value management with timestamp tracking. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -768,6 +791,15 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Cascade deletion: Removes related damage assessments, repair estimates, and other associated data.
   - Access: Admin only
 
+- **NEW** PATCH /api/admin/claims/:id/final-value
+  - Description: Sets or clears the insurer-approved final claimable value for a claim, overriding automated calculations.
+  - Request body: { finalClaimableValue: number|null }
+  - Response: Updated claim object with finalClaimableValue and finalValueSetAt timestamp.
+  - Validation: Accepts non-negative numbers or null to clear the value.
+  - Behavior: Setting a value overrides the computed estimate shown to customers; clearing restores automated calculation.
+  - Error handling: Returns 404 if claim not found, 400 if value is negative or invalid.
+  - Access: Admin only
+
 - GET /api/admin/documents?status=PENDING|ISSUES_FOUND|ALL
   - Description: Lists documents with optional verification status filter.
   - Response: Array of documents with associated claim details.
@@ -828,6 +860,7 @@ The administrative endpoints provide secure, role-gated access to critical insur
 
 **Section sources**
 - [admin.ts:24-865](file://backend/src/routes/admin.ts#L24-L865)
+- [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)

@@ -241,6 +241,8 @@ export interface GarageEstimate {
   totalCost: number;
   estimatedDays: number;
   notes?: string;
+  // Date the estimate applies to — set by the garage; older rows fall back to submittedAt
+  estimateDate?: string | null;
   submittedAt: string;
   updatedAt: string;
 }
