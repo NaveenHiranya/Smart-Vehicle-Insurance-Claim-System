@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, LayoutDashboard, Car, FileText, ClipboardList, User, LogOut, Menu, X } from 'lucide-react';
 import { GlobalAIAssistant } from './GlobalAIAssistant';
+import { NotificationBell } from './NotificationBell';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -92,9 +93,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="block text-[10px] font-medium text-primary-600">Smart Claims</span>
             </div>
           </Link>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="rounded-xl p-2 text-gray-600 hover:bg-gray-100">
-            {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="rounded-xl p-2 text-gray-600 hover:bg-gray-100">
+              {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -150,8 +154,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
+      {/* Desktop Top Bar */}
+      <div className="hidden lg:flex fixed top-0 right-0 left-64 z-40 h-14 items-center justify-end border-b border-gray-100 bg-white/90 px-6 backdrop-blur">
+        <NotificationBell />
+      </div>
+
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 pt-16 pb-20 lg:pt-0 lg:pb-0">
+      <main className="flex-1 lg:ml-64 pt-16 pb-20 lg:pt-14 lg:pb-0">
         <div className="p-4 sm:p-6 lg:p-8">
           {children}
         </div>

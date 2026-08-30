@@ -11,6 +11,7 @@ import adminRoutes from './routes/admin.js';
 import garageAuthRoutes from './routes/garageAuth.js';
 import garageRoutes from './routes/garage.js';
 import generalChatRoutes from './routes/generalChat.js';
+import notificationRoutes from './routes/notifications.js';
 import prisma from './utils/prisma.js';
 import { seedPolicyTemplates } from './services/policyTemplateSeeder.js';
 
@@ -50,6 +51,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/garage/auth', garageAuthRoutes);
 app.use('/api/garage', garageRoutes);
 app.use('/api/general-chat', generalChatRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', async (_req, res) => {

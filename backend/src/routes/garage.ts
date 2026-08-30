@@ -3,6 +3,7 @@ import prisma from '../utils/prisma.js';
 import { garageAuthMiddleware } from '../middleware/garageAuth.js';
 import { AuthRequest } from '../types/index.js';
 import { recalculatePayout } from '../services/payoutService.js';
+import { createNotificationForClaimOwner } from '../services/notificationService.js';
 
 const router = Router();
 router.use(garageAuthMiddleware);
@@ -151,6 +152,21 @@ router.post('/claims/:id/estimate', async (req: AuthRequest, res: Response) => {
 
     // The garage estimate becomes the payout basis — re-apply the insurance deduction
     await recalculatePayout(claimId);
+
+    // Notify the policyholder that the garage estimate is ready
+    try {
+      const garage = await prisma.garage.findUnique({ where: { id: garageId }, select: { name: true } });
+      const garageName = garage?.name ?? 'the garage';
+      const fmt = new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 });
+      await createNotificationForClaimOwner(
+        claimId,
+        'GARAGE_ESTIMATE',
+        'New garage estimate',
+        `${garageName} submitted an estimate of ${fmt.format(estimate.totalCost)} (approx. ${estimate.estimatedDays} day${estimate.estimatedDays === 1 ? '' : 's'} of work).`
+      );
+    } catch (err) {
+      console.error('Garage estimate notification failed:', err);
+    }
 
     res.json(estimate);
   } catch (error) {

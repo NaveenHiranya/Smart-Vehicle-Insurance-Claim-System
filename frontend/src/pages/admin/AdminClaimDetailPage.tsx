@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw, CircleDollarSign, ChevronDown, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw, CircleDollarSign, ChevronDown, AlertTriangle, MessageSquare, Send } from 'lucide-react';
 import { uploadUrl } from '../../utils/uploadUrl';
 import { normalizeGarageItems, estimateTotals } from '../../utils/garageEstimate';
 
@@ -41,6 +41,12 @@ export function AdminClaimDetailPage() {
   const [scoring, setScoring] = useState(false);
   const [scoreError, setScoreError] = useState('');
   const [fraudExpanded, setFraudExpanded] = useState(false);
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgTitle, setMsgTitle] = useState('');
+  const [msgBody, setMsgBody] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgError, setMsgError] = useState('');
+  const [msgSent, setMsgSent] = useState(false);
 
   const fetchClaim = () =>
     adminApi.get(`/claims/${id}`).then((r) => {
@@ -161,6 +167,28 @@ export function AdminClaimDetailPage() {
       setScoreError('Failed to calculate fraud score.');
     } finally {
       setScoring(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!msgBody.trim() || !claim?.user?.id) return;
+    setMsgSending(true);
+    setMsgError('');
+    try {
+      await adminApi.post('/notifications', {
+        userId: claim.user.id,
+        claimId: id,
+        title: msgTitle.trim() || 'Message from admin',
+        message: msgBody.trim(),
+      });
+      setMsgTitle('');
+      setMsgBody('');
+      setMsgSent(true);
+      setTimeout(() => setMsgSent(false), 3000);
+    } catch {
+      setMsgError('Failed to send message.');
+    } finally {
+      setMsgSending(false);
     }
   };
 
@@ -612,6 +640,53 @@ export function AdminClaimDetailPage() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Send Message to Policyholder */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-5">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-primary-600" /> Message Policyholder
+          </h2>
+          <button
+            onClick={() => setMsgOpen((v) => !v)}
+            className="text-xs font-medium text-primary-600 hover:text-primary-700"
+          >
+            {msgOpen ? 'Close' : 'Compose'}
+          </button>
+        </div>
+        {msgOpen && (
+          <div className="mt-4 space-y-3">
+            <div className="text-xs text-gray-500">
+              To: <span className="font-medium text-gray-700">{claim.user?.firstName} {claim.user?.lastName}</span>
+              {' · '}Re: <span className="font-medium text-gray-700">{claim.vehicle?.make} {claim.vehicle?.model} {claim.vehicle?.year}</span>
+            </div>
+            <input
+              value={msgTitle}
+              onChange={(e) => setMsgTitle(e.target.value)}
+              placeholder="Subject (optional)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+            <textarea
+              value={msgBody}
+              onChange={(e) => setMsgBody(e.target.value)}
+              placeholder="Write your message to the policyholder..."
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-y"
+            />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSendMessage}
+                disabled={msgSending || !msgBody.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-semibold hover:bg-primary-700 disabled:opacity-50 transition"
+              >
+                <Send className="h-4 w-4" /> {msgSending ? 'Sending...' : 'Send Message'}
+              </button>
+              {msgSent && <span className="text-xs font-medium text-green-600">Message sent</span>}
+              {msgError && <span className="text-xs font-medium text-red-600">{msgError}</span>}
+            </div>
           </div>
         )}
       </div>

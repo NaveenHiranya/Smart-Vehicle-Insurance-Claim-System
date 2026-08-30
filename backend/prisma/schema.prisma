@@ -27,6 +27,7 @@ model User {
   vehicles        Vehicle[]
   policies        InsurancePolicy[]
   claims          Claim[]
+  notifications   Notification[]
 }
 
 model Vehicle {
@@ -161,6 +162,7 @@ model Claim {
   documents         Document[]
   chatMessages      ChatMessage[]
   adminNotes        AdminNote[]
+  notifications     Notification[]
 }
 
 enum ImageType {
@@ -318,4 +320,20 @@ model GarageEstimate {
 
   claim  Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
   garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
+}
+
+// In-app notifications surfaced to the policyholder — auto-triggers (doc reminder,
+// garage estimate, final value update) plus admin-composed messages.
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  claimId   String?
+  type      String   // DOC_REMINDER, GARAGE_ESTIMATE, FINAL_VALUE, ADMIN_MESSAGE
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  claim Claim? @relation(fields: [claimId], references: [id], onDelete: Cascade)
 }

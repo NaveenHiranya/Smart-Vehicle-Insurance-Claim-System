@@ -7,6 +7,7 @@ import { AuthRequest, VEHICLE_TYPES } from '../types/index.js';
 import { recalculatePayout } from '../services/payoutService.js';
 import { analyzeDamage } from '../services/damageAnalysisService.js';
 import { scoreClaimFraud } from '../services/fraudScoringService.js';
+import { createNotification, createNotificationForClaimOwner } from '../services/notificationService.js';
 
 const router = Router();
 router.use(adminAuthMiddleware);
@@ -613,6 +614,14 @@ router.patch('/claims/:id/final-value', async (req: AuthRequest, res: Response) 
         where: { id: claimId },
         data: { finalClaimableValue: null, finalValueSetAt: null },
       });
+      try {
+        await createNotificationForClaimOwner(
+          claimId, 'FINAL_VALUE', 'Claimable value cleared',
+          'Your insurer has cleared the final claimable value — the original estimate will now be shown.'
+        );
+      } catch (err) {
+        console.error('Final-value notification failed:', err);
+      }
       res.json(updated);
       return;
     }
@@ -627,6 +636,16 @@ router.patch('/claims/:id/final-value', async (req: AuthRequest, res: Response) 
       where: { id: claimId },
       data: { finalClaimableValue: Math.round(value), finalValueSetAt: new Date() },
     });
+
+    try {
+      const fmt = new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 });
+      await createNotificationForClaimOwner(
+        claimId, 'FINAL_VALUE', 'Claimable value updated',
+        `Your insurer has set the final claimable value to ${fmt.format(value)}.`
+      );
+    } catch (err) {
+      console.error('Final-value notification failed:', err);
+    }
     res.json(updated);
   } catch (error) {
     console.error('Admin final claimable value error:', error);
@@ -671,6 +690,40 @@ router.post('/claims/:id/fraud-score', async (req: AuthRequest, res: Response) =
   } catch (error) {
     console.error('Admin fraud-score error:', error);
     res.status(502).json({ error: 'Fraud scoring failed. Please try again.' });
+  }
+});
+
+// POST /api/admin/notifications — admin sends a message to a user (optionally tied to a claim)
+router.post('/notifications', async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId, claimId, title, message } = req.body;
+    if (!userId || typeof message !== 'string' || !message.trim()) {
+      res.status(400).json({ error: 'userId and message are required.' });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+    if (claimId) {
+      const claim = await prisma.claim.findUnique({ where: { id: claimId, userId } });
+      if (!claim) {
+        res.status(404).json({ error: 'Claim not found for this user.' });
+        return;
+      }
+    }
+    await createNotification({
+      userId,
+      claimId: claimId ?? null,
+      type: 'ADMIN_MESSAGE',
+      title: typeof title === 'string' && title.trim() ? title.trim() : 'Message from admin',
+      message: message.trim(),
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Admin send notification error:', error);
+    res.status(500).json({ error: 'Failed to send notification.' });
   }
 });
 
@@ -810,6 +863,29 @@ router.patch('/documents/:id/reject', async (req: AuthRequest, res: Response) =>
         verificationResult: { status: 'ISSUES_FOUND', issues: [reason || 'Rejected by insurance reviewer'], approvedByAdmin: false } as any,
       },
     });
+
+    // Notify the policyholder which doc was rejected and why
+    try {
+      const fullDoc = await prisma.document.findUnique({
+        where: { id: param(req, 'id') },
+        select: { claimId: true, type: true, claim: { select: { userId: true } } },
+      });
+      if (fullDoc?.claim) {
+        const docLabel = fullDoc.type.replace(/_/g, ' ').toLowerCase();
+        await createNotification(
+          {
+            userId: fullDoc.claim.userId,
+            claimId: fullDoc.claimId,
+            type: 'DOC_REMINDER',
+            title: 'Document rejected',
+            message: `Your ${docLabel} was rejected: ${reason ? String(reason).slice(0, 200) : 'please review and re-upload.'}`,
+          }
+        );
+      }
+    } catch (err) {
+      console.error('Doc reject notification failed:', err);
+    }
+
     res.json(doc);
   } catch (error) {
     console.error('Admin reject doc error:', error);
