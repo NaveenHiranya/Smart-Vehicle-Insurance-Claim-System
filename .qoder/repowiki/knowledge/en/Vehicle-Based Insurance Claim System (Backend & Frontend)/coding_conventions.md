@@ -1,6 +1,0 @@
-- Each feature area is organized as a set of files under `routes/`, `controllers/`, and/or `services/` named after the domain entity (e.g. `vehicles`, `policies`, `claims`, `garage`).
-- Role-based access control is enforced via dedicated middleware functions (`auth.ts`, `adminAuth.ts`, `garageAuth.ts`) mounted on route groups rather than checked inline in handlers.
-- Database schema changes are expressed exclusively in `prisma/schema.prisma` and consumed via the generated Prisma client; no raw SQL queries are used in business logic.
-- Environment configuration is validated at process startup against a known list of required keys, with a descriptive error message directing users to `.env.example`.
-- Frontend routes are guarded by role-specific wrapper components (`ProtectedRoute`, `AdminProtectedRoute`, `GarageProtectedRoute`) that wrap page components inside their matching layout component.
-- File uploads are stored under a configurable `UPLOAD_DIR` and served statically via `express.static('/uploads', ...)` so uploaded assets are accessible by URL.

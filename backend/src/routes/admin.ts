@@ -7,6 +7,7 @@ import { AuthRequest, VEHICLE_TYPES } from '../types/index.js';
 import { recalculatePayout } from '../services/payoutService.js';
 import { analyzeDamage } from '../services/damageAnalysisService.js';
 import { scoreClaimFraud } from '../services/fraudScoringService.js';
+import { reconcileEstimates } from '../services/reconciliationService.js';
 import { createNotification, createNotificationForClaimOwner } from '../services/notificationService.js';
 
 const router = Router();
@@ -25,15 +26,16 @@ async function syncVehiclePayouts(vehicleId: string): Promise<void> {
 // GET /api/admin/stats
 router.get('/stats', async (_req: AuthRequest, res: Response) => {
   try {
-    const [userCount, claimCounts, docCount, pendingDocs, pendingVehicles] = await Promise.all([
+    const [userCount, claimCounts, docCount, pendingDocs, pendingVehicles, openTickets] = await Promise.all([
       prisma.user.count({ where: { isAdmin: false } }),
       prisma.claim.groupBy({ by: ['status'], _count: { id: true } }),
       prisma.document.count(),
       prisma.document.count({ where: { verificationStatus: 'PENDING' } }),
       prisma.vehicle.count({ where: { verificationStatus: 'PENDING' } }),
+      prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
     ]);
     const claimsByStatus = Object.fromEntries(claimCounts.map((c: { status: string; _count: { id: number } }) => [c.status, c._count.id]));
-    res.json({ userCount, claimsByStatus, docCount, pendingDocs, pendingVehicles });
+    res.json({ userCount, claimsByStatus, docCount, pendingDocs, pendingVehicles, openTickets });
   } catch (error) {
     console.error('Admin stats error:', error);
     res.status(500).json({ error: 'Failed to fetch stats.' });
@@ -693,6 +695,33 @@ router.post('/claims/:id/fraud-score', async (req: AuthRequest, res: Response) =
   }
 });
 
+// POST /api/admin/claims/:id/reconcile — (re)run garage vs AI estimate reconciliation
+router.post('/claims/:id/reconcile', async (req: AuthRequest, res: Response) => {
+  try {
+    const claim = await prisma.claim.findUnique({
+      where: { id: param(req, 'id') },
+      select: { repairEstimate: true, garageEstimate: true },
+    });
+    if (!claim) {
+      res.status(404).json({ error: 'Claim not found.' });
+      return;
+    }
+    if (!claim.repairEstimate) {
+      res.status(400).json({ error: 'AI repair estimate must exist first.' });
+      return;
+    }
+    if (!claim.garageEstimate) {
+      res.status(400).json({ error: 'Garage estimate has not been submitted yet.' });
+      return;
+    }
+    const result = await reconcileEstimates(param(req, 'id'));
+    res.json(result);
+  } catch (error) {
+    console.error('Admin reconcile error:', error);
+    res.status(502).json({ error: 'Reconciliation failed. Please try again.' });
+  }
+});
+
 // POST /api/admin/notifications — admin sends a message to a user (optionally tied to a claim)
 router.post('/notifications', async (req: AuthRequest, res: Response) => {
   try {
@@ -947,6 +976,73 @@ router.patch('/garages/:id/toggle', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Admin toggle garage error:', error);
     res.status(500).json({ error: 'Failed to toggle garage.' });
+  }
+});
+
+// ---------- SUPPORT TICKETS (filed through the AI assistant chat) ----------
+
+// GET /api/admin/support-tickets — all tickets with reporter and claim context
+router.get('/support-tickets', async (_req: AuthRequest, res: Response) => {
+  try {
+    const tickets = await prisma.supportTicket.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        claim: {
+          select: {
+            id: true,
+            status: true,
+            vehicle: { select: { make: true, model: true, year: true, licensePlate: true } },
+          },
+        },
+      },
+    });
+    res.json(tickets);
+  } catch (error) {
+    console.error('Admin support tickets error:', error);
+    res.status(500).json({ error: 'Failed to fetch support tickets.' });
+  }
+});
+
+// PATCH /api/admin/support-tickets/:id — reply and/or change status
+router.patch('/support-tickets/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, adminReply } = req.body;
+    const ticketId = param(req, 'id');
+    const ticket = await prisma.supportTicket.findUnique({ where: { id: ticketId } });
+    if (!ticket) {
+      res.status(404).json({ error: 'Ticket not found.' });
+      return;
+    }
+
+    const validStatuses = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+    const data: { status?: string; adminReply?: string } = {};
+    if (typeof status === 'string' && validStatuses.includes(status)) data.status = status;
+    if (typeof adminReply === 'string' && adminReply.trim()) data.adminReply = adminReply.trim().slice(0, 1000);
+    if (Object.keys(data).length === 0) {
+      res.status(400).json({ error: 'Nothing to update.' });
+      return;
+    }
+
+    const updated = await prisma.supportTicket.update({ where: { id: ticketId }, data });
+
+    // Let the user know their report was answered
+    if (data.adminReply || data.status) {
+      await createNotification({
+        userId: ticket.userId,
+        claimId: ticket.claimId,
+        type: 'ADMIN_MESSAGE',
+        title: `Support ticket: ${ticket.subject}`,
+        message: data.adminReply
+          ? data.adminReply
+          : `Your support ticket status has been updated to ${data.status}.`,
+      });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin support ticket update error:', error);
+    res.status(500).json({ error: 'Failed to update ticket.' });
   }
 });
 

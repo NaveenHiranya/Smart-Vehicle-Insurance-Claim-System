@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { Users, ClipboardList, FileText, Clock, ArrowRight, Car } from 'lucide-react';
+import { Users, ClipboardList, FileText, Clock, ArrowRight, Car, MessageCircle } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
@@ -37,7 +37,7 @@ export function AdminDashboardPage() {
       </div>
 
       {/* Stats — each card navigates to its section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         <Link to="/admin/users" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition group">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-100 rounded-lg"><Users className="h-5 w-5 text-blue-600" /></div>
@@ -95,6 +95,20 @@ export function AdminDashboardPage() {
             <p className="text-3xl font-bold text-gray-900">{stats?.pendingDocs ?? 0}</p>
             <span className="text-xs text-orange-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
               Approve docs <ArrowRight className="h-3 w-3" />
+            </span>
+          </div>
+        </Link>
+        <Link to="/admin/support" className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:border-red-300 hover:shadow-md transition group">
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`p-2 rounded-lg ${(stats?.openTickets ?? 0) > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+              <MessageCircle className={`h-5 w-5 ${(stats?.openTickets ?? 0) > 0 ? 'text-red-600' : 'text-gray-500'}`} />
+            </div>
+            <span className="text-sm text-gray-500 font-medium">Support Tickets</span>
+          </div>
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-gray-900">{stats?.openTickets ?? 0}</p>
+            <span className="text-xs text-red-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+              View tickets <ArrowRight className="h-3 w-3" />
             </span>
           </div>
         </Link>

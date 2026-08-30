@@ -13,6 +13,7 @@ import { ClaimsPage } from './pages/ClaimsPage';
 import { NewClaimPage } from './pages/NewClaimPage';
 import { ClaimDetailPage } from './pages/ClaimDetailPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
@@ -22,6 +23,7 @@ import { AdminClaimDetailPage } from './pages/admin/AdminClaimDetailPage';
 import { AdminDocumentsPage } from './pages/admin/AdminDocumentsPage';
 import { AdminGaragesPage } from './pages/admin/AdminGaragesPage';
 import { AdminPoliciesPage } from './pages/admin/AdminPoliciesPage';
+import { AdminSupportPage } from './pages/admin/AdminSupportPage';
 import { GarageProtectedRoute } from './components/GarageProtectedRoute';
 import { GarageLayout } from './components/GarageLayout';
 import { GarageLoginPage } from './pages/garage/GarageLoginPage';
@@ -47,6 +49,7 @@ function App() {
           <Route path="/claims/new" element={<ProtectedRoute><Layout><NewClaimPage /></Layout></ProtectedRoute>} />
           <Route path="/claims/:id" element={<ProtectedRoute><Layout><ClaimDetailPage /></Layout></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Layout><ProfilePage /></Layout></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><Layout><NotificationsPage /></Layout></ProtectedRoute>} />
 
           {/* Admin routes */}
           <Route path="/admin/login" element={<AdminLoginPage />} />
@@ -56,6 +59,7 @@ function App() {
           <Route path="/admin/claims" element={<AdminProtectedRoute><AdminLayout><AdminClaimsPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/claims/:id" element={<AdminProtectedRoute><AdminLayout><AdminClaimDetailPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/policies" element={<AdminProtectedRoute><AdminLayout><AdminPoliciesPage /></AdminLayout></AdminProtectedRoute>} />
+          <Route path="/admin/support" element={<AdminProtectedRoute><AdminLayout><AdminSupportPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/documents" element={<AdminProtectedRoute><AdminLayout><AdminDocumentsPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin/garages" element={<AdminProtectedRoute><AdminLayout><AdminGaragesPage /></AdminLayout></AdminProtectedRoute>} />
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />

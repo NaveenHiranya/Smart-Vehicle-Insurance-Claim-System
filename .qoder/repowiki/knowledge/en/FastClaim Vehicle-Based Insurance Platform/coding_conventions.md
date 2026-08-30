@@ -1,0 +1,4 @@
+- Each feature area is split into routes/controllers/services layers under `backend/src`, with business logic isolated in services and route handlers kept thin.
+- Frontend API access is organized per role into dedicated service files (`services/api.ts`, `adminApi.ts`, `garageApi.ts`) rather than a single client.
+- Role-based UI access is enforced on the frontend via wrapper components (`ProtectedRoute`, `AdminProtectedRoute`, `GarageProtectedRoute`) instead of ad-hoc checks inside pages.
+- Shared runtime configuration is loaded from `.env` files at both project roots, with `.env.example` templates documenting required variables.

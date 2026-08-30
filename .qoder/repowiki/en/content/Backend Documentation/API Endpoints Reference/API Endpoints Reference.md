@@ -9,6 +9,8 @@
 - [claims.ts](file://backend/src/routes/claims.ts)
 - [admin.ts](file://backend/src/routes/admin.ts)
 - [generalChat.ts](file://backend/src/routes/generalChat.ts)
+- [notifications.ts](file://backend/src/routes/notifications.ts)
+- [notificationService.ts](file://backend/src/services/notificationService.ts)
 - [gemini.ts](file://backend/src/utils/gemini.ts)
 - [auth.ts](file://backend/src/middleware/auth.ts)
 - [adminAuth.ts](file://backend/src/middleware/adminAuth.ts)
@@ -19,10 +21,10 @@
 
 ## Update Summary
 **Changes Made**
-- Added new General Chat API section documenting /api/general-chat endpoints
-- Updated Project Structure diagram to include new general chat routes
-- Enhanced Authentication Requirements Summary with new general chat endpoints
-- Added new architecture diagrams showing AI integration and session management
+- Added new Notifications API section documenting GET /api/notifications, PATCH /api/notifications/read-all, and PATCH /api/notifications/:id/read endpoints
+- Updated Project Structure diagram to include new notifications routes
+- Enhanced Authentication Requirements Summary with new notifications endpoints
+- Added notification service integration details and database schema information
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,10 +39,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides a comprehensive reference for all RESTful endpoints exposed by the backend server. It covers authentication, vehicles, policies, claims, admin, and general chat endpoints with HTTP methods, URL patterns, request/response schemas, validation rules, error responses, status codes, and usage patterns such as CRUD operations, file uploads, and batch processing. It also outlines authentication requirements and versioning considerations based on the current codebase.
+This document provides a comprehensive reference for all RESTful endpoints exposed by the backend server. It covers authentication, vehicles, policies, claims, admin, general chat, and notifications endpoints with HTTP methods, URL patterns, request/response schemas, validation rules, error responses, status codes, and usage patterns such as CRUD operations, file uploads, and batch processing. It also outlines authentication requirements and versioning considerations based on the current codebase.
 
 ## Project Structure
-The Express application mounts route modules under a common base path and exposes a health check endpoint. Middleware handles CORS, JSON parsing, static uploads, and centralized error handling. The system now includes a global AI assistant through the general chat module.
+The Express application mounts route modules under a common base path and exposes a health check endpoint. Middleware handles CORS, JSON parsing, static uploads, and centralized error handling. The system includes a global AI assistant through the general chat module and real-time user communication through the notifications system.
 
 ```mermaid
 graph TB
@@ -51,32 +53,36 @@ A --> E["/api/claims<br/>routes/claims.ts"]
 A --> F["/api/admin<br/>routes/admin.ts"]
 A --> G["/api/general-chat<br/>routes/generalChat.ts"]
 A --> H["/api/garage<br/>routes/garage.ts"]
-A --> I["/api/health<br/>Health Check"]
-A --> J["Error Handler<br/>middleware/errorHandler.ts"]
-G --> K["AI Integration<br/>utils/gemini.ts"]
+A --> I["/api/notifications<br/>routes/notifications.ts"]
+A --> J["/api/health<br/>Health Check"]
+A --> K["Error Handler<br/>middleware/errorHandler.ts"]
+G --> L["AI Integration<br/>utils/gemini.ts"]
+I --> M["Notification Service<br/>services/notificationService.ts"]
 ```
 
 **Diagram sources**
-- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
-- [generalChat.ts:1-7](file://backend/src/routes/generalChat.ts#L1-L7)
-- [gemini.ts:1-25](file://backend/src/utils/gemini.ts#L1-L25)
+- [index.ts:45-54](file://backend/src/index.ts#L45-L54)
+- [notifications.ts:1-7](file://backend/src/routes/notifications.ts#L1-L7)
+- [notificationService.ts:1-54](file://backend/src/services/notificationService.ts#L1-L54)
 
 **Section sources**
-- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
+- [index.ts:45-54](file://backend/src/index.ts#L45-L54)
 
 ## Core Components
 - Authentication middleware validates JWT tokens and attaches user context to requests.
 - Admin middleware enforces admin role checks after token validation.
 - Upload middleware configures Multer storage, allowed MIME types, and size limits.
 - Error handler centralizes error responses using a custom AppError class.
-- **New**: Global AI assistant service with session-based conversation history and fallback model routing.
+- Global AI assistant service with session-based conversation history and fallback model routing.
+- **New**: Real-time notification system with read/unread tracking and batch operations.
 
 Key behaviors:
 - All protected routes require a valid Bearer token.
 - Admin routes additionally require an admin user.
 - File uploads are limited to images (JPEG/PNG/WebP/JPG) up to 10MB per file.
 - Global error responses follow a consistent shape.
-- **New**: General chat endpoints maintain in-memory conversation history per user session.
+- General chat endpoints maintain in-memory conversation history per user session.
+- **New**: Notification endpoints provide real-time user communication with read/unread status tracking.
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
@@ -84,33 +90,34 @@ Key behaviors:
 - [upload.ts:17-53](file://backend/src/middleware/upload.ts#L17-L53)
 - [errorHandler.ts:3-27](file://backend/src/middleware/errorHandler.ts#L3-L27)
 - [generalChat.ts:23-24](file://backend/src/routes/generalChat.ts#L23-L24)
+- [notifications.ts:7-41](file://backend/src/routes/notifications.ts#L7-L41)
 
 ## Architecture Overview
-The API is organized into feature-based route modules mounted under /api. Each module applies its own authorization middleware where needed. Data persistence uses Prisma against a SQLite database defined in the schema. The system now includes AI-powered assistance through Google Gemini models with automatic fallback routing.
+The API is organized into feature-based route modules mounted under /api. Each module applies its own authorization middleware where needed. Data persistence uses Prisma against a SQLite database defined in the schema. The system includes AI-powered assistance through Google Gemini models with automatic fallback routing and real-time user notifications.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
 participant App as "Express App"
 participant AuthMW as "Auth Middleware"
-participant ChatRoute as "General Chat Route"
-participant Gemini as "Gemini AI Service"
-participant Session as "Session Store"
+participant NotifRoute as "Notifications Route"
+participant NotifService as "Notification Service"
+participant DB as "Database"
 Client->>App : HTTP Request
 App->>AuthMW : Validate JWT (if required)
 AuthMW-->>App : Next or 401/403
-App->>ChatRoute : Dispatch to handler
-ChatRoute->>Session : Load conversation history
-ChatRoute->>Gemini : Send message with context
-Gemini-->>ChatRoute : AI response
-ChatRoute->>Session : Update conversation history
-ChatRoute-->>Client : JSON Response
+App->>NotifRoute : Dispatch to handler
+NotifRoute->>NotifService : Call service function
+NotifService->>DB : Query/Update notifications
+DB-->>NotifService : Results
+NotifService-->>NotifRoute : Processed data
+NotifRoute-->>Client : JSON Response
 ```
 
 **Diagram sources**
-- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
-- [generalChat.ts:27-62](file://backend/src/routes/generalChat.ts#L27-L62)
-- [gemini.ts:97-139](file://backend/src/utils/gemini.ts#L97-L139)
+- [index.ts:45-54](file://backend/src/index.ts#L45-L54)
+- [notifications.ts:9-41](file://backend/src/routes/notifications.ts#L9-L41)
+- [notificationService.ts:36-54](file://backend/src/services/notificationService.ts#L36-L54)
 
 ## Detailed Component Analysis
 
@@ -639,6 +646,25 @@ Admin endpoints provide statistics, user and claim management, and document veri
   - Errors:
     - 500: Failed to reject document
 
+- POST /api/admin/notifications
+  - Purpose: Send a notification message to a user (optionally tied to a claim).
+  - Auth: Admin required
+  - Request body fields:
+    - userId: string, required (target user ID)
+    - claimId: string, optional (claim ID to associate notification with)
+    - title: string, optional (defaults to "Message from admin")
+    - message: string, required (notification message content)
+  - Validation:
+    - Missing userId or message returns 400.
+    - Non-existent user returns 404.
+    - Non-existent claim for user returns 404.
+  - Success response: 200 with confirmation.
+  - Use case: Admin-to-user communication for claim updates, document requests, or general messages.
+  - Errors:
+    - 400: Missing required fields
+    - 404: User or claim not found
+    - 500: Failed to send notification
+
 Example usage (curl):
 - Stats: curl -H "Authorization: Bearer <ADMIN_TOKEN>" http://localhost:5000/api/admin/stats
 - Users: curl -H "Authorization: Bearer <ADMIN_TOKEN>" http://localhost:5000/api/admin/users
@@ -646,13 +672,15 @@ Example usage (curl):
 - Update status: curl -X PATCH -H "Authorization: Bearer <ADMIN_TOKEN>" -H "Content-Type: application/json" -d '{"status":"APPROVED"}' http://localhost:5000/api/admin/claims/<id>/status
 - Approve doc: curl -X PATCH -H "Authorization: Bearer <ADMIN_TOKEN>" http://localhost:5000/api/admin/documents/<id>/approve
 - Reject doc: curl -X PATCH -H "Authorization: Bearer <ADMIN_TOKEN>" -H "Content-Type: application/json" -d '{"reason":"Blurry image"}' http://localhost:5000/api/admin/documents/<id>/reject
+- Send notification: curl -X POST -H "Authorization: Bearer <ADMIN_TOKEN>" -H "Content-Type: application/json" -d '{"userId":"<USER_ID>","claimId":"<CLAIM_ID>","title":"Claim Update","message":"Your claim has been approved."}' http://localhost:5000/api/admin/notifications
 
 **Section sources**
 - [admin.ts:11-184](file://backend/src/routes/admin.ts#L11-L184)
+- [admin.ts:696-728](file://backend/src/routes/admin.ts#L696-L728)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 
 ### General Chat API (/api/general-chat)
-**New** Global AI assistant endpoints providing intelligent help for Flash Claim platform questions. These endpoints use Google Gemini AI with automatic model fallback and maintain conversation history per user session.
+Global AI assistant endpoints providing intelligent help for Flash Claim platform questions. These endpoints use Google Gemini AI with automatic model fallback and maintain conversation history per user session.
 
 - POST /api/general-chat
   - Purpose: Send a message to the global AI assistant and receive an intelligent response.
@@ -696,8 +724,73 @@ Example usage (curl):
 - [generalChat.ts:26-68](file://backend/src/routes/generalChat.ts#L26-L68)
 - [gemini.ts:97-139](file://backend/src/utils/gemini.ts#L97-L139)
 
+### Notifications API (/api/notifications)
+**New** Real-time user communication endpoints for managing notifications. These endpoints allow users to view their notifications, mark individual notifications as read, and mark all notifications as read.
+
+- GET /api/notifications
+  - Purpose: Retrieve user's notifications along with unread count in a single call.
+  - Auth: Required (Bearer token)
+  - Success response: 200 with object containing:
+    - items: array of notification objects (sorted by creation date, newest first)
+    - unread: number of unread notifications
+  - Features:
+    - Returns up to 50 most recent notifications per user
+    - Includes both read and unread notifications
+    - Optimized for real-time UI updates with badge counters
+  - Notification object structure:
+    - id: string (unique notification identifier)
+    - userId: string (owner of the notification)
+    - claimId: string | null (associated claim if any)
+    - type: string (DOC_REMINDER, GARAGE_ESTIMATE, FINAL_VALUE, ADMIN_MESSAGE)
+    - title: string (notification title)
+    - message: string (notification message content)
+    - read: boolean (read/unread status)
+    - createdAt: datetime (creation timestamp)
+  - Errors:
+    - 500: Failed to load notifications
+
+- PATCH /api/notifications/read-all
+  - Purpose: Mark all user's notifications as read.
+  - Auth: Required (Bearer token)
+  - Success response: 200 with confirmation object { ok: true }
+  - Use case: Bulk operation to clear notification badges when user opens notification panel
+  - Errors:
+    - 500: Failed to mark notifications read
+
+- PATCH /api/notifications/:id/read
+  - Purpose: Mark a specific notification as read.
+  - Auth: Required (Bearer token)
+  - Path params:
+    - id: string (notification ID)
+  - Success response: 200 with confirmation object { ok: true }
+  - Use case: Individual notification marking when user clicks on a specific notification
+  - Security: Ensures user can only mark their own notifications as read
+  - Errors:
+    - 500: Failed to mark notification read
+
+**Notification Types:**
+- **DOC_REMINDER**: Document reminder notifications (e.g., requesting additional documents)
+- **GARAGE_ESTIMATE**: Garage estimate notifications (when garage submits repair estimates)
+- **FINAL_VALUE**: Final valuation notifications (when claim value is determined)
+- **ADMIN_MESSAGE**: Direct messages from administrators
+
+**Real-time Integration:**
+- Frontend components poll this endpoint to update notification badges
+- WebSocket integration can be added for push notifications
+- Batch operations reduce database queries for better performance
+
+Example usage (curl):
+- Get notifications: curl -H "Authorization: Bearer <TOKEN>" http://localhost:5000/api/notifications
+- Mark all read: curl -X PATCH -H "Authorization: Bearer <TOKEN>" http://localhost:5000/api/notifications/read-all
+- Mark specific read: curl -X PATCH -H "Authorization: Bearer <TOKEN>" http://localhost:5000/api/notifications/<notification-id>/read
+
+**Section sources**
+- [notifications.ts:9-41](file://backend/src/routes/notifications.ts#L9-L41)
+- [notificationService.ts:36-54](file://backend/src/services/notificationService.ts#L36-L54)
+- [schema.prisma:327-339](file://backend/prisma/schema.prisma#L327-L339)
+
 ## Dependency Analysis
-Routes depend on middleware for authentication and upload handling, and on Prisma for data access. The schema defines core entities and relationships that influence endpoint behavior and response shapes. The system now includes AI dependencies through Google Gemini services.
+Routes depend on middleware for authentication and upload handling, and on Prisma for data access. The schema defines core entities and relationships that influence endpoint behavior and response shapes. The system includes AI dependencies through Google Gemini services and notification management through the notification service.
 
 ```mermaid
 classDiagram
@@ -743,35 +836,52 @@ class Document {
 +string type
 +string verificationStatus
 }
+class Notification {
++string id
++string userId
++string claimId
++string type
++string title
++string message
++boolean read
++datetime createdAt
+}
 User "1" -- "many" Vehicle : "owns"
 User "1" -- "many" InsurancePolicy : "owns"
 User "1" -- "many" Claim : "submits"
+User "1" -- "many" Notification : "receives"
 Vehicle "1" -- "many" Claim : "involved_in"
 Claim "1" -- "many" ClaimImage : "has"
 Claim "1" -- "many" Document : "has"
+Claim "1" -- "many" Notification : "generates"
 ```
 
 **Diagram sources**
 - [schema.prisma:10-202](file://backend/prisma/schema.prisma#L10-L202)
+- [schema.prisma:327-339](file://backend/prisma/schema.prisma#L327-L339)
 
 **Section sources**
 - [schema.prisma:10-202](file://backend/prisma/schema.prisma#L10-L202)
+- [schema.prisma:327-339](file://backend/prisma/schema.prisma#L327-L339)
 
 ## Performance Considerations
 - File uploads are limited to 10MB per file; ensure clients respect this limit to avoid large payloads.
 - Batch image upload supports up to 10 images per request; consider client-side chunking if larger batches are needed.
 - Background processing: Claim submission triggers asynchronous damage analysis; clients should poll or rely on subsequent endpoints to retrieve results.
 - Database queries include selective relations to reduce payload size; leverage query parameters (e.g., status filter) to minimize data transfer.
-- **New**: AI chat endpoints maintain in-memory conversation history (limited to 20 messages per session) to optimize performance.
-- **New**: Model cascade ensures optimal performance by trying fastest available models first with automatic fallback.
-- **New**: Rate limiting protection built into AI service calls with exponential backoff and retry logic.
+- AI chat endpoints maintain in-memory conversation history (limited to 20 messages per session) to optimize performance.
+- Model cascade ensures optimal performance by trying fastest available models first with automatic fallback.
+- Rate limiting protection built into AI service calls with exponential backoff and retry logic.
+- **New**: Notification endpoints use optimized queries with LIMIT clauses to prevent excessive data retrieval.
+- **New**: Batch operations like mark-all-read reduce database round trips for bulk notification management.
+- **New**: Combined GET /api/notifications endpoint returns both items and unread count in a single call to minimize network requests.
 
 ## Troubleshooting Guide
 Common errors and their causes:
 - 400 Bad Request: Missing required fields, invalid enum values, or business rule violations (e.g., editing non-DRAFT claims).
 - 401 Unauthorized: Missing or invalid/expired JWT token.
 - 403 Forbidden: Admin-only endpoint accessed without admin role.
-- 404 Not Found: Resource does not exist (vehicle, policy, claim, image, document).
+- 404 Not Found: Resource does not exist (vehicle, policy, claim, image, document, notification).
 - 409 Conflict: Duplicate email during registration.
 - 500 Internal Server Error: Unexpected server-side failures.
 
@@ -781,15 +891,17 @@ Error response structure:
 
 Rate limiting:
 - No explicit rate limiting is implemented in the provided codebase. If needed, integrate a rate-limiting middleware at the application level.
-- **New**: AI service calls include built-in retry logic with exponential backoff for rate-limited scenarios.
+- AI service calls include built-in retry logic with exponential backoff for rate-limited scenarios.
+- **New**: Notification service operations are designed for high-frequency polling with efficient database queries.
 
 **Section sources**
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [errorHandler.ts:3-27](file://backend/src/middleware/errorHandler.ts#L3-L27)
+- [notifications.ts:15-40](file://backend/src/routes/notifications.ts#L15-L40)
 
 ## Conclusion
-The API provides a complete set of endpoints for managing vehicles, policies, claims, administrative tasks, and now includes a global AI assistant for intelligent user support. Authentication is enforced via JWT tokens, with additional admin controls for administrative functions. File uploads are supported with strict type and size constraints. The system integrates AI services for damage analysis, repair estimation, document verification, and conversational assistance through Google Gemini models with automatic fallback routing. Clients should handle standard HTTP status codes and adhere to validation rules to ensure smooth interactions.
+The API provides a complete set of endpoints for managing vehicles, policies, claims, administrative tasks, global AI assistance, and real-time user notifications. Authentication is enforced via JWT tokens, with additional admin controls for administrative functions. File uploads are supported with strict type and size constraints. The system integrates AI services for damage analysis, repair estimation, document verification, conversational assistance through Google Gemini models with automatic fallback routing, and a comprehensive notification system for real-time user communication. Clients should handle standard HTTP status codes and adhere to validation rules to ensure smooth interactions.
 
 ## Appendices
 
@@ -804,13 +916,15 @@ The API provides a complete set of endpoints for managing vehicles, policies, cl
   - All /api/policies endpoints
   - All /api/claims endpoints
   - All /api/general-chat endpoints
+  - All /api/notifications endpoints
 - Admin-only endpoints (Admin Bearer token required):
   - All /api/admin endpoints
 
 **Section sources**
-- [index.ts:44-51](file://backend/src/index.ts#L44-L51)
+- [index.ts:45-54](file://backend/src/index.ts#L45-L54)
 - [auth.ts:5-22](file://backend/src/middleware/auth.ts#L5-L22)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
+- [notifications.ts:7](file://backend/src/routes/notifications.ts#L7)
 
 ### Versioning Strategy and Backward Compatibility
 - Current implementation does not include explicit API versioning in URLs or headers.
@@ -826,5 +940,12 @@ The API provides a complete set of endpoints for managing vehicles, policies, cl
 - **Model Fallback**: Automatic switching between Gemini models based on availability and rate limits
 - **Session Management**: In-memory conversation history maintained per user session
 - **Security**: All AI endpoints require authentication to prevent unauthorized access
+
+### Notification System Integration
+- **Real-time Communication**: Users receive notifications for claim updates, document requests, and admin messages
+- **Read/Unread Tracking**: Comprehensive notification lifecycle management with individual and batch operations
+- **Integration Points**: Notifications are automatically generated during key claim workflow events
+- **Frontend Integration**: Notification bell component provides real-time badge updates and notification panel
+- **Security**: Users can only access and modify their own notifications
 
 [No sources needed since this section provides general guidance]

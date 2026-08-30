@@ -21,6 +21,12 @@ export interface NavigationSuggestion {
   route: string;
 }
 
+export interface TicketData {
+  subject: string;
+  message: string;
+  claimId?: string;
+}
+
 export const SYSTEM_KNOWLEDGE = `ABOUT FLASH CLAIM
 Flash Claim is a vehicle insurance claims platform used in Sri Lanka. Three parties work together in it:
 - Policyholders register at /register and log in at /login, then manage their vehicles, policies and claims.
@@ -114,6 +120,18 @@ COMMON ERROR MESSAGES AND WHAT THEY MEAN (explain these in plain words)
 - "AI damage analysis failed. Please try again in a moment." — a temporary AI outage; retry after a short wait.
 - "Message is required." — an empty chat message was sent.`;
 
+export const FILING_A_PROBLEM = `FILING A PROBLEM (CONTACTING THE INSURANCE COMPANY)
+- Policyholders can file a problem, complaint or request for the insurance company directly through this chat.
+- When the user clearly wants to report a problem, complain about something, or asks you to contact the insurance company on their behalf, end your reply with one final line in exactly this format:
+TICKET: Short subject | Detailed description of the problem in the user's own words
+- If the problem concerns one specific claim from the user's data, append the claim id at the end separated by ## like this:
+TICKET: Subject | Description ##claim-id-here
+- Only the claim ids listed under YOUR DATA may be used.
+- Do NOT file a ticket for general questions about how the system works, pricing explanations, or status checkups — only when the user explicitly asks for help, reports a problem, or requests the insurance company act on something.
+- When you file a ticket, tell the user in plain words that their report has been sent to the insurance team and someone will get back to them.
+- Write the subject and description yourself from what the user told you: subject under 80 characters, description under 500 characters, both in English.
+- Never invent facts — if the user has not described the problem clearly enough, ask a follow-up question instead of filing.`;
+
 export const RESPONSE_RULES = `RESPONSE STYLE (strict)
 - Plain text only. NEVER use Markdown emphasis: no bold with double asterisks, no single-asterisk italics, no underlines with double underscores, no backticks, no # headings. Write plain sentences.
 - Use "-" for bullets and "1." "2." for numbered steps. Put a blank line between sections so the text breathes.
@@ -155,12 +173,37 @@ function isAllowedRoute(route: string): boolean {
 // sanitized, display-ready reply without them. Suggestion routes are checked
 // against the whitelist, so a prompt-injected reply cannot navigate anywhere
 // unexpected.
-export function parseAssistantReply(raw: string): { reply: string; suggestions: NavigationSuggestion[] } {
+export function parseAssistantReply(raw: string): { reply: string; suggestions: NavigationSuggestion[]; ticket: TicketData | null } {
   const navPayloads: string[] = [];
   let text = stripMarkdownEmphasis(raw || '').replace(
     /(?:^|\n)[ \t]*NAV:[ \t]*([^\n]+)/gi,
     (_match: string, payload: string) => {
       navPayloads.push(String(payload));
+      return '\n';
+    }
+  );
+
+  // Extract a TICKET line the same way — it becomes a support ticket in the
+  // admin panel instead of a navigation shortcut. Only the first one counts.
+  let ticket: TicketData | null = null;
+  text = text.replace(
+    /(?:^|\n)[ \t]*TICKET:[ \t]*([^\n]+)/gi,
+    (_match: string, payload: string) => {
+      if (!ticket) {
+        const separator = payload.indexOf('|');
+        if (separator !== -1) {
+          const subject = payload.slice(0, separator).trim().slice(0, 80);
+          let rest = payload.slice(separator + 1).trim();
+          let claimId: string | undefined;
+          const hashIdx = rest.indexOf('##');
+          if (hashIdx !== -1) {
+            claimId = rest.slice(hashIdx + 2).trim() || undefined;
+            rest = rest.slice(0, hashIdx).trim();
+          }
+          const message = rest.slice(0, 500);
+          if (subject && message) ticket = { subject, message, claimId };
+        }
+      }
       return '\n';
     }
   );
@@ -184,5 +227,5 @@ export function parseAssistantReply(raw: string): { reply: string; suggestions: 
   // Tidy the gaps left behind by removed NAV lines and emphasis markers
   text = text.replace(/\n{3,}/g, '\n\n').trim();
 
-  return { reply: text, suggestions };
+  return { reply: text, suggestions, ticket };
 }

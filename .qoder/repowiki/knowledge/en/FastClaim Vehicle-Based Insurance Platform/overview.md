@@ -1,0 +1,1 @@
+Monorepo pairing a Prisma-backed Express API with a React SPA to manage vehicles, policies, and AI-assisted insurance claims across policyholder, garage, and admin portals.

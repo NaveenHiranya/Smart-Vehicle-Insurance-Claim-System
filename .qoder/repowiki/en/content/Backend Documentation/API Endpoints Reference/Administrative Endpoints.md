@@ -3,6 +3,8 @@
 <cite>
 **Referenced Files in This Document**
 - [admin.ts](file://backend/src/routes/admin.ts)
+- [notifications.ts](file://backend/src/routes/notifications.ts)
+- [notificationService.ts](file://backend/src/services/notificationService.ts)
 - [adminAuth.ts](file://backend/src/middleware/adminAuth.ts)
 - [index.ts](file://backend/src/index.ts)
 - [schema.prisma](file://backend/prisma/schema.prisma)
@@ -22,11 +24,12 @@
 
 ## Update Summary
 **Changes Made**
-- Added new POST `/api/admin/claims/:id/fraud-score` endpoint for manual fraud scoring triggers
+- Added new POST `/api/admin/notifications` endpoint for admin-to-user messaging functionality
 - Enhanced claim management with AI-powered fraud detection capabilities including risk scoring, flag analysis, and tier classification
-- Updated frontend AdminClaimDetailPage with fraud score display, rescore functionality, and detailed flag visualization
-- Implemented comprehensive fraud scoring service with rule-based signals and LLM-powered incident/damage consistency checks
+- Updated frontend AdminClaimDetailPage with integrated 'Message Policyholder' interface for direct user communication
+- Implemented comprehensive notification system with ADMIN_MESSAGE type support
 - Added timestamp tracking for when fraud scores are calculated using `fraudScoredAt` field
+- Enhanced document rejection workflow with automatic policyholder notifications
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -41,10 +44,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, analytics, and **new** AI-powered fraud detection capabilities. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation. **Updated** Now includes enhanced claim management capabilities with insurer-approved final payout amounts that override computed estimates, plus comprehensive fraud scoring with risk assessment and automated flag detection.
+This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, analytics, **new** AI-powered fraud detection capabilities, and **enhanced** admin messaging capabilities for direct policyholder communication. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation. **Updated** Now includes enhanced claim management capabilities with insurer-approved final payout amounts that override computed estimates, comprehensive fraud scoring with risk assessment and automated flag detection, and **new** direct messaging functionality allowing admins to communicate directly with policyholders.
 
 ## Project Structure
-The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive claim final value management with UI integration for setting insurer-approved payouts, plus integrated fraud scoring interface with real-time risk assessment visualization.
+The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive claim final value management with UI integration for setting insurer-approved payouts, integrated fraud scoring interface with real-time risk assessment visualization, and **new** direct messaging capabilities enabling admins to send personalized messages to policyholders through the notification system.
 
 ```mermaid
 graph TB
@@ -66,6 +69,7 @@ AdminAuth["adminAuthMiddleware"]
 Prisma["Prisma Client"]
 DamageSvc["Damage Analysis Service"]
 FraudSvc["Fraud Scoring Service"]
+NotificationSvc["Notification Service"]
 FileSys["File System"]
 end
 ADP --> AdminAPI
@@ -82,6 +86,7 @@ AdminRoutes --> AdminAuth
 AdminRoutes --> Prisma
 AdminRoutes --> DamageSvc
 AdminRoutes --> FraudSvc
+AdminRoutes --> NotificationSvc
 AdminRoutes --> FileSys
 ```
 
@@ -106,7 +111,7 @@ AdminRoutes --> FileSys
 
 ## Core Components
 - Admin Authorization Middleware: Validates JWT and ensures the authenticated user has admin privileges before allowing access to any admin endpoint.
-- Admin Routes: Provide endpoints for statistics, users listing, vehicle management with verification workflows, claims listing/detail/status updates/re-analysis/deletion/fraud-scoring, documents verification approvals/rejections, garage management operations, and policy template management.
+- Admin Routes: Provide endpoints for statistics, users listing, vehicle management with verification workflows, claims listing/detail/status updates/re-analysis/deletion/fraud-scoring, documents verification approvals/rejections, garage management operations, policy template management, and **new** direct messaging to policyholders.
 - Frontend Admin Services: Axios client that automatically attaches Bearer tokens from localStorage and redirects on auth errors.
 
 Key responsibilities:
@@ -118,6 +123,7 @@ Key responsibilities:
 - **Enhanced**: Comprehensive vehicle management with verification status tracking and per-vehicle insurance policy management.
 - **New**: Set insurer-approved final claimable values that override automated calculations.
 - **New**: Trigger manual fraud scoring with AI-powered risk assessment and flag detection.
+- **New**: Send direct messages to policyholders through the notification system with optional claim association.
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
@@ -125,7 +131,7 @@ Key responsibilities:
 - [adminApi.ts:7-24](file://frontend/src/services/adminApi.ts#L7-L24)
 
 ## Architecture Overview
-Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes advanced vehicle management workflows supporting verification status tracking, per-vehicle insurance policy management, insurer-approved final claimable value management with automatic payout recalculation, and AI-powered fraud scoring with comprehensive risk assessment.
+Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes advanced vehicle management workflows supporting verification status tracking, per-vehicle insurance policy management, insurer-approved final claimable value management with automatic payout recalculation, AI-powered fraud scoring with comprehensive risk assessment, and **new** direct messaging capabilities enabling admins to communicate directly with policyholders through the notification system.
 
 ```mermaid
 sequenceDiagram
@@ -135,8 +141,8 @@ participant AR as "Admin Router"
 participant MA as "Admin Auth Middleware"
 participant DB as "Prisma Client"
 participant DS as "Damage Analysis Service"
-participant FS as "File System"
 participant FRS as "Fraud Scoring Service"
+participant NS as "Notification Service"
 FE->>API : POST /api/admin/claims/ : id/fraud-score
 API->>AR : Route to fraud-score endpoint
 AR->>MA : Validate token + admin role
@@ -150,7 +156,7 @@ FRS->>DB : Save fraud score, flags, timestamp
 DB-->>FRS : Score saved
 FRS-->>AR : Fraud result
 AR-->>FE : JSON fraud assessment
-Note over FE,DB : Enhanced vehicle management<br/>PATCH /api/admin/vehicles/ : id/verify -> Status update<br/>PATCH /api/admin/claims/ : id/final-value -> Final payout approval<br/>POST /api/admin/claims/ : id/fraud-score -> Risk assessment
+Note over FE,DB : Enhanced vehicle management<br/>PATCH /api/admin/vehicles/ : id/verify -> Status update<br/>PATCH /api/admin/claims/ : id/final-value -> Final payout approval<br/>POST /api/admin/claims/ : id/fraud-score -> Risk assessment<br/>POST /api/admin/notifications -> Direct messaging
 ```
 
 **Diagram sources**
@@ -159,6 +165,7 @@ Note over FE,DB : Enhanced vehicle management<br/>PATCH /api/admin/vehicles/ : i
 - [admin.ts:661-675](file://backend/src/routes/admin.ts#L661-L675)
 - [admin.ts:548-600](file://backend/src/routes/admin.ts#L548-L600)
 - [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
+- [admin.ts:696-728](file://backend/src/routes/admin.ts#L696-L728)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
 - [fraudScoringService.ts:145-200](file://backend/src/services/fraudScoringService.ts#L145-L200)
@@ -553,6 +560,58 @@ AR-->>FE : { message : 'Policy plan deleted.' }
 - [admin.ts:408-504](file://backend/src/routes/admin.ts#L408-L504)
 - [AdminPoliciesPage.tsx:19-268](file://frontend/src/pages/admin/AdminPoliciesPage.tsx#L19-L268)
 
+### Admin Messaging and Policyholder Communication
+**New Section** - Direct messaging capabilities allowing administrators to communicate directly with policyholders through the notification system.
+
+- Endpoints:
+  - **NEW** POST /api/admin/notifications
+- Purposes:
+  - Enable admins to send personalized messages to policyholders with optional claim association.
+  - Support both standalone messages and context-specific communications tied to specific claims.
+  - Integrate seamlessly with the existing notification system used throughout the application.
+- Request parameters:
+  - POST /api/admin/notifications requires userId (required), message (required), title (optional, defaults to "Message from admin"), and claimId (optional for context-specific messages).
+- Response schemas:
+  - Success: { ok: true }
+  - Error: Standard error response with descriptive message
+- Validation:
+  - userId must exist and not be an admin user
+  - message must be a non-empty string
+  - claimId must belong to the specified user if provided
+- Usage:
+  - AdminClaimDetailPage provides integrated messaging interface with recipient display, subject line, message composition, and sending feedback.
+  - Messages appear in the policyholder's notification center alongside other system notifications.
+
+```mermaid
+sequenceDiagram
+participant FE as "AdminClaimDetailPage"
+participant API as "Express App"
+participant AR as "Admin Router"
+participant DB as "Prisma Client"
+participant NS as "Notification Service"
+FE->>API : POST /api/admin/notifications { userId, claimId, title, message }
+AR->>DB : Validate user exists and is not admin
+DB-->>AR : User data
+AR->>DB : Validate claim belongs to user (if claimId provided)
+DB-->>AR : Claim data
+AR->>NS : createNotification({ userId, claimId, type : 'ADMIN_MESSAGE', title, message })
+NS->>DB : Create notification record
+DB-->>NS : Notification created
+NS-->>AR : Success
+AR-->>FE : { ok : true }
+```
+
+**Diagram sources**
+- [admin.ts:696-728](file://backend/src/routes/admin.ts#L696-L728)
+- [notificationService.ts:13-23](file://backend/src/services/notificationService.ts#L13-L23)
+- [AdminClaimDetailPage.tsx:173-193](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L173-L193)
+
+**Section sources**
+- [admin.ts:696-728](file://backend/src/routes/admin.ts#L696-L728)
+- [notificationService.ts:1-54](file://backend/src/services/notificationService.ts#L1-L54)
+- [AdminClaimDetailPage.tsx:173-193](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L173-L193)
+- [schema.prisma:327-339](file://backend/prisma/schema.prisma#L327-L339)
+
 ### System Health Monitoring
 - Endpoint: GET /api/health
 - Purpose: Basic service health check verifying database connectivity.
@@ -585,14 +644,15 @@ API-->>FE : { status, service, db }
   - Admin authorization middleware for access control.
   - **New**: Damage analysis service for AI-powered claim re-analysis.
   - **New**: Fraud scoring service for AI-powered risk assessment and flag detection.
+  - **New**: Notification service for direct messaging capabilities.
   - **New**: File system operations for claim deletion cleanup.
   - **Enhanced**: Payout service for vehicle valuation and policy-based payout recalculation.
 - Frontend admin pages depend on:
   - adminApi axios instance which injects Authorization headers and handles auth errors.
   - **New**: AdminVehiclesPage with comprehensive vehicle management, verification workflow, and policy assignment.
-  - **New**: AdminClaimDetailPage with re-analysis, delete functionality, final value management, and integrated fraud scoring interface.
+  - **New**: AdminClaimDetailPage with re-analysis, delete functionality, final value management, integrated fraud scoring interface, and **new** direct messaging capabilities.
 - Data models used by admin endpoints:
-  - User, Vehicle, Claim, Document, DamageAssessment, RepairEstimate, InsurancePayout, ChatMessage, Garage, PolicyTemplate, InsurancePolicy.
+  - User, Vehicle, Claim, Document, DamageAssessment, RepairEstimate, InsurancePayout, ChatMessage, Garage, PolicyTemplate, InsurancePolicy, **new** Notification.
 
 ```mermaid
 graph LR
@@ -601,6 +661,7 @@ AdminRoutes --> Prisma["Prisma Client"]
 AdminRoutes --> Models["Data Models"]
 AdminRoutes --> DamageSvc["Damage Analysis Service"]
 AdminRoutes --> FraudSvc["Fraud Scoring Service"]
+AdminRoutes --> NotificationSvc["Notification Service"]
 AdminRoutes --> FileSys["File System"]
 AdminRoutes --> PayoutSvc["Payout Service"]
 AdminPages["Admin Pages"] --> AdminAPI["adminApi"]
@@ -614,6 +675,7 @@ AdminAPI --> AdminRoutes
 - [adminApi.ts:7-14](file://frontend/src/services/adminApi.ts#L7-L14)
 - [damageAnalysisService.ts:1-200](file://backend/src/services/damageAnalysisService.ts#L1-L200)
 - [fraudScoringService.ts:1-200](file://backend/src/services/fraudScoringService.ts#L1-L200)
+- [notificationService.ts:1-54](file://backend/src/services/notificationService.ts#L1-L54)
 
 **Section sources**
 - [admin.ts:1-7](file://backend/src/routes/admin.ts#L1-L7)
@@ -654,6 +716,11 @@ AdminAPI --> AdminRoutes
   - LLM incident/damage consistency check runs asynchronously and gracefully handles failures.
   - Results are cached in claim records with timestamps to avoid redundant scoring.
   - Frontend displays loading states during scoring to provide user feedback.
+- **New**: Messaging performance:
+  - Admin messaging creates lightweight notification records with minimal database overhead.
+  - Message validation occurs at the API layer to prevent unnecessary database writes.
+  - Optional claim association adds minimal query overhead for context enrichment.
+  - Notification creation is designed for high-volume scenarios with efficient indexing.
 
 [No sources needed since this section provides general guidance]
 
@@ -698,6 +765,13 @@ Common issues and resolutions:
   - Vehicle verification requires an attached insurance policy for VERIFIED status.
   - Policy assignment resets vehicle verification to PENDING for re-review.
   - Built-in policy templates must be active to be selectable.
+- **New**: Messaging issues:
+  - Admin messaging requires valid userId that exists and is not an admin user.
+  - Message content must be a non-empty string.
+  - Optional claimId must belong to the specified user for context-specific messages.
+  - Messages appear in policyholder's notification center with ADMIN_MESSAGE type.
+  - Frontend provides immediate feedback on message sending status.
+  - Error handling includes user validation failures and database operation errors.
 - User management issues:
   - User deletion triggers cascade deletion of vehicles, claims, and policies.
   - Annual fee must be a non-negative number.
@@ -720,15 +794,18 @@ Common issues and resolutions:
 - [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
 - [admin.ts:661-675](file://backend/src/routes/admin.ts#L661-L675)
+- [admin.ts:696-728](file://backend/src/routes/admin.ts#L696-L728)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
 - [fraudScoringService.ts:145-200](file://backend/src/services/fraudScoringService.ts#L145-L200)
+- [notificationService.ts:13-23](file://backend/src/services/notificationService.ts#L13-L23)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 - [AdminClaimDetailPage.tsx:154-165](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L154-L165)
+- [AdminClaimDetailPage.tsx:173-193](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L173-L193)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 - [garageAuth.ts:74-82](file://backend/src/routes/garageAuth.ts#L74-L82)
 
 ## Conclusion
-The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, **enhanced** vehicle management with verification workflows and per-vehicle insurance policy management, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. **Updated** The system now includes comprehensive vehicle management capabilities with verification status tracking, vehicle-specific policy assignment using built-in templates or custom entries, automatic payout recalculation, insurer-approved final claimable value management with timestamp tracking, and **new** AI-powered fraud scoring with comprehensive risk assessment, flag detection, and tier classification. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience with real-time fraud risk visualization and actionable insights. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
+The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, **enhanced** vehicle management with verification workflows and per-vehicle insurance policy management, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. **Updated** The system now includes comprehensive vehicle management capabilities with verification status tracking, vehicle-specific policy assignment using built-in templates or custom entries, automatic payout recalculation, insurer-approved final claimable value management with timestamp tracking, **new** AI-powered fraud scoring with comprehensive risk assessment, flag detection, and tier classification, and **enhanced** direct messaging capabilities enabling admins to communicate directly with policyholders through the integrated notification system. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience with real-time fraud risk visualization, actionable insights, and streamlined policyholder communication workflows. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -843,6 +920,15 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Error handling: Returns 404 if claim not found, 502 if fraud scoring service fails.
   - Access: Admin only
 
+- **NEW** POST /api/admin/notifications
+  - Description: Sends a direct message to a policyholder through the notification system.
+  - Request body: { userId: string, message: string, title?: string, claimId?: string }
+  - Response: { ok: true }
+  - Validation: Requires valid userId (non-admin), non-empty message, optional claimId must belong to user.
+  - Behavior: Creates notification with type 'ADMIN_MESSAGE', appears in policyholder's notification center.
+  - Error handling: Returns 404 if user not found or claim doesn't belong to user, 400 for validation errors.
+  - Access: Admin only
+
 - GET /api/admin/documents?status=PENDING|ISSUES_FOUND|ALL
   - Description: Lists documents with optional verification status filter.
   - Response: Array of documents with associated claim details.
@@ -905,8 +991,11 @@ The administrative endpoints provide secure, role-gated access to critical insur
 - [admin.ts:24-878](file://backend/src/routes/admin.ts#L24-L878)
 - [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [admin.ts:661-675](file://backend/src/routes/admin.ts#L661-L675)
+- [admin.ts:696-728](file://backend/src/routes/admin.ts#L696-L728)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 - [AdminClaimDetailPage.tsx:154-165](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L154-L165)
+- [AdminClaimDetailPage.tsx:173-193](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L173-L193)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
 - [fraudScoringService.ts:145-200](file://backend/src/services/fraudScoringService.ts#L145-L200)
+- [notificationService.ts:13-23](file://backend/src/services/notificationService.ts#L13-L23)

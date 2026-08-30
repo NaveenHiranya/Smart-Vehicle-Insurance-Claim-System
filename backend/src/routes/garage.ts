@@ -4,6 +4,7 @@ import { garageAuthMiddleware } from '../middleware/garageAuth.js';
 import { AuthRequest } from '../types/index.js';
 import { recalculatePayout } from '../services/payoutService.js';
 import { createNotificationForClaimOwner } from '../services/notificationService.js';
+import { reconcileEstimates } from '../services/reconciliationService.js';
 
 const router = Router();
 router.use(garageAuthMiddleware);
@@ -166,6 +167,13 @@ router.post('/claims/:id/estimate', async (req: AuthRequest, res: Response) => {
       );
     } catch (err) {
       console.error('Garage estimate notification failed:', err);
+    }
+
+    // Reconcile garage estimate vs AI estimate in the background
+    try {
+      await reconcileEstimates(claimId);
+    } catch (err) {
+      console.error('Garage estimate reconciliation failed:', err);
     }
 
     res.json(estimate);

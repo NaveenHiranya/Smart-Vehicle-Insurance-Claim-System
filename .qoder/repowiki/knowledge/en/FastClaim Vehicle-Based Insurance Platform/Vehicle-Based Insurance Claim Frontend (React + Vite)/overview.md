@@ -1,0 +1,1 @@
+React SPA providing three role-based portals — policyholder, admin, and garage — for managing vehicles, insurance policies, claims, documents, and repair estimates.

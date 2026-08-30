@@ -1,1 +1,0 @@
-Full-stack insurance claim platform where each vehicle carries one policy, admin verifies vehicles before claims are allowed, and claims auto-apply the selected vehicle's policy for payout calculations.

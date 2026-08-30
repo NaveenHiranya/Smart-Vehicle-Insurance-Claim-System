@@ -1,0 +1,6 @@
+- Role-based access control is enforced declaratively at the route level using dedicated `<ProtectedRoute>`, `<AdminProtectedRoute>`, and `<GarageProtectedRoute>` wrappers around each page element.
+- Each role's UI is composed by nesting its page inside a role-specific layout component (`Layout`, `AdminLayout`, `GarageLayout`) so headers, sidebars, and navigation are consistent per portal.
+- API calls go through a single Axios instance in `services/api.ts` that injects the `Authorization: Bearer <token>` header from `localStorage` and redirects to `/login` on 401 responses; domain-specific endpoints are further wrapped in `adminApi.ts` and `garageApi.ts`.
+- All shared data shapes (User, Vehicle, Policy, Claim, GarageEstimate, etc.) are centrally defined in `src/types/index.ts` and imported by both pages and services instead of being re-declared locally.
+- Environment-driven backend addressing is handled via `import.meta.env.VITE_API_URL` in `services/api.ts` and `vite.config.ts`, allowing the same codebase to target a local dev server or a remote backend without code changes.
+- Pages are grouped by role into subdirectories under `pages/` (`pages/admin/`, `pages/garage/`) mirroring the URL namespace, keeping role-specific screens co-located with their layouts and guards.

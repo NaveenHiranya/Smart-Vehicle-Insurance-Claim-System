@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, X, Send, Trash2, Bot, ArrowRight } from 'lucide-react';
+import { MessageSquare, X, Send, Trash2, Bot, ArrowRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 
 interface NavigationSuggestion {
@@ -12,13 +12,13 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   suggestions?: NavigationSuggestion[];
+  ticketCreated?: boolean;
 }
 
 const QUICK_QUESTIONS = [
   'How do I file a new claim?',
   'What is the status of my claims?',
   'Tell me about my vehicles and policies',
-  'How does the AI damage analysis work?',
 ];
 
 export function GlobalAIAssistant() {
@@ -44,7 +44,8 @@ export function GlobalAIAssistant() {
     try {
       const res = await api.post('/general-chat', { message: text.trim() });
       const suggestions: NavigationSuggestion[] = Array.isArray(res.data.suggestions) ? res.data.suggestions : [];
-      setMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply, suggestions }]);
+      const ticketCreated: boolean = !!res.data.ticketCreated;
+      setMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply, suggestions, ticketCreated }]);
     } catch {
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I could not process your request. Please try again.' }]);
     } finally {
@@ -116,6 +117,11 @@ export function GlobalAIAssistant() {
                       {q}
                     </button>
                   ))}
+                  <button onClick={() => { setInput('I have a problem: '); }}
+                    className="flex items-center gap-1.5 w-full text-left text-xs px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 hover:bg-amber-100 hover:border-amber-300 font-medium transition">
+                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                    File a problem to the insurance company
+                  </button>
                 </div>
               </div>
             )}
@@ -127,6 +133,12 @@ export function GlobalAIAssistant() {
                     : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm shadow-sm'
                 }`}>
                   {msg.content}
+                  {msg.ticketCreated && (
+                    <div className="mt-2 pt-2 border-t border-green-200 flex items-center gap-1.5 text-xs text-green-700">
+                      <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>Report filed — the insurance team will get back to you.</span>
+                    </div>
+                  )}
                   {msg.suggestions && msg.suggestions.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
                       {msg.suggestions.map((s, j) => (
@@ -163,7 +175,7 @@ export function GlobalAIAssistant() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question..."
+              placeholder="Ask a question or describe a problem..."
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
               disabled={loading}
               autoFocus

@@ -47,6 +47,9 @@ export function AdminClaimDetailPage() {
   const [msgSending, setMsgSending] = useState(false);
   const [msgError, setMsgError] = useState('');
   const [msgSent, setMsgSent] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileError, setReconcileError] = useState('');
+  const [reconcileExpanded, setReconcileExpanded] = useState(false);
 
   const fetchClaim = () =>
     adminApi.get(`/claims/${id}`).then((r) => {
@@ -189,6 +192,19 @@ export function AdminClaimDetailPage() {
       setMsgError('Failed to send message.');
     } finally {
       setMsgSending(false);
+    }
+  };
+
+  const handleReconcile = async () => {
+    setReconciling(true);
+    setReconcileError('');
+    try {
+      await adminApi.post(`/claims/${id}/reconcile`);
+      await fetchClaim();
+    } catch {
+      setReconcileError('Failed to reconcile estimates.');
+    } finally {
+      setReconciling(false);
     }
   };
 
@@ -402,12 +418,59 @@ export function AdminClaimDetailPage() {
         <div className="space-y-4">
           {claim.repairEstimate && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <h2 className="font-semibold text-gray-900 mb-3">Repair Estimate</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-blue-50 rounded-lg p-2 text-center"><p className="text-xs text-blue-600">Parts</p><p className="font-bold text-blue-900">Rs. {claim.repairEstimate.totalPartsCost.toLocaleString()}</p></div>
-                <div className="bg-purple-50 rounded-lg p-2 text-center"><p className="text-xs text-purple-600">Labor</p><p className="font-bold text-purple-900">Rs. {claim.repairEstimate.totalLaborCost.toLocaleString()}</p></div>
-                <div className="bg-primary-50 rounded-lg p-2 text-center"><p className="text-xs text-primary-600">Total</p><p className="font-bold text-primary-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p></div>
-                <div className="bg-green-50 rounded-lg p-2 text-center"><p className="text-xs text-green-600">Days</p><p className="font-bold text-green-900">{claim.repairEstimate.estimatedDays}</p></div>
+              <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                  <Wrench className="h-4 w-4" />
+                </div>
+                AI Repair Estimate
+              </h2>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="bg-blue-50 rounded-lg p-2.5 text-center">
+                  <p className="text-[10px] text-blue-500 font-medium uppercase tracking-wide">Parts</p>
+                  <p className="text-sm font-bold text-blue-900">Rs. {claim.repairEstimate.totalPartsCost.toLocaleString()}</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-2.5 text-center">
+                  <p className="text-[10px] text-purple-500 font-medium uppercase tracking-wide">Labor</p>
+                  <p className="text-sm font-bold text-purple-900">Rs. {claim.repairEstimate.totalLaborCost.toLocaleString()}</p>
+                </div>
+                <div className="bg-primary-50 rounded-lg p-2.5 text-center">
+                  <p className="text-[10px] text-primary-500 font-medium uppercase tracking-wide">Total</p>
+                  <p className="text-sm font-bold text-primary-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-2.5 text-center">
+                  <p className="text-[10px] text-green-500 font-medium uppercase tracking-wide">Days</p>
+                  <p className="text-sm font-bold text-green-900">{claim.repairEstimate.estimatedDays}</p>
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-gray-100">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left font-medium">Damage</th>
+                      <th className="px-3 py-2 text-left font-medium">Part</th>
+                      <th className="px-3 py-2 text-right font-medium">Parts</th>
+                      <th className="px-3 py-2 text-right font-medium">Labor</th>
+                      <th className="px-3 py-2 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {(claim.repairEstimate.items as any[]).map((item: any, i: number) => (
+                      <tr key={i} className="hover:bg-gray-50/50 transition">
+                        <td className="px-3 py-2.5 capitalize text-gray-600">{item.damageType?.replace(/_/g, ' ')}</td>
+                        <td className="px-3 py-2.5 text-gray-800 font-medium">{item.partName}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-600">Rs. {item.partCost?.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-600">{item.laborHours}h × Rs. {item.laborRate?.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold text-gray-900">Rs. {item.subtotal?.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-blue-50/60 font-semibold">
+                      <td className="px-3 py-2.5 text-blue-800" colSpan={4}>Total</td>
+                      <td className="px-3 py-2.5 text-right text-blue-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           )}
@@ -490,7 +553,10 @@ export function AdminClaimDetailPage() {
       {claim.garage && (
         <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-5 mb-5">
           <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Wrench className="h-5 w-5 text-orange-600" /> Garage: {claim.garage.name}
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+              <Wrench className="h-4 w-4" />
+            </div>
+            Garage: {claim.garage.name}
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 p-3 bg-orange-50 rounded-lg text-xs">
             <div><span className="text-gray-500">Owner:</span><br /><span className="font-medium">{claim.garage.ownerName}</span></div>
@@ -503,63 +569,77 @@ export function AdminClaimDetailPage() {
             const gTotals = gItems ? estimateTotals(gItems) : null;
             return claim.garageEstimate && gItems && gTotals ? (
             <>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Garage Estimate Submitted</span>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Estimate Submitted</span>
                 <span className="text-xs text-gray-500">{new Date(claim.garageEstimate.estimateDate ?? claim.garageEstimate.submittedAt).toLocaleDateString()}</span>
               </div>
               {claim.repairEstimate && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 bg-blue-50 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-[10px] text-blue-600 font-medium">AI Estimate</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                  <div className="bg-blue-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-blue-500 font-medium uppercase tracking-wide">AI Estimate</p>
                     <p className="text-sm font-bold text-blue-900">Rs. {claim.repairEstimate.totalCost.toLocaleString()}</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-orange-600 font-medium">Garage Estimate</p>
+                  <div className="bg-orange-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-orange-500 font-medium uppercase tracking-wide">Garage</p>
                     <p className="text-sm font-bold text-orange-900">Rs. {claim.garageEstimate.totalCost.toLocaleString()}</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-gray-600 font-medium">Difference</p>
-                    <p className={`text-sm font-bold ${claim.garageEstimate.totalCost > claim.repairEstimate.totalCost ? 'text-red-600' : 'text-green-600'}`}>
+                  <div className={`rounded-lg p-2.5 text-center ${claim.garageEstimate.totalCost > claim.repairEstimate.totalCost ? 'bg-red-50' : 'bg-green-50'}`}>
+                    <p className={`text-[10px] font-medium uppercase tracking-wide ${claim.garageEstimate.totalCost > claim.repairEstimate.totalCost ? 'text-red-500' : 'text-green-500'}`}>Difference</p>
+                    <p className={`text-sm font-bold ${claim.garageEstimate.totalCost > claim.repairEstimate.totalCost ? 'text-red-700' : 'text-green-700'}`}>
                       Rs. {(claim.garageEstimate.totalCost - claim.repairEstimate.totalCost).toLocaleString()}
                     </p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-gray-600 font-medium">Garage Days</p>
+                  <div className="bg-gray-50 rounded-lg p-2.5 text-center">
+                    <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Days</p>
                     <p className="text-sm font-bold text-gray-900">{claim.garageEstimate.estimatedDays}</p>
                   </div>
                 </div>
               )}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-gray-200 text-left text-gray-500 text-xs uppercase">
-                    <th className="pb-2">Type</th><th className="pb-2">Part</th><th className="pb-2 text-right">Amount</th>
-                  </tr></thead>
-                  <tbody>
+              <div className="overflow-x-auto rounded-lg border border-gray-100">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left font-medium">Type</th>
+                      <th className="px-3 py-2 text-left font-medium">Part</th>
+                      <th className="px-3 py-2 text-right font-medium">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
                     {gItems.parts.map((part, i) => (
-                      <tr key={i} className={`border-b border-gray-100 ${part.addedByGarage ? 'bg-orange-50' : ''}`}>
-                        <td className="py-1.5 capitalize text-xs">{part.damageType?.replace(/_/g, ' ')}{part.addedByGarage && <span className="text-[10px] text-orange-600 ml-1">(added)</span>}</td>
-                        <td className="py-1.5 text-xs">{part.partName}</td>
-                        <td className="py-1.5 text-right font-medium text-xs">Rs. {part.partCost?.toLocaleString()}</td>
+                      <tr key={i} className={`transition ${part.addedByGarage ? 'bg-orange-50/50' : 'hover:bg-gray-50/50'}`}>
+                        <td className="px-3 py-2.5 capitalize text-gray-600">
+                          {part.damageType?.replace(/_/g, ' ')}
+                          {part.addedByGarage && <span className="ml-1.5 text-[10px] font-medium text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">added</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-800 font-medium">{part.partName}</td>
+                        <td className="px-3 py-2.5 text-right font-medium text-gray-900">Rs. {part.partCost?.toLocaleString()}</td>
                       </tr>
                     ))}
-                    <tr className="border-b border-gray-100 bg-purple-50">
-                      <td className="py-1.5 font-medium text-purple-900 text-xs">Labor</td>
-                      <td className="py-1.5 text-xs text-gray-600">{gItems.laborHours}h @ Rs. {gItems.laborRate.toLocaleString()}/h</td>
-                      <td className="py-1.5 text-right font-medium text-xs">Rs. {gTotals.laborCost.toLocaleString()}</td>
+                    <tr className="bg-purple-50/60">
+                      <td className="px-3 py-2.5 font-medium text-purple-800">Labor</td>
+                      <td className="px-3 py-2.5 text-purple-600">{gItems.laborHours}h × Rs. {gItems.laborRate.toLocaleString()}/h</td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-purple-900">Rs. {gTotals.laborCost.toLocaleString()}</td>
                     </tr>
-                    <tr className="border-b border-gray-100 bg-sky-50">
-                      <td className="py-1.5 font-medium text-sky-900 text-xs">Paint & Materials</td>
-                      <td></td>
-                      <td className="py-1.5 text-right font-medium text-xs">Rs. {gItems.paintMaterials.toLocaleString()}</td>
-                    </tr>
-                    <tr className="font-semibold">
-                      <td className="py-1.5 text-xs" colSpan={2}>Total</td>
-                      <td className="py-1.5 text-right text-xs">Rs. {gTotals.totalCost.toLocaleString()}</td>
+                    <tr className="bg-sky-50/60">
+                      <td className="px-3 py-2.5 font-medium text-sky-800">Paint & Materials</td>
+                      <td className="px-3 py-2.5 text-sky-600">—</td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-sky-900">Rs. {gItems.paintMaterials.toLocaleString()}</td>
                     </tr>
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-orange-50/60 font-semibold">
+                      <td className="px-3 py-2.5 text-orange-800" colSpan={2}>Total</td>
+                      <td className="px-3 py-2.5 text-right text-orange-900">Rs. {gTotals.totalCost.toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
-              {claim.garageEstimate.notes && <p className="text-xs text-gray-600 mt-2 p-2 bg-gray-50 rounded">{claim.garageEstimate.notes}</p>}
+              {claim.garageEstimate.notes && (
+                <div className="mt-3 flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                  <StickyNote className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-gray-600">{claim.garageEstimate.notes}</p>
+                </div>
+              )}
             </>
             ) : (
               <p className="text-sm text-gray-400">Garage has not submitted an estimate yet.</p>
@@ -567,6 +647,132 @@ export function AdminClaimDetailPage() {
           })()}
         </div>
       )}
+
+      {/* Garage vs AI Estimate Reconciliation */}
+      {claim.garageEstimate && claim.repairEstimate && (() => {
+        const scored = claim.reconciledAt != null;
+        const score = claim.reconciliationScore ?? 0;
+        const flags: Array<{ type: string; severity: string; detail: string; aiAmount: number | null; garageAmount: number | null }> =
+          Array.isArray(claim.reconciliationResult) ? (claim.reconciliationResult as any).flags ?? [] :
+          (claim.reconciliationResult as any)?.flags ?? [];
+        const aiTotal = claim.repairEstimate.totalCost;
+        const garageTotal = claim.garageEstimate.totalCost;
+        const diff = garageTotal - aiTotal;
+        const diffPct = aiTotal > 0 ? Math.round((diff / aiTotal) * 100) : 0;
+
+        const tierStyle: Record<string, { bg: string; border: string; text: string; chip: string }> = {
+          NONE:   { bg: 'bg-gray-50',  border: 'border-gray-200',  text: 'text-gray-600',  chip: 'bg-gray-200 text-gray-700' },
+          LOW:    { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', chip: 'bg-green-600 text-white' },
+          MEDIUM: { bg: 'bg-yellow-50',border: 'border-yellow-200',text: 'text-yellow-800',chip: 'bg-yellow-500 text-white' },
+          HIGH:   { bg: 'bg-red-50',   border: 'border-red-200',   text: 'text-red-800',   chip: 'bg-red-600 text-white' },
+        };
+        const tier = !scored ? 'NONE' : score <= 30 ? 'LOW' : score <= 60 ? 'MEDIUM' : 'HIGH';
+        const s = tierStyle[tier];
+        const Icon = tier === 'HIGH' ? AlertTriangle : tier === 'MEDIUM' ? Clock : CheckCircle;
+        const reconciledAt = claim.reconciledAt ? new Date(claim.reconciledAt).toLocaleString() : null;
+
+        const flagTypeLabel: Record<string, string> = {
+          OVERCHARGE: 'Overcharge',
+          MISSED_DAMAGE: 'Missed Damage',
+          PRICE_OUTLIER: 'Price Outlier',
+          EXTRA_ITEM: 'Extra Item',
+          LABOR_DISCREPANCY: 'Labor Mismatch',
+        };
+        const flagTypeColor: Record<string, string> = {
+          OVERCHARGE: 'bg-red-100 text-red-700',
+          MISSED_DAMAGE: 'bg-amber-100 text-amber-700',
+          PRICE_OUTLIER: 'bg-orange-100 text-orange-700',
+          EXTRA_ITEM: 'bg-blue-100 text-blue-700',
+          LABOR_DISCREPANCY: 'bg-purple-100 text-purple-700',
+        };
+
+        return (
+          <div className={`rounded-xl border ${s.border} ${s.bg} p-5 mb-5`}>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-3">
+                <Icon className={`h-5 w-5 ${s.text}`} />
+                <h2 className={`font-semibold ${s.text}`}>Estimate Reconciliation</h2>
+                <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase ${s.chip}`}>{tier}</span>
+              </div>
+              <button
+                onClick={handleReconcile}
+                disabled={reconciling}
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${reconciling ? 'animate-spin' : ''}`} />
+                {reconciling ? 'Analyzing...' : scored ? 'Re-analyze' : 'Analyze now'}
+              </button>
+            </div>
+
+            {reconcileError && <p className="text-xs text-red-600 mb-2">{reconcileError}</p>}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="bg-white/60 rounded-lg p-2.5 text-center">
+                <p className="text-[10px] text-blue-600 font-medium">AI Estimate</p>
+                <p className="text-sm font-bold text-blue-900">Rs. {aiTotal.toLocaleString()}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg p-2.5 text-center">
+                <p className="text-[10px] text-orange-600 font-medium">Garage Estimate</p>
+                <p className="text-sm font-bold text-orange-900">Rs. {garageTotal.toLocaleString()}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg p-2.5 text-center">
+                <p className="text-[10px] text-gray-600 font-medium">Difference</p>
+                <p className={`text-sm font-bold ${diff > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {diff > 0 ? '+' : ''}Rs. {diff.toLocaleString()} ({diffPct > 0 ? '+' : ''}{diffPct}%)
+                </p>
+              </div>
+              <div className="bg-white/60 rounded-lg p-2.5 text-center">
+                <p className="text-[10px] text-gray-600 font-medium">Divergence Score</p>
+                <p className={`text-sm font-bold ${s.text}`}>{scored ? `${score}/100` : 'Not scored'}</p>
+              </div>
+            </div>
+
+            {scored && reconciledAt && (
+              <p className="text-xs text-gray-500 mb-3">Analyzed {reconciledAt}</p>
+            )}
+
+            {claim.reconciliationSummary && (
+              <p className={`text-sm ${s.text} mb-3 p-3 bg-white/50 rounded-lg`}>{claim.reconciliationSummary}</p>
+            )}
+
+            {flags.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setReconcileExpanded((v) => !v)}
+                  className={`text-xs font-medium ${s.text} hover:underline`}
+                >
+                  {reconcileExpanded ? 'Hide' : 'Show'} {flags.length} flag{flags.length === 1 ? '' : 's'}
+                </button>
+                {reconcileExpanded && (
+                  <ul className="mt-2 space-y-2">
+                    {flags.map((f, i) => (
+                      <li key={i} className="p-3 bg-white/70 rounded-lg border border-white">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${flagTypeColor[f.type] ?? 'bg-gray-200 text-gray-700'}`}>
+                            {flagTypeLabel[f.type] ?? f.type}
+                          </span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                            f.severity === 'HIGH' ? 'bg-red-100 text-red-700' :
+                            f.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>{f.severity}</span>
+                        </div>
+                        <p className={`text-sm ${s.text}`}>{f.detail}</p>
+                        {(f.aiAmount != null || f.garageAmount != null) && (
+                          <div className="mt-1.5 flex gap-3 text-xs text-gray-500">
+                            {f.aiAmount != null && <span>AI: Rs. {f.aiAmount.toLocaleString()}</span>}
+                            {f.garageAmount != null && <span>Garage: Rs. {f.garageAmount.toLocaleString()}</span>}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Images */}
       {claim.images?.length > 0 && (

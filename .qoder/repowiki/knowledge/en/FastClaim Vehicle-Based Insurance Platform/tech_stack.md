@@ -1,0 +1,1 @@
+Node.js 22 (pinned in Railway), TypeScript, Express + Prisma for the backend; React + Vite + TypeScript for the frontend; SQLite via Prisma for persistence; Google Gemini APIs used by backend services for damage analysis and document verification.

@@ -28,6 +28,7 @@ model User {
   policies        InsurancePolicy[]
   claims          Claim[]
   notifications   Notification[]
+  supportTickets  SupportTicket[]
 }
 
 model Vehicle {
@@ -146,6 +147,11 @@ model Claim {
   fraudFlags    Json?
   fraudSummary  String?
   fraudScoredAt DateTime?
+  // Garage vs AI estimate reconciliation — 0 = aligned, 100 = high divergence
+  reconciliationScore   Int?
+  reconciliationResult  Json?
+  reconciliationSummary String?
+  reconciledAt          DateTime?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
@@ -163,6 +169,7 @@ model Claim {
   chatMessages      ChatMessage[]
   adminNotes        AdminNote[]
   notifications     Notification[]
+  supportTickets    SupportTicket[]
 }
 
 enum ImageType {
@@ -336,4 +343,20 @@ model Notification {
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   claim Claim? @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}
+
+// Problem reports filed by policyholders through the AI assistant chat
+model SupportTicket {
+  id         String   @id @default(uuid())
+  userId     String
+  claimId    String?
+  subject    String
+  message    String
+  status     String   @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  adminReply String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  claim Claim? @relation(fields: [claimId], references: [id], onDelete: SetNull)
 }
