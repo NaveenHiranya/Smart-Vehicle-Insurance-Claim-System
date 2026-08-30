@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle, Mail, Lock, User, Contact, Phone, ArrowRight } from 'lucide-react';
 import { AuthBrandPanel, AuthMobileBrand } from '../components/AuthBrandPanel';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 export function RegisterPage() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '', nic: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   // Insurance is chosen per vehicle after signup — no plan selection here
@@ -21,6 +22,20 @@ export function RegisterPage() {
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Google sign-up creates the account server-side and signs the user in
+  const handleGoogleSuccess = async (credential: string) => {
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle(credential);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Google sign-up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -84,9 +99,12 @@ export function RegisterPage() {
               <label htmlFor="reg-password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</label>
               <div className="relative">
                 <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                <input id="reg-password" type="password" value={form.password} onChange={update('password')} required minLength={6}
-                  className={`${inputClass} pl-11 pr-4`} placeholder="At least 6 characters" />
+                <input id="reg-password" type="password" value={form.password} onChange={update('password')} required minLength={8}
+                  pattern="(?=.*[A-Za-z])(?=.*\d).+"
+                  title="At least 8 characters, including a letter and a number"
+                  className={`${inputClass} pl-11 pr-4`} placeholder="At least 8 characters, with a letter and a number" />
               </div>
+              <p className="mt-1.5 text-xs text-gray-400">At least 8 characters, including a letter and a number.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -120,6 +138,13 @@ export function RegisterPage() {
               After signing in, register your vehicles and choose an insurance plan for each one.
             </p>
           </form>
+
+          {/* Google sign-up — hidden entirely until VITE_GOOGLE_CLIENT_ID is set */}
+          <GoogleLoginButton
+            text="signup_with"
+            onSuccess={handleGoogleSuccess}
+            onError={(message) => setError(message)}
+          />
 
           <p className="mt-6 text-center text-sm text-gray-600">
             Already have an account?{' '}

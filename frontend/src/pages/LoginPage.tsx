@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle, Lock, Wrench, Mail, ArrowRight } from 'lucide-react';
 import { AuthBrandPanel, AuthMobileBrand } from '../components/AuthBrandPanel';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -22,6 +23,21 @@ export function LoginPage() {
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Google Identity Services hands us a signed ID token (credential);
+  // the backend verifies it and issues the app session
+  const handleGoogleSuccess = async (credential: string) => {
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle(credential);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -88,6 +104,12 @@ export function LoginPage() {
               {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
             </button>
           </form>
+
+          {/* Google sign-in — hidden entirely until VITE_GOOGLE_CLIENT_ID is set */}
+          <GoogleLoginButton
+            onSuccess={handleGoogleSuccess}
+            onError={(message) => setError(message)}
+          />
 
           <p className="mt-6 text-center text-sm text-gray-600">
             Don't have an account?{' '}
