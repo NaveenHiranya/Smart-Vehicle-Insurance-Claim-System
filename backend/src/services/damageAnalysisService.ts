@@ -2,6 +2,7 @@ import prisma from '../utils/prisma.js';
 import { generateContentWithFallback } from '../utils/gemini.js';
 import { buildImageParts } from '../utils/imageUtils.js';
 import { DamageAnalysisResult, DamageItem } from '../types/index.js';
+import { PART_IDS } from './partCatalog.js';
 
 const DAMAGE_TYPES = [
   'dent', 'scratch', 'crack', 'broken_light', 'bumper_damage',
@@ -26,7 +27,7 @@ const DAMAGE_SCHEMA = {
           severity: { type: 'STRING', enum: [...SEVERITIES] },
           location: { type: 'STRING' },
           description: { type: 'STRING' },
-          affectedParts: { type: 'ARRAY', items: { type: 'STRING' } },
+          affectedParts: { type: 'ARRAY', items: { type: 'STRING', enum: PART_IDS } },
         },
         required: ['type', 'severity', 'location', 'description'],
       },
@@ -46,7 +47,7 @@ Rules:
 - MINOR = cosmetic only. MODERATE = functional damage, still drivable. SEVERE = safety-critical or structural.
 - location: short area name, e.g. "front-left bumper".
 - description: one short sentence.
-- affectedParts: the main replaceable parts involved, e.g. ["front bumper", "headlight"]. Use parts that fit the vehicle type shown (bike fairing, three-wheeler canopy, lorry cab...). Up to 4 parts; omit if not applicable.
+- affectedParts: the main replaceable parts involved, chosen ONLY from the allowed part list (e.g. front_bumper, headlight, fairing, canopy, cargo_body). Pick parts that fit the vehicle type stated for this claim. Up to 4 parts; omit entirely if not applicable.
 - Assess in the context of the vehicle type stated for this claim.
 - No visible damage: empty damages array and overallSeverity MINOR.`;
 
@@ -91,9 +92,10 @@ export function parseDamageAnalysis(raw: string): DamageAnalysisResult {
     .slice(0, MAX_DAMAGES)
     .map((d: Record<string, unknown>) => {
       const type = normalizeType(d.type);
+      const idSet = new Set(PART_IDS);
       const affectedParts = (Array.isArray(d.affectedParts) ? d.affectedParts : [])
-        .map((p) => String(p ?? '').trim())
-        .filter(Boolean)
+        .map((p) => String(p ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_'))
+        .filter((p) => idSet.has(p))
         .slice(0, 6);
       return {
         type,
@@ -201,6 +203,14 @@ export async function analyzeDamage(claimId: string): Promise<DamageAnalysisResu
     await generateRepairEstimate(claimId);
   } catch (err) {
     console.error('Auto repair estimate generation failed:', err);
+  }
+
+  // Auto-score the claim for fraud (one Gemini call + rule checks)
+  try {
+    const { scoreClaimFraud } = await import('./fraudScoringService.js');
+    await scoreClaimFraud(claimId);
+  } catch (err) {
+    console.error('Fraud scoring failed:', err);
   }
 
   return analysisResult;

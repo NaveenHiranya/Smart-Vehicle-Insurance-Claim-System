@@ -1,13 +1,14 @@
 import prisma from '../utils/prisma.js';
 import { RepairEstimateItem, RepairEstimateResult, DamageItem, VehicleType } from '../types/index.js';
 import { recalculatePayout } from './payoutService.js';
+import { PART_CATALOG, partLabel } from './partCatalog.js';
 
 // Pricing architecture (Sri Lankan market, LKR):
 // 1. One base price table calibrated for a typical economy car.
 // 2. Vehicle-class factors scale parts / labor / paint from that base —
 //    one table serves bikes through buses.
-// 3. A few type-specific part overrides where a plain multiplier is badly
-//    wrong (three-wheeler canopy, bike fairing, lorry cargo body...).
+// 3. Type-specific part prices (partCatalog `types`) where a plain multiplier
+//    is badly wrong (three-wheeler hood, ...).
 
 const VEHICLE_TYPE_FACTORS: Record<VehicleType, { parts: number; labor: number; paint: number }> = {
   MOTORCYCLE:    { parts: 0.45, labor: 0.6,  paint: 0.4 },
@@ -27,46 +28,6 @@ const PREMIUM_MAKES = [
   'porsche', 'volvo', 'lexus', 'tesla', 'jeep', 'mini',
 ];
 const PREMIUM_MAKE_FACTOR = 1.6;
-
-// Base-class part catalog (economy car, LKR). Matched by keyword against the
-// AI's affectedParts / location / damage type — most specific families first
-// so "front bumper" wins over the generic "bumper".
-const PART_PRICES: Array<{ family: string; keywords: string[]; range: [number, number] }> = [
-  { family: 'headlight',      keywords: ['headlight', 'head lamp'], range: [22000, 95000] },
-  { family: 'taillight',      keywords: ['taillight', 'tail light', 'rear light'], range: [15000, 60000] },
-  { family: 'fog light',      keywords: ['fog light', 'fog lamp'], range: [8000, 35000] },
-  { family: 'windshield',     keywords: ['windshield', 'windscreen', 'front glass'], range: [35000, 185000] },
-  { family: 'rear glass',     keywords: ['rear glass', 'back glass', 'rear window'], range: [25000, 120000] },
-  { family: 'side mirror',    keywords: ['side mirror', 'wing mirror', 'mirror'], range: [9000, 45000] },
-  { family: 'front bumper',   keywords: ['front bumper'], range: [28000, 135000] },
-  { family: 'rear bumper',    keywords: ['rear bumper'], range: [26000, 125000] },
-  { family: 'bumper',         keywords: ['bumper'], range: [27000, 130000] },
-  { family: 'grille',         keywords: ['grille', 'grill'], range: [12000, 65000] },
-  { family: 'hood',           keywords: ['hood', 'bonnet'], range: [35000, 150000] },
-  { family: 'door',           keywords: ['door'], range: [38000, 165000] },
-  { family: 'fender',         keywords: ['fender', 'wing panel'], range: [24000, 110000] },
-  { family: 'quarter panel',  keywords: ['quarter panel'], range: [40000, 175000] },
-  { family: 'roof',           keywords: ['roof', 'canopy'], range: [45000, 200000] },
-  { family: 'trunk lid',      keywords: ['trunk', 'boot lid', 'tailgate'], range: [36000, 155000] },
-  { family: 'side skirt',     keywords: ['running board', 'side skirt'], range: [12000, 55000] },
-  { family: 'radiator',       keywords: ['radiator'], range: [28000, 95000] },
-  { family: 'condenser',      keywords: ['condenser', 'a/c', 'ac condenser'], range: [25000, 85000] },
-  { family: 'wheel',          keywords: ['tyre', 'tire', 'wheel', 'rim', 'alloy'], range: [18000, 95000] },
-  { family: 'exhaust',        keywords: ['exhaust', 'muffler', 'silencer'], range: [12000, 65000] },
-  { family: 'seat',           keywords: ['seat', 'interior'], range: [15000, 90000] },
-];
-
-// Type-specific part prices that REPLACE the scaled base price — only where a
-// multiplier would be badly wrong. Checked before the base catalog.
-const TYPE_PART_OVERRIDES: Array<{ type: VehicleType; keywords: string[]; range: [number, number] }> = [
-  { type: 'THREE_WHEELER', keywords: ['canopy', 'front cabin', 'hood'], range: [25000, 70000] },
-  { type: 'MOTORCYCLE',    keywords: ['fairing'], range: [12000, 55000] },
-  { type: 'MOTORCYCLE',    keywords: ['handlebar', 'handle bar'], range: [6000, 28000] },
-  { type: 'LORRY_TRUCK',   keywords: ['cargo body', 'cargo bed', 'deck body'], range: [150000, 600000] },
-  { type: 'LORRY_TRUCK',   keywords: ['cab'], range: [120000, 450000] },
-  { type: 'BUS',           keywords: ['body panel', 'panel'], range: [80000, 350000] },
-  { type: 'TRACTOR',       keywords: ['trailer'], range: [80000, 400000] },
-];
 
 // Fallback part ranges per damage type when no specific part matched (base class)
 const DAMAGE_PART_FALLBACKS: Record<string, Record<string, [number, number]>> = {
@@ -114,38 +75,46 @@ interface MatchedPart {
   range: [number, number];
 }
 
+const toId = (s: string) => s.trim().toLowerCase().replace(/[\s-]+/g, '_');
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
- * Match part prices from everything the AI said about the damaged area
- * (affectedParts + location + damage type). Type-specific overrides win over
- * the base catalog; overlapping keyword families collapse to the most specific
- * one ("front bumper" beats "bumper") while distinct parts genuinely sum.
+ * Matches priced parts for one damage. New schema-constrained damage rows carry
+ * catalog IDs in affectedParts and match exactly. Legacy rows (free text, or
+ * empty affectedParts) fall back to keyword matching against everything the AI
+ * said about the damaged area. Overlapping families collapse to the most
+ * specific one ("front_bumper" beats "bumper") while distinct parts sum.
  */
 function matchPartPrices(damage: DamageItem, vehicleType: VehicleType): MatchedPart[] {
-  const haystack = [
-    ...(damage.affectedParts ?? []),
-    damage.location ?? '',
-    damage.type.replace(/_/g, ' '),
-  ].join(' ').toLowerCase();
+  const matched = new Map<string, [number, number]>();
 
-  const candidates: Array<MatchedPart & { specific: boolean }> = [];
-
-  for (const o of TYPE_PART_OVERRIDES) {
-    if (o.type !== vehicleType) continue;
-    const keyword = o.keywords.find((k) => haystack.includes(k));
-    if (keyword) candidates.push({ keyword, range: o.range, specific: true });
-  }
-  for (const p of PART_PRICES) {
-    const keyword = p.keywords.find((k) => haystack.includes(k));
-    if (keyword) candidates.push({ keyword, range: p.range, specific: false });
+  for (const p of damage.affectedParts ?? []) {
+    const family = PART_CATALOG[toId(p)];
+    if (family && !matched.has(toId(p))) {
+      matched.set(toId(p), family.types?.[vehicleType] ?? family.base);
+    }
   }
 
-  // Type overrides replace the base price for the same part, and overlapping
-  // keyword families collapse to the longest (most specific) keyword
-  const sorted = candidates.sort((a, b) => b.keyword.length - a.keyword.length);
+  if (matched.size === 0) {
+    const haystack = [
+      ...(damage.affectedParts ?? []),
+      damage.location ?? '',
+      damage.type.replace(/_/g, ' '),
+    ].join(' ').toLowerCase();
+
+    for (const [id, family] of Object.entries(PART_CATALOG)) {
+      const hit = family.keywords.some((k) =>
+        new RegExp(`\\b${escapeRegex(k)}\\b`).test(haystack)
+      );
+      if (hit) matched.set(id, family.types?.[vehicleType] ?? family.base);
+    }
+  }
+
+  const sorted = [...matched.entries()].sort((a, b) => b[0].length - a[0].length);
   const accepted: MatchedPart[] = [];
-  for (const m of sorted) {
-    const overlaps = accepted.some((a) => a.keyword.includes(m.keyword) || m.keyword.includes(a.keyword));
-    if (!overlaps) accepted.push({ keyword: m.keyword, range: m.range });
+  for (const [keyword, range] of sorted) {
+    const overlaps = accepted.some((a) => a.keyword.includes(keyword) || keyword.includes(a.keyword));
+    if (!overlaps) accepted.push({ keyword, range });
   }
   return accepted;
 }
@@ -183,7 +152,7 @@ function calculateItem(damage: DamageItem, ctx: PricingContext): RepairEstimateI
   const paintMaterials = round100(basePaint * ctx.factors.paint);
 
   const partName = damage.affectedParts && damage.affectedParts.length > 0
-    ? damage.affectedParts.join(', ')
+    ? damage.affectedParts.map(partLabel).join(', ')
     : `${damage.location ? `${damage.location} ` : ''}${damage.type.replace(/_/g, ' ')}`;
 
   return {

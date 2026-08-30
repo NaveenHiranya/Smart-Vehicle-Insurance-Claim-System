@@ -12,6 +12,13 @@ const statusColors: Record<string, string> = {
 const severityColors: Record<string, string> = {
   MINOR: 'bg-green-100 text-green-700', MODERATE: 'bg-yellow-100 text-yellow-700', SEVERE: 'bg-red-100 text-red-700',
 };
+const riskColors: Record<string, string> = {
+  LOW: 'bg-green-100 text-green-700', MEDIUM: 'bg-yellow-100 text-yellow-700', HIGH: 'bg-red-100 text-red-700',
+};
+const tierFromScore = (score: number | null | undefined): string | null => {
+  if (score == null) return null;
+  return score <= 30 ? 'LOW' : score <= 60 ? 'MEDIUM' : 'HIGH';
+};
 const statuses = ['ALL', 'PENDING', 'DRAFT', 'SUBMITTED', 'GARAGE_REVIEW', 'GARAGE_ESTIMATED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'COMPLETED'];
 // PENDING is a virtual filter combining every in-progress status
 const PENDING_STATUSES = 'SUBMITTED,UNDER_REVIEW,GARAGE_REVIEW,GARAGE_ESTIMATED';
@@ -139,6 +146,7 @@ export function AdminClaimsPage() {
               <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
               <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Severity</th>
+              <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Risk</th>
               <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Imgs</th>
               <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Docs</th>
               <th className="px-5 py-3"></th>
@@ -157,6 +165,17 @@ export function AdminClaimsPage() {
                   {c.damageAssessment?.overallSeverity
                     ? <span className={`text-xs px-2 py-1 rounded-full font-medium ${severityColors[c.damageAssessment.overallSeverity]}`}>{c.damageAssessment.overallSeverity}</span>
                     : <span className="text-xs text-gray-400">—</span>}
+                </td>
+                <td className="px-5 py-3 text-center">
+                  {(() => {
+                    const tier = c.fraudScoredAt ? tierFromScore(c.fraudScore) : null;
+                    if (!tier) return <span className="text-xs text-gray-400">—</span>;
+                    return (
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${riskColors[tier]}`} title={c.fraudSummary ?? ''}>
+                        {tier} {c.fraudScore ?? 0}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="px-5 py-3 text-center text-gray-600">{c._count?.images ?? 0}</td>
                 <td className="px-5 py-3 text-center text-gray-600">{c._count?.documents ?? 0}</td>

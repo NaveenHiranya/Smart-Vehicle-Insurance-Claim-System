@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw, CircleDollarSign, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw, CircleDollarSign, ChevronDown, AlertTriangle } from 'lucide-react';
 import { uploadUrl } from '../../utils/uploadUrl';
 import { normalizeGarageItems, estimateTotals } from '../../utils/garageEstimate';
 
@@ -38,6 +38,9 @@ export function AdminClaimDetailPage() {
   const [finalValueDraft, setFinalValueDraft] = useState('');
   const [finalValueSaving, setFinalValueSaving] = useState(false);
   const [finalValueError, setFinalValueError] = useState('');
+  const [scoring, setScoring] = useState(false);
+  const [scoreError, setScoreError] = useState('');
+  const [fraudExpanded, setFraudExpanded] = useState(false);
 
   const fetchClaim = () =>
     adminApi.get(`/claims/${id}`).then((r) => {
@@ -148,6 +151,19 @@ export function AdminClaimDetailPage() {
     }
   };
 
+  const handleRescore = async () => {
+    setScoring(true);
+    setScoreError('');
+    try {
+      await adminApi.post(`/claims/${id}/fraud-score`);
+      await fetchClaim();
+    } catch {
+      setScoreError('Failed to calculate fraud score.');
+    } finally {
+      setScoring(false);
+    }
+  };
+
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-400"></div></div>;
   if (!claim) return null;
 
@@ -183,6 +199,69 @@ export function AdminClaimDetailPage() {
           </div>
           <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${statusColors[claim.status]}`}>{claim.status.replace('_', ' ')}</span>
         </div>
+
+        {/* Fraud Risk Panel */}
+        {(() => {
+          const scored = claim.fraudScoredAt != null;
+          const score = claim.fraudScore ?? 0;
+          const flags: Array<{ signal: string; points: number; detail: string }> = Array.isArray(claim.fraudFlags) ? claim.fraudFlags : [];
+          const tier = !scored ? 'NONE' : score <= 30 ? 'LOW' : score <= 60 ? 'MEDIUM' : 'HIGH';
+          const tierStyle: Record<string, { bg: string; border: string; text: string; chip: string }> = {
+            NONE:   { bg: 'bg-gray-50',  border: 'border-gray-200',  text: 'text-gray-600',  chip: 'bg-gray-200 text-gray-700' },
+            LOW:    { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', chip: 'bg-green-600 text-white' },
+            MEDIUM: { bg: 'bg-yellow-50',border: 'border-yellow-200',text: 'text-yellow-800',chip: 'bg-yellow-500 text-white' },
+            HIGH:   { bg: 'bg-red-50',   border: 'border-red-200',   text: 'text-red-800',   chip: 'bg-red-600 text-white' },
+          };
+          const s = tierStyle[tier];
+          const Icon = tier === 'HIGH' ? AlertTriangle : tier === 'MEDIUM' ? Clock : CheckCircle;
+          const scoredAt = claim.fraudScoredAt ? new Date(claim.fraudScoredAt).toLocaleString() : null;
+          return (
+            <div className={`mb-5 rounded-xl border ${s.border} ${s.bg} p-4`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase ${s.chip}`}>{tier}</span>
+                  <div className="flex items-center gap-2">
+                    <Icon className={`h-4 w-4 ${s.text}`} />
+                    <span className={`text-sm font-semibold ${s.text}`}>
+                      {scored ? `Fraud risk: ${score}/100` : 'Not yet scored'}
+                    </span>
+                  </div>
+                  {scoredAt && <span className="text-xs text-gray-500 hidden sm:inline">scored {scoredAt}</span>}
+                </div>
+                <button
+                  onClick={handleRescore}
+                  disabled={scoring}
+                  className="flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${scoring ? 'animate-spin' : ''}`} />
+                  {scoring ? 'Scoring...' : scored ? 'Re-score' : 'Score now'}
+                </button>
+              </div>
+              {scoreError && <p className="text-xs text-red-600 mt-2">{scoreError}</p>}
+              {flags.length > 0 && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => setFraudExpanded((v) => !v)}
+                    className={`text-xs font-medium ${s.text} hover:underline`}
+                  >
+                    {fraudExpanded ? 'Hide' : 'Show'} {flags.length} flag{flags.length === 1 ? '' : 's'}
+                  </button>
+                  {fraudExpanded && (
+                    <ul className="mt-2 space-y-1">
+                      {flags.map((f, i) => (
+                        <li key={i} className={`text-xs ${s.text} flex items-start gap-2`}>
+                          <span className="shrink-0 mt-0.5 font-semibold bg-white/60 rounded px-1.5 py-0.5">+{f.points}</span>
+                          <span>{f.detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <p className="text-sm text-gray-600 mb-5">{claim.incidentDescription}</p>
 
         {/* Claim Actions — one blue dropdown instead of a row of colored buttons */}

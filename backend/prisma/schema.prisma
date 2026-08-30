@@ -140,6 +140,11 @@ model Claim {
   // Final claimable amount (LKR) confirmed by the insurer — overrides the computed estimate once set
   finalClaimableValue Float?
   finalValueSetAt     DateTime?
+  // Fraud scoring — 0 = no risk, 100 = maximum. Flags are the individual signals that contributed.
+  fraudScore    Int?      @default(0)
+  fraudFlags    Json?
+  fraudSummary  String?
+  fraudScoredAt DateTime?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 

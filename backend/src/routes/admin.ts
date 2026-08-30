@@ -6,6 +6,7 @@ import { adminAuthMiddleware } from '../middleware/adminAuth.js';
 import { AuthRequest, VEHICLE_TYPES } from '../types/index.js';
 import { recalculatePayout } from '../services/payoutService.js';
 import { analyzeDamage } from '../services/damageAnalysisService.js';
+import { scoreClaimFraud } from '../services/fraudScoringService.js';
 
 const router = Router();
 router.use(adminAuthMiddleware);
@@ -654,6 +655,22 @@ router.post('/claims/:id/analyze', async (req: AuthRequest, res: Response) => {
       return;
     }
     res.status(502).json({ error: 'AI damage analysis failed. Please try again in a moment.' });
+  }
+});
+
+// POST /api/admin/claims/:id/fraud-score — (re)calculate the fraud score for a claim
+router.post('/claims/:id/fraud-score', async (req: AuthRequest, res: Response) => {
+  try {
+    const claim = await prisma.claim.findUnique({ where: { id: param(req, 'id') } });
+    if (!claim) {
+      res.status(404).json({ error: 'Claim not found.' });
+      return;
+    }
+    const result = await scoreClaimFraud(param(req, 'id'));
+    res.json(result);
+  } catch (error) {
+    console.error('Admin fraud-score error:', error);
+    res.status(502).json({ error: 'Fraud scoring failed. Please try again.' });
   }
 });
 
