@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import dotenv from 'dotenv';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -29,6 +30,16 @@ if (missing.length) {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Behind the Railway/production proxy — required for correct client IPs in
+// the login rate limiters
+app.set('trust proxy', 1);
+
+// Security headers. Uploaded images are embedded cross-origin by the deployed
+// frontend, so the resource policy must allow cross-origin reads.
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // Middleware
 app.use(cors({

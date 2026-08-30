@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../utils/prisma.js';
+import { getJwtSecret } from '../utils/jwt.js';
 import { AuthRequest } from '../types/index.js';
 
 export async function adminAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
@@ -12,7 +13,7 @@ export async function adminAuthMiddleware(req: AuthRequest, res: Response, next:
 
   const token = authHeader.split(' ')[1];
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || '') as { userId: string };
+    const payload = jwt.verify(token, getJwtSecret()) as { userId: string };
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user || !user.isAdmin) {
       res.status(403).json({ error: 'Admin access required.' });

@@ -3,21 +3,29 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../utils/prisma.js';
 import { garageAuthMiddleware } from '../middleware/garageAuth.js';
+import { loginLimiter, authLimiter } from '../middleware/rateLimiters.js';
+import { remainingLockMs, recordFailure, recordSuccess, TIMING_EQUALIZER_HASH } from '../utils/loginGuard.js';
+import { getJwtSecret } from '../utils/jwt.js';
 import { AuthRequest } from '../types/index.js';
 
 const router = Router();
 
 // POST /api/garage/auth/register
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', authLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, password, name, ownerName, phone, address, city, licenseNumber, specialties } = req.body;
+    const { password, name, ownerName, phone, address, city, licenseNumber, specialties } = req.body;
+    const rawEmail = String(req.body.email ?? '').trim();
+    const email = rawEmail.toLowerCase();
 
     if (!email || !password || !name || !ownerName || !phone || !address || !city || !licenseNumber) {
       res.status(400).json({ error: 'All fields are required.' });
       return;
     }
 
-    const existing = await prisma.garage.findUnique({ where: { email } });
+    // Emails are stored lowercase — check both spellings to avoid duplicates
+    const existing = await prisma.garage.findFirst({
+      where: rawEmail !== email ? { OR: [{ email }, { email: rawEmail }] } : { email },
+    });
     if (existing) {
       res.status(409).json({ error: 'A garage with this email already exists.' });
       return;
@@ -56,17 +64,34 @@ router.post('/register', async (req: Request, res: Response) => {
 });
 
 // POST /api/garage/auth/login
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', loginLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const rawEmail = String(req.body.email ?? '').trim();
+    const email = rawEmail.toLowerCase();
 
     if (!email || !password) {
       res.status(400).json({ error: 'Email and password are required.' });
       return;
     }
 
-    const garage = await prisma.garage.findUnique({ where: { email } });
+    // Per-email lockout — 5 failures lock the account for 15 minutes
+    const lockKey = `garage:${email}`;
+    const lockMs = remainingLockMs(lockKey);
+    if (lockMs > 0) {
+      res.status(429).json({ error: `Too many failed attempts. Try again in ${Math.ceil(lockMs / 60000)} minute(s).` });
+      return;
+    }
+
+    let garage = await prisma.garage.findUnique({ where: { email } });
+    // Legacy mixed-case emails — exact spelling match before giving up
+    if (!garage && rawEmail !== email) {
+      garage = await prisma.garage.findUnique({ where: { email: rawEmail } });
+    }
     if (!garage) {
+      // Equalize timing so the response does not reveal whether the email exists
+      await bcrypt.compare(String(password), TIMING_EQUALIZER_HASH);
+      recordFailure(lockKey);
       res.status(401).json({ error: 'Invalid email or password.' });
       return;
     }
@@ -83,13 +108,16 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const isValidPassword = await bcrypt.compare(password, garage.passwordHash);
     if (!isValidPassword) {
+      recordFailure(lockKey);
       res.status(401).json({ error: 'Invalid email or password.' });
       return;
     }
 
+    recordSuccess(lockKey);
+
     const token = jwt.sign(
       { garageId: garage.id, role: 'garage' },
-      process.env.JWT_SECRET || '',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 

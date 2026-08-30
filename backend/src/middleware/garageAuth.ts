@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../utils/prisma.js';
+import { getJwtSecret } from '../utils/jwt.js';
 import { AuthRequest } from '../types/index.js';
 
 export async function garageAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
@@ -12,7 +13,7 @@ export async function garageAuthMiddleware(req: AuthRequest, res: Response, next
 
   const token = authHeader.split(' ')[1];
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || '') as { garageId: string; role: string };
+    const payload = jwt.verify(token, getJwtSecret()) as { garageId: string; role: string };
     if (payload.role !== 'garage') {
       res.status(403).json({ error: 'Garage access required.' });
       return;
