@@ -1,1 +1,0 @@
-Required env vars: `JWT_SECRET`, `GEMINI_API_KEY`, `DATABASE_URL`, plus optional `CORS_ORIGIN`, `UPLOAD_DIR`, `PORT`. Development uses `npm run dev` (tsx watch); build runs `prisma generate && tsc`; seeding is `npm run seed` which executes `seedAdmin.ts` and `seedPolicyTemplates.ts`; production starts with `npm start` after `prisma db push` or migration.

@@ -1,6 +1,0 @@
-- Each feature is organized as an Express Router file under `src/routes/` mounted on a dedicated `/api/<feature>` prefix in `src/index.ts`.
-- Route handlers enforce ownership by querying resources with `userId: req.userId` (injected by `authMiddleware`) rather than trusting client IDs.
-- Domain operations are delegated to functions in `src/services/` (e.g. `analyzeDamage`, `generateRepairEstimate`, `verifyDocument`, `recalculatePayout`) so routes stay thin and stateless.
-- Prisma queries use explicit `include`/`select` projections instead of returning full model objects, keeping responses scoped to what the UI needs.
-- Error paths consistently return `{ error: '<message>' }` JSON with appropriate HTTP status codes, and a single `errorHandler` middleware catches unhandled errors.
-- File uploads go through Multer middlewares in `src/middleware/upload.ts` and persisted paths are stored as relative `/uploads/<type>/<uuid>.ext` strings in the database.

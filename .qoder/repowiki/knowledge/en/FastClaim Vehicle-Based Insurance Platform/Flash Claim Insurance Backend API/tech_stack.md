@@ -1,1 +1,0 @@
-Node 20+ / Express 5 / TypeScript compiled to `dist/`; Prisma 6 with SQLite schema; JWT authentication; bcryptjs for password hashing; Multer + Sharp for image handling; Zod for runtime validation; Google Generative AI (`@google/generative-ai`) for damage analysis, document verification, and claim assistant chat.

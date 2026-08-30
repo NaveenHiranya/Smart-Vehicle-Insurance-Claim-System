@@ -1,1 +1,0 @@
-React 19 + TypeScript 6, Vite 8 build tool, React Router v7 for routing, Axios for HTTP with interceptors, Tailwind CSS 4 via `@tailwindcss/vite`, Lucide icons, react-dropzone for file uploads; linting via oxlint.

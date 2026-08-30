@@ -1,1 +1,0 @@
-Express.js REST API for a vehicle-based insurance claim system that handles user/garage/admin auth, AI-powered damage analysis, repair estimates, document verification, and policy-driven payout calculation.

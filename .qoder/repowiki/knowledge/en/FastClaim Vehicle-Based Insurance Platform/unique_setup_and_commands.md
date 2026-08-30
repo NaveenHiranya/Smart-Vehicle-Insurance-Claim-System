@@ -1,1 +1,0 @@
-Root-level npm scripts drive the monorepo: `npm run dev:backend` and `npm run dev:frontend` start each side independently; `npm run seed` runs backend seeding scripts; `npm run build` builds the backend; deployment is handled by Railway using `railway.toml` which pushes the DB schema and starts the compiled Express server.
