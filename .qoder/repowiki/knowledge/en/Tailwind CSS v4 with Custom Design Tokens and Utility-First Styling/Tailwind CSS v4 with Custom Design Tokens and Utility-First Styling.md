@@ -13,42 +13,46 @@ source_files:
 
 ## What system/approach is used
 
-The frontend uses **Tailwind CSS v4** (via `@tailwindcss/vite` plugin in Vite) with a utility-first styling approach. There are no custom CSS frameworks, component libraries for UI elements, or SCSS/Sass preprocessing — styling is applied directly through Tailwind utility classes in JSX `className` attributes. Icons come from the `lucide-react` package.
+The frontend uses **Tailwind CSS v4** (via `@tailwindcss/vite` plugin) in a utility-first approach, configured through Vite. There is no separate `tailwind.config.js` file — Tailwind v4's new configuration model is used instead, with design tokens declared directly in the global stylesheet via the `@theme` directive. Icons are provided by **Lucide React** (`lucide-react`). No component UI library (e.g., shadcn, MUI, AntD) is used; all components are built from scratch using Tailwind utility classes.
 
 ## Key files and packages
 
-- `frontend/src/index.css` — single global stylesheet that imports Tailwind and declares design tokens via the `@theme` block
-- `frontend/vite.config.ts` — registers the `@tailwindcss/vite` plugin and configures dev server proxying
-- `frontend/package.json` — lists `tailwindcss: ^4.3.3`, `@tailwindcss/vite: ^4.3.3`, and `lucide-react: ^1.34.0` as dependencies
-- `frontend/src/components/Layout.tsx` — representative example of utility-first styling throughout the app (sidebar, responsive breakpoints, color usage)
+- `frontend/package.json` — declares `tailwindcss ^4.3.3`, `@tailwindcss/vite ^4.3.3`, `lucide-react ^1.34.0`, plus React, axios, react-router-dom, react-dropzone.
+- `frontend/src/index.css` — single source of styling: imports Tailwind via `@import "tailwindcss"`, defines custom design tokens under `@theme`, sets base body font stack and box-sizing reset.
+- `frontend/vite.config.ts` — registers `react()` and `tailwindcss()` plugins, configures dev server proxy for `/api` and `/uploads` to the backend.
+- `frontend/src/components/Layout.tsx` — representative example of how utilities are composed into layout, navigation, and responsive patterns.
 
 ## Architecture and conventions
 
 ### Design tokens
-All brand colors are defined as semantic CSS custom properties under `--color-*` in the `@theme` block in `index.css`. The token set includes:
-- **Primary palette**: `primary-50` through `primary-900` (blue tones), with `primary-600` used as the main brand color
-- **Semantic palettes**: `danger-50/500/600/700` (red), `success-50/500/600` (green), `warning-50/500/600` (amber)
+All visual tokens live in `src/index.css` inside an `@theme` block:
+- A blue semantic palette `--color-primary-*` (50–900).
+- Semantic status palettes: `danger-*`, `success-*`, `warning-*` (each with light and saturated variants).
+These tokens are consumed throughout the app as Tailwind color utilities (e.g., `text-primary-600`, `bg-primary-50`, `text-danger-700`).
 
-These tokens are consumed via Tailwind's arbitrary value syntax (e.g., `text-primary-600`, `bg-primary-50`) rather than named class aliases.
+### Base styles
+A minimal global reset is applied in `index.css`:
+- System font stack: `system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`.
+- `-webkit-font-smoothing: antialiased` and `-moz-osx-font-smoothing: grayscale` for crisp text rendering.
+- Universal `box-sizing: border-box`.
 
-### Global reset
-A minimal reset is applied: `body` sets font stack to `system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` with antialiasing enabled; `* { box-sizing: border-box }` ensures consistent sizing.
+### Component styling pattern
+Components are styled inline with Tailwind utility classes — there are no per-component CSS/SCSS files. Layouts compose spacing, colors, borders, and typography utilities directly on JSX elements. For example, `Layout.tsx` uses `min-h-screen bg-gray-50 flex`, `lg:flex lg:w-64`, `px-3 py-2.5 rounded-lg`, etc.
 
 ### Responsive strategy
-Responsive behavior is handled entirely through Tailwind's built-in breakpoints (`sm:`, `lg:`) within utility classes. For example, the sidebar layout switches between a fixed desktop sidebar (`hidden lg:flex`) and a mobile-only hamburger menu with overlay (`lg:hidden`). A bottom tab bar appears only on mobile (`lg:hidden`).
-
-### Component-level styling
-Components compose layout using flexbox utilities (`flex`, `min-h-screen`, `flex-col`, `space-y-*`, `gap-*`) and spacing via Tailwind's spacing scale. No scoped CSS modules, CSS-in-JS, or styled-components are used.
+Responsive breakpoints follow Tailwind defaults (`sm:`, `md:`, `lg:`). The `Layout` component demonstrates a common pattern: a desktop sidebar (`hidden lg:flex`) paired with a mobile header + overlay sidebar (`lg:hidden fixed inset-0`) and a bottom tab bar for small screens. This establishes a consistent multi-role layout across user/garage/admin portals.
 
 ### Iconography
-Icons are imported from `lucide-react` and rendered inline with size utilities (e.g., `h-5 w-5`, `h-8 w-8`), keeping visual consistency across the navigation and pages.
+Icons come exclusively from `lucide-react` (e.g., `Shield`, `LayoutDashboard`, `Car`, `FileText`, `ClipboardList`, `User`, `LogOut`, `Menu`, `X`). They are sized with Tailwind utilities like `h-5 w-5`, `h-8 w-8`, `h-7 w-7`. No SVG sprites or icon fonts are used.
+
+### Build-time integration
+Tailwind is integrated via the `@tailwindcss/vite` plugin rather than the traditional PostCSS pipeline. This means CSS processing happens during Vite's build, and the `@theme` token declarations are picked up automatically without a config file.
 
 ## Conventions and constraints
 
-- **No separate CSS files per component** — all styling lives in `index.css` (tokens + reset) and utility classes inline in JSX.
-- **Brand colors must use the defined `primary-*` tokens** — components reference `primary-600` for branding and `primary-50`/`primary-700` for active states instead of hard-coded hex values.
-- **Semantic colors are preferred over raw hues** — status feedback uses `danger-*`, `success-*`, `warning-*` tokens rather than direct red/green/amber classes.
-- **Responsive patterns follow Tailwind's mobile-first breakpoints** — `hidden lg:flex` / `lg:hidden` toggles are used consistently for sidebar visibility.
-- **Typography defaults to the system font stack** — no custom fonts are loaded; text styling relies on Tailwind's `font-bold`, `text-sm`, `text-xs`, etc.
-- **Spacing and sizing use Tailwind's standard scale** — margins, padding, widths, and heights are expressed via utility classes (e.g., `p-4 sm:p-6 lg:p-8`, `w-64`, `h-full`).
-- **No Tailwind configuration file** — customization is done exclusively through the `@theme` block in `index.css`; there is no `tailwind.config.js`.
+- **No custom CSS modules / SCSS**: All styling is done through Tailwind utility classes in JSX; no `.scss`, `.module.css`, or per-component style files exist.
+- **Design tokens are centralized**: New colors must be added to the `@theme` block in `src/index.css` and referenced via `text-{token}`, `bg-{token}`, `border-{token}` utilities — ad-hoc hex values should be avoided in favor of the defined semantic palettes.
+- **Semantic color usage**: Primary actions use the `primary-*` scale; status feedback uses `danger-*`, `success-*`, `warning-*`; neutral surfaces/text use Tailwind's built-in gray scale.
+- **Responsive-first layouts**: Components consistently hide/show sections with `hidden lg:flex` / `lg:hidden` patterns rather than media queries, keeping responsiveness declarative in markup.
+- **Icon sizing convention**: Icons are sized via Tailwind `h-* w-*` utilities (typically `h-5 w-5` for inline, larger for headers/logos), never via CSS classes.
+- **Base typography**: All text inherits the system font stack defined in `index.css`; no custom font families are imported.

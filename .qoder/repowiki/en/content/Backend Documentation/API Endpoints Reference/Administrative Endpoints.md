@@ -17,15 +17,16 @@
 - [garageAuth.ts](file://backend/src/routes/garageAuth.ts)
 - [adminApi.ts](file://frontend/src/services/adminApi.ts)
 - [damageAnalysisService.ts](file://backend/src/services/damageAnalysisService.ts)
+- [fraudScoringService.ts](file://backend/src/services/fraudScoringService.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added new PATCH endpoint `/api/admin/claims/:id/final-value` for setting or clearing final claimable values for insurance claims
-- Enhanced claim management with insurer-approved final payout amounts that override computed estimates
-- Updated frontend AdminClaimDetailPage with final value input and validation
-- Added timestamp tracking for when final values are set using `finalValueSetAt` field
-- Implemented proper validation for non-negative numbers and null clearing functionality
+- Added new POST `/api/admin/claims/:id/fraud-score` endpoint for manual fraud scoring triggers
+- Enhanced claim management with AI-powered fraud detection capabilities including risk scoring, flag analysis, and tier classification
+- Updated frontend AdminClaimDetailPage with fraud score display, rescore functionality, and detailed flag visualization
+- Implemented comprehensive fraud scoring service with rule-based signals and LLM-powered incident/damage consistency checks
+- Added timestamp tracking for when fraud scores are calculated using `fraudScoredAt` field
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -40,10 +41,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, and analytics. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation. **Updated** Now includes enhanced claim management capabilities with insurer-approved final payout amounts that override computed estimates, replacing the previous purely automated calculation approach.
+This document provides comprehensive API documentation for administrative endpoints in the Smart Vehicle Insurance Claim System. It covers admin-only operations for user management, vehicle management, claims review, documents verification, garage management, policy template administration, system monitoring, analytics, and **new** AI-powered fraud detection capabilities. Each endpoint includes HTTP method, URL pattern, request/response schema, access control, and usage examples aligned with the frontend implementation. **Updated** Now includes enhanced claim management capabilities with insurer-approved final payout amounts that override computed estimates, plus comprehensive fraud scoring with risk assessment and automated flag detection.
 
 ## Project Structure
-The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive claim final value management with UI integration for setting insurer-approved payouts.
+The backend exposes a dedicated /api/admin route group protected by an admin authorization middleware. The frontend provides admin pages that call these endpoints via a shared axios instance configured to attach admin tokens. **Updated** Now includes comprehensive claim final value management with UI integration for setting insurer-approved payouts, plus integrated fraud scoring interface with real-time risk assessment visualization.
 
 ```mermaid
 graph TB
@@ -64,6 +65,7 @@ AdminRoutes["/api/admin routes"]
 AdminAuth["adminAuthMiddleware"]
 Prisma["Prisma Client"]
 DamageSvc["Damage Analysis Service"]
+FraudSvc["Fraud Scoring Service"]
 FileSys["File System"]
 end
 ADP --> AdminAPI
@@ -79,6 +81,7 @@ App --> AdminRoutes
 AdminRoutes --> AdminAuth
 AdminRoutes --> Prisma
 AdminRoutes --> DamageSvc
+AdminRoutes --> FraudSvc
 AdminRoutes --> FileSys
 ```
 
@@ -103,7 +106,7 @@ AdminRoutes --> FileSys
 
 ## Core Components
 - Admin Authorization Middleware: Validates JWT and ensures the authenticated user has admin privileges before allowing access to any admin endpoint.
-- Admin Routes: Provide endpoints for statistics, users listing, vehicle management with verification workflows, claims listing/detail/status updates/re-analysis/deletion, documents verification approvals/rejections, garage management operations, and policy template management.
+- Admin Routes: Provide endpoints for statistics, users listing, vehicle management with verification workflows, claims listing/detail/status updates/re-analysis/deletion/fraud-scoring, documents verification approvals/rejections, garage management operations, and policy template management.
 - Frontend Admin Services: Axios client that automatically attaches Bearer tokens from localStorage and redirects on auth errors.
 
 Key responsibilities:
@@ -114,14 +117,15 @@ Key responsibilities:
 - **New**: Manage secure claim deletion with automatic file cleanup.
 - **Enhanced**: Comprehensive vehicle management with verification status tracking and per-vehicle insurance policy management.
 - **New**: Set insurer-approved final claimable values that override automated calculations.
+- **New**: Trigger manual fraud scoring with AI-powered risk assessment and flag detection.
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:11-865](file://backend/src/routes/admin.ts#L11-L865)
+- [admin.ts:11-878](file://backend/src/routes/admin.ts#L11-L878)
 - [adminApi.ts:7-24](file://frontend/src/services/adminApi.ts#L7-L24)
 
 ## Architecture Overview
-Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes advanced vehicle management workflows supporting verification status tracking, per-vehicle insurance policy management, and insurer-approved final claimable value management with automatic payout recalculation.
+Administrative requests flow through Express, are routed to the admin router, pass through admin authorization, and then interact with the database via Prisma. The frontend admin pages consume these endpoints to render dashboards, lists, and actions. **Updated** Now includes advanced vehicle management workflows supporting verification status tracking, per-vehicle insurance policy management, insurer-approved final claimable value management with automatic payout recalculation, and AI-powered fraud scoring with comprehensive risk assessment.
 
 ```mermaid
 sequenceDiagram
@@ -132,29 +136,32 @@ participant MA as "Admin Auth Middleware"
 participant DB as "Prisma Client"
 participant DS as "Damage Analysis Service"
 participant FS as "File System"
-FE->>API : POST /api/admin/claims/ : id/analyze
-API->>AR : Route to analyze endpoint
+participant FRS as "Fraud Scoring Service"
+FE->>API : POST /api/admin/claims/ : id/fraud-score
+API->>AR : Route to fraud-score endpoint
 AR->>MA : Validate token + admin role
 MA-->>AR : Allow or reject
-AR->>DS : analyzeDamage(claimId)
-DS->>DB : Fetch claim with images
-DB-->>DS : Claim data
-DS->>FS : Process images
-FS-->>DS : Image parts
-DS->>DB : Save/update assessment
-DB-->>DS : Assessment saved
-DS-->>AR : Analysis result
-AR-->>FE : JSON assessment
-Note over FE,DB : Enhanced vehicle management<br/>PATCH /api/admin/vehicles/ : id/verify -> Status update<br/>PATCH /api/admin/claims/ : id/final-value -> Final payout approval
+AR->>FRS : scoreClaimFraud(claimId)
+FRS->>DB : Fetch claim with policy, damage, documents
+DB-->>FRS : Claim data
+FRS->>FRS : Apply rule-based signals
+FRS->>FRS : Run LLM incident/damage check
+FRS->>DB : Save fraud score, flags, timestamp
+DB-->>FRS : Score saved
+FRS-->>AR : Fraud result
+AR-->>FE : JSON fraud assessment
+Note over FE,DB : Enhanced vehicle management<br/>PATCH /api/admin/vehicles/ : id/verify -> Status update<br/>PATCH /api/admin/claims/ : id/final-value -> Final payout approval<br/>POST /api/admin/claims/ : id/fraud-score -> Risk assessment
 ```
 
 **Diagram sources**
 - [index.ts:40-45](file://backend/src/index.ts#L40-L45)
 - [admin.ts:11-26](file://backend/src/routes/admin.ts#L11-L26)
+- [admin.ts:661-675](file://backend/src/routes/admin.ts#L661-L675)
 - [admin.ts:548-600](file://backend/src/routes/admin.ts#L548-L600)
 - [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
+- [fraudScoringService.ts:145-200](file://backend/src/services/fraudScoringService.ts#L145-L200)
 
 ## Detailed Component Analysis
 
@@ -333,6 +340,7 @@ AR-->>FE : Policy (201/200)
   - **NEW** POST /api/admin/claims/:id/analyze
   - **NEW** DELETE /api/admin/claims/:id
   - **NEW** PATCH /api/admin/claims/:id/final-value
+  - **NEW** POST /api/admin/claims/:id/fraud-score
 - Purposes:
   - List claims with enhanced filtering including comma-separated status lists, search across user names, emails, vehicle make/model, and scope filtering by user ID or vehicle ID.
   - Retrieve detailed claim information including user, vehicle, policy, images, assessments, estimates, payouts, documents, and chat messages.
@@ -340,9 +348,11 @@ AR-->>FE : Policy (201/200)
   - **New**: Re-run AI damage analysis on existing claims to refresh assessments and repair estimates.
   - **New**: Delete claims with comprehensive file cleanup including associated images and documents.
   - **New**: Set insurer-approved final claimable values that override automated calculations with proper validation and timestamp tracking.
+  - **New**: Trigger manual fraud scoring with AI-powered risk assessment, flag detection, and tier classification.
 - Request parameters:
   - GET /api/admin/claims?status=SUBMITTED,UNDER_REVIEW&search=query&user=userId&vehicle=vehicleId
   - PATCH /api/admin/claims/:id/final-value accepts finalClaimableValue (number or null to clear)
+  - POST /api/admin/claims/:id/fraud-score requires no body (uses existing claim data)
 - Allowed statuses: DRAFT, SUBMITTED, UNDER_REVIEW, GARAGE_REVIEW, GARAGE_ESTIMATED, APPROVED, REJECTED, COMPLETED
 - Response schemas:
   - List: Array of claims with included user, vehicle, damage assessment summary, and counts for images/documents.
@@ -351,9 +361,10 @@ AR-->>FE : Policy (201/200)
   - **New**: Re-analysis returns updated damage assessment with AI analysis results.
   - **New**: Deletion returns success message after file cleanup.
   - **New**: Final value update returns updated claim with finalClaimableValue and finalValueSetAt timestamp.
+  - **New**: Fraud score returns comprehensive risk assessment with score (0-100), flags array, summary text, and tier classification (LOW/MEDIUM/HIGH).
 - Usage:
   - AdminClaimsPage filters and searches claims with comma-separated status support, approves claims by updating status to APPROVED, and scopes views by user or vehicle.
-  - **New**: AdminClaimDetailPage provides re-analysis button with loading states and error handling, delete confirmation workflow, and final value input with validation for setting insurer-approved payouts.
+  - **New**: AdminClaimDetailPage provides re-analysis button with loading states and error handling, delete confirmation workflow, final value input with validation for setting insurer-approved payouts, and integrated fraud scoring interface with risk visualization and flag expansion.
 
 ```mermaid
 sequenceDiagram
@@ -362,15 +373,17 @@ participant API as "Express App"
 participant AR as "Admin Router"
 participant DB as "Prisma Client"
 participant DS as "Damage Analysis Service"
-FE->>API : POST /api/admin/claims/ : id/analyze
-AR->>DS : analyzeDamage(claimId)
-DS->>DB : Fetch claim with images
-DB-->>DS : Claim data
-DS->>DS : Process images with AI
-DS->>DB : Save/update assessment
-DB-->>DS : Assessment saved
-DS-->>AR : Analysis result
-AR-->>FE : Updated assessment
+participant FRS as "Fraud Scoring Service"
+FE->>API : POST /api/admin/claims/ : id/fraud-score
+AR->>FRS : scoreClaimFraud(claimId)
+FRS->>DB : Fetch claim with policy, damage, documents
+DB-->>FRS : Claim data
+FRS->>FRS : Apply rule-based signals (policy recency, duplicate plates, document issues)
+FRS->>FRS : Run LLM incident/damage consistency check
+FRS->>DB : Save fraudScore, fraudFlags, fraudSummary, fraudScoredAt
+DB-->>FRS : Score saved
+FRS-->>AR : Fraud result {score, flags, summary, tier}
+AR-->>FE : JSON fraud assessment
 FE->>API : PATCH /api/admin/claims/ : id/final-value { finalClaimableValue }
 AR->>DB : Update finalClaimableValue and finalValueSetAt
 DB-->>AR : Updated claim
@@ -387,13 +400,16 @@ AR-->>FE : { message : 'Claim deleted.' }
 **Diagram sources**
 - [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
 - [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
+- [admin.ts:661-675](file://backend/src/routes/admin.ts#L661-L675)
 - [AdminClaimsPage.tsx:19-70](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L19-L70)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
+- [fraudScoringService.ts:145-200](file://backend/src/services/fraudScoringService.ts#L145-L200)
 
 **Section sources**
 - [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
 - [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
+- [admin.ts:661-675](file://backend/src/routes/admin.ts#L661-L675)
 - [AdminClaimsPage.tsx:19-70](file://frontend/src/pages/admin/AdminClaimsPage.tsx#L19-L70)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
 
@@ -568,12 +584,13 @@ API-->>FE : { status, service, db }
   - Prisma client for data access.
   - Admin authorization middleware for access control.
   - **New**: Damage analysis service for AI-powered claim re-analysis.
+  - **New**: Fraud scoring service for AI-powered risk assessment and flag detection.
   - **New**: File system operations for claim deletion cleanup.
   - **Enhanced**: Payout service for vehicle valuation and policy-based payout recalculation.
 - Frontend admin pages depend on:
   - adminApi axios instance which injects Authorization headers and handles auth errors.
   - **New**: AdminVehiclesPage with comprehensive vehicle management, verification workflow, and policy assignment.
-  - **New**: AdminClaimDetailPage with re-analysis, delete functionality, and final value management.
+  - **New**: AdminClaimDetailPage with re-analysis, delete functionality, final value management, and integrated fraud scoring interface.
 - Data models used by admin endpoints:
   - User, Vehicle, Claim, Document, DamageAssessment, RepairEstimate, InsurancePayout, ChatMessage, Garage, PolicyTemplate, InsurancePolicy.
 
@@ -583,6 +600,7 @@ AdminRoutes["Admin Routes"] --> AdminAuth["Admin Auth Middleware"]
 AdminRoutes --> Prisma["Prisma Client"]
 AdminRoutes --> Models["Data Models"]
 AdminRoutes --> DamageSvc["Damage Analysis Service"]
+AdminRoutes --> FraudSvc["Fraud Scoring Service"]
 AdminRoutes --> FileSys["File System"]
 AdminRoutes --> PayoutSvc["Payout Service"]
 AdminPages["Admin Pages"] --> AdminAPI["adminApi"]
@@ -595,6 +613,7 @@ AdminAPI --> AdminRoutes
 - [schema.prisma:10-282](file://backend/prisma/schema.prisma#L10-L282)
 - [adminApi.ts:7-14](file://frontend/src/services/adminApi.ts#L7-L14)
 - [damageAnalysisService.ts:1-200](file://backend/src/services/damageAnalysisService.ts#L1-L200)
+- [fraudScoringService.ts:1-200](file://backend/src/services/fraudScoringService.ts#L1-L200)
 
 **Section sources**
 - [admin.ts:1-7](file://backend/src/routes/admin.ts#L1-L7)
@@ -629,6 +648,12 @@ AdminAPI --> AdminRoutes
   - Final value updates are lightweight database operations with immediate effect.
   - Timestamp tracking uses efficient DateTime operations.
   - Value validation occurs at the API layer to prevent unnecessary database writes.
+- **New**: Fraud scoring performance:
+  - Fraud scoring combines rule-based checks with LLM analysis for comprehensive risk assessment.
+  - Rule-based signals (policy recency, duplicate plates, document verification) execute quickly.
+  - LLM incident/damage consistency check runs asynchronously and gracefully handles failures.
+  - Results are cached in claim records with timestamps to avoid redundant scoring.
+  - Frontend displays loading states during scoring to provide user feedback.
 
 [No sources needed since this section provides general guidance]
 
@@ -659,6 +684,13 @@ Common issues and resolutions:
   - Clearing final value restores the automated calculation.
   - Timestamp tracking records when final values are set for audit purposes.
   - Frontend validates input before sending to backend and shows appropriate error messages.
+- **New**: Fraud scoring issues:
+  - Fraud scoring requires claim to exist with associated policy, damage assessment, and documents.
+  - LLM service may fail gracefully, falling back to rule-based scoring only.
+  - Frontend displays loading spinner during scoring and shows error messages for failures.
+  - Score results include detailed flags explaining risk factors with point values.
+  - Tier classification (LOW/MEDIUM/HIGH) helps prioritize claim review workflows.
+  - Timestamp tracking (`fraudScoredAt`) indicates when last scoring occurred.
 - **Enhanced**: Vehicle management issues:
   - Vehicle creation requires all mandatory fields (userId, make, model, year, licensePlate, color).
   - Year validation must be between 1900 and 2100.
@@ -684,16 +716,19 @@ Common issues and resolutions:
 
 **Section sources**
 - [adminAuth.ts:6-26](file://backend/src/middleware/adminAuth.ts#L6-L26)
-- [admin.ts:56-865](file://backend/src/routes/admin.ts#L56-L865)
+- [admin.ts:56-878](file://backend/src/routes/admin.ts#L56-L878)
 - [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
 - [admin.ts:641-692](file://backend/src/routes/admin.ts#L641-L692)
+- [admin.ts:661-675](file://backend/src/routes/admin.ts#L661-L675)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
+- [fraudScoringService.ts:145-200](file://backend/src/services/fraudScoringService.ts#L145-L200)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
+- [AdminClaimDetailPage.tsx:154-165](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L154-L165)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 - [garageAuth.ts:74-82](file://backend/src/routes/garageAuth.ts#L74-L82)
 
 ## Conclusion
-The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, **enhanced** vehicle management with verification workflows and per-vehicle insurance policy management, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. **Updated** The system now includes comprehensive vehicle management capabilities with verification status tracking, vehicle-specific policy assignment using built-in templates or custom entries, automatic payout recalculation, and insurer-approved final claimable value management with timestamp tracking. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
+The administrative endpoints provide secure, role-gated access to critical insurance claim workflows. They support dashboard analytics, user listing and management, **enhanced** vehicle management with verification workflows and per-vehicle insurance policy management, claims review and status updates with enhanced filtering, document verification approvals/rejections, garage management operations, and complete policy template administration. **Updated** The system now includes comprehensive vehicle management capabilities with verification status tracking, vehicle-specific policy assignment using built-in templates or custom entries, automatic payout recalculation, insurer-approved final claimable value management with timestamp tracking, and **new** AI-powered fraud scoring with comprehensive risk assessment, flag detection, and tier classification. The frontend integrates seamlessly with these endpoints to deliver a cohesive admin experience with real-time fraud risk visualization and actionable insights. For production scaling, consider adding pagination, audit logging, and bulk operations to enhance usability and performance.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -800,6 +835,14 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Error handling: Returns 404 if claim not found, 400 if value is negative or invalid.
   - Access: Admin only
 
+- **NEW** POST /api/admin/claims/:id/fraud-score
+  - Description: Triggers manual fraud scoring for a claim using AI-powered risk assessment and flag detection.
+  - Request body: None (uses existing claim data including policy, damage assessment, and documents)
+  - Response: { score: number, flags: FraudFlag[], summary: string, tier: 'LOW'|'MEDIUM'|'HIGH' }
+  - Behavior: Calculates comprehensive fraud score (0-100) based on rule-based signals and LLM analysis, saves results to claim record with timestamp.
+  - Error handling: Returns 404 if claim not found, 502 if fraud scoring service fails.
+  - Access: Admin only
+
 - GET /api/admin/documents?status=PENDING|ISSUES_FOUND|ALL
   - Description: Lists documents with optional verification status filter.
   - Response: Array of documents with associated claim details.
@@ -859,8 +902,11 @@ The administrative endpoints provide secure, role-gated access to critical insur
   - Access: Public
 
 **Section sources**
-- [admin.ts:24-865](file://backend/src/routes/admin.ts#L24-L865)
+- [admin.ts:24-878](file://backend/src/routes/admin.ts#L24-L878)
 - [admin.ts:596-633](file://backend/src/routes/admin.ts#L596-L633)
+- [admin.ts:661-675](file://backend/src/routes/admin.ts#L661-L675)
 - [index.ts:47-55](file://backend/src/index.ts#L47-L55)
 - [AdminClaimDetailPage.tsx:105-126](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L105-L126)
+- [AdminClaimDetailPage.tsx:154-165](file://frontend/src/pages/admin/AdminClaimDetailPage.tsx#L154-L165)
 - [damageAnalysisService.ts:110-200](file://backend/src/services/damageAnalysisService.ts#L110-L200)
+- [fraudScoringService.ts:145-200](file://backend/src/services/fraudScoringService.ts#L145-L200)

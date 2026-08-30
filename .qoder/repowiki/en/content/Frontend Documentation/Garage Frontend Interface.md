@@ -26,6 +26,7 @@
 - Improved user experience with better claim organization and quick access to detailed information
 - Updated routing configuration to support the new claims listing page
 - **Updated**: Enhanced GarageClaimDetailPage with date picker component for estimate dates, improved form state management, enhanced validation logic, and better display of submitted estimates with dual timestamps
+- **New Feature**: Manual repair day overrides with auto-computation from labor hours, tooltips showing computed values, and reset functionality to auto-calculated days
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -41,7 +42,7 @@
 ## Introduction
 This document describes the Garage Frontend Interface for the Smart Vehicle Insurance Claim System. It focuses on how garage users authenticate, navigate, view assigned claims, and submit repair estimates. The interface is built with React, TypeScript, Vite, Tailwind CSS, and React Router. Authentication and routing are handled via context and route guards, while API calls to the backend are centralized through an Axios instance configured for the garage tenant.
 
-**Updated** Recent improvements include a new dedicated GarageClaimsPage component that provides comprehensive claims listing with status-based filtering, real-time counts, and enhanced user interface for managing multiple claims efficiently. The GarageClaimDetailPage now features enhanced estimate date selection with a native date picker, improved form state management, and better validation logic for estimate submissions.
+Recent improvements include a new dedicated GarageClaimsPage component that provides comprehensive claims listing with status-based filtering, real-time counts, and enhanced user interface for managing multiple claims efficiently. The GarageClaimDetailPage now features enhanced estimate date selection with a native date picker, improved form state management, and better validation logic for estimate submissions. **Enhanced** The latest addition includes manual repair day override functionality that allows garages to set custom repair durations while maintaining automatic computation from labor hours, with helpful tooltips showing the auto-computed values and easy reset options.
 
 ## Project Structure
 The frontend is organized by feature areas:
@@ -71,7 +72,7 @@ G --> H["Backend /api/garage"]
 - [GarageProtectedRoute.tsx:3-7](file://frontend/src/components/GarageProtectedRoute.tsx#L3-L7)
 - [GarageDashboardPage.tsx:13-119](file://frontend/src/pages/garage/GarageDashboardPage.tsx#L13-L119)
 - [GarageClaimsPage.tsx:20-112](file://frontend/src/pages/garage/GarageClaimsPage.tsx#L20-L112)
-- [GarageClaimDetailPage.tsx:19-403](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L403)
+- [GarageClaimDetailPage.tsx:19-427](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L427)
 - [garageApi.ts:1-31](file://frontend/src/services/garageApi.ts#L1-L31)
 
 **Section sources**
@@ -84,11 +85,11 @@ G --> H["Backend /api/garage"]
 - Garage API Client: Centralized Axios instance that injects Authorization headers and clears session on 401/403.
 - Garage Dashboard Page: Lists all assigned claims, highlights pending review items, and shows summary metrics with enhanced responsive design.
 - **New**: Garage Claims Page: Dedicated comprehensive claims listing interface with status-based filtering, real-time counts, and detailed claim information display.
-- **Enhanced**: Garage Claim Detail Page: Displays vehicle and incident details, AI assessment when available, and allows editing/submission of repair estimates with AI vs garage comparison. Now includes date picker for estimate dates, enhanced form state management, improved validation, and better display of submitted estimates with dual timestamps.
+- **Enhanced**: Garage Claim Detail Page: Displays vehicle and incident details, AI assessment when available, and allows editing/submission of repair estimates with AI vs garage comparison. Now includes date picker for estimate dates, enhanced form state management, improved validation, better display of submitted estimates with dual timestamps, **and manual repair day override functionality with auto-computation tooltips**.
 - Garage Estimate Utilities: Handles data normalization for both legacy and current estimate formats, providing consistent structure for processing.
 - Garage Login/Register Pages: Handle authentication and registration flows with improved error handling, pending approval states, and better mobile responsiveness.
 
-**Updated** All garage portal pages now feature consistent styling with dark theme support, improved mobile responsiveness, enhanced user interface elements including better status indicators and progress feedback, and advanced estimate comparison features. The new GarageClaimsPage provides a dedicated space for efficient claim management. The enhanced GarageClaimDetailPage now supports precise estimate date selection and improved validation logic.
+All garage portal pages now feature consistent styling with dark theme support, improved mobile responsiveness, enhanced user interface elements including better status indicators and progress feedback, and advanced estimate comparison features. The new GarageClaimsPage provides a dedicated space for efficient claim management. The enhanced GarageClaimDetailPage now supports precise estimate date selection, improved validation logic, **and sophisticated manual repair day override capabilities with intelligent tooltips and reset functionality**.
 
 **Section sources**
 - [GarageLayout.tsx:9-72](file://frontend/src/components/GarageLayout.tsx#L9-L72)
@@ -96,13 +97,13 @@ G --> H["Backend /api/garage"]
 - [garageApi.ts:1-31](file://frontend/src/services/garageApi.ts#L1-L31)
 - [GarageDashboardPage.tsx:13-119](file://frontend/src/pages/garage/GarageDashboardPage.tsx#L13-L119)
 - [GarageClaimsPage.tsx:20-112](file://frontend/src/pages/garage/GarageClaimsPage.tsx#L20-L112)
-- [GarageClaimDetailPage.tsx:19-403](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L403)
-- [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
+- [GarageClaimDetailPage.tsx:19-427](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L427)
+- [garageEstimate.ts:1-52](file://frontend/src/utils/garageEstimate.ts#L1-L52)
 - [GarageLoginPage.tsx:6-105](file://frontend/src/pages/garage/GarageLoginPage.tsx#L6-L105)
 - [GarageRegisterPage.tsx:6-144](file://frontend/src/pages/garage/GarageRegisterPage.tsx#L6-L144)
 
 ## Architecture Overview
-The garage portal uses role-based routing and a dedicated API client. On first load, App sets up routes and wraps garage routes with a protected component that enforces authentication. Garage pages call the garage API client which automatically attaches tokens and handles unauthorized responses by clearing local storage and redirecting to login. The claim detail page now includes sophisticated estimate comparison, enhanced date selection, and improved validation capabilities.
+The garage portal uses role-based routing and a dedicated API client. On first load, App sets up routes and wraps garage routes with a protected component that enforces authentication. Garage pages call the garage API client which automatically attaches tokens and handles unauthorized responses by clearing local storage and redirecting to login. The claim detail page now includes sophisticated estimate comparison, enhanced date selection, improved validation capabilities, **and manual repair day override functionality with intelligent tooltips**.
 
 ```mermaid
 sequenceDiagram
@@ -144,7 +145,7 @@ end
 - Register: Submits garage details; success indicates account creation with pending admin approval and provides clear next steps.
 - Protected Routes: Any attempt to access garage routes without a valid token redirects to login.
 
-**Updated** Enhanced error handling with visual distinction between regular errors and pending approval states, improved loading states, and better mobile responsiveness.
+Enhanced error handling with visual distinction between regular errors and pending approval states, improved loading states, and better mobile responsiveness.
 
 ```mermaid
 flowchart TD
@@ -172,7 +173,7 @@ Nav --> End
 - Uses status colors to visually differentiate claim states with enhanced responsive design.
 - Features improved mobile layout with grid-based statistics cards and better spacing.
 
-**Updated** Enhanced dashboard with responsive grid layout, improved visual hierarchy, better mobile responsiveness, and enhanced status indicators with color-coded badges.
+Enhanced dashboard with responsive grid layout, improved visual hierarchy, better mobile responsiveness, and enhanced status indicators with color-coded badges.
 
 ```mermaid
 sequenceDiagram
@@ -239,6 +240,7 @@ GCP-->>U : Show updated filtered results
 - **Improved Form State Management**: Tracks estimate dates alongside other form fields with proper initialization from existing estimates.
 - **Enhanced Validation Logic**: Submit button validation now checks for any cost entries (parts, labor hours, or paint materials) rather than requiring parts specifically.
 - **Better Display of Submitted Estimates**: Shows both estimate date and submission timestamp for clarity and audit purposes.
+- **New Feature: Manual Repair Day Overrides**: Garages can now manually set repair days that override the auto-computed value based on labor hours. The system maintains intelligent tooltips showing the auto-computed days and provides easy reset functionality to return to auto-calculation.
 
 ```mermaid
 sequenceDiagram
@@ -255,11 +257,11 @@ D->>N : normalizeGarageItems(existing/AI items)
 N-->>D : Structured estimate
 D->>T : estimateTotals(structured estimate)
 T-->>D : Computed totals
-D->>D : Display AI vs Garage comparison
-D->>D : Initialize date picker with estimate date
+D->>D : Initialize manual days override
+D->>D : Show tooltip with auto-computed days
 D->>D : Validate hasAnyCost (parts || labor || paint)
 D->>A : POST /claims/ : id/estimate {items, totals, notes, estimateDate}
-A->>S : Submit estimate with date
+A->>S : Submit estimate with date and days
 S-->>A : Success
 A-->>D : Refresh claim data
 D-->>D : Exit edit mode, show updated state with dual timestamps
@@ -268,12 +270,45 @@ D-->>D : Exit edit mode, show updated state with dual timestamps
 **Diagram sources**
 - [GarageClaimDetailPage.tsx:21-35](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L21-L35)
 - [garageEstimate.ts:17-39](file://frontend/src/utils/garageEstimate.ts#L17-L39)
-- [garageEstimate.ts:41-48](file://frontend/src/utils/garageEstimate.ts#L41-L48)
+- [garageEstimate.ts:41-52](file://frontend/src/utils/garageEstimate.ts#L41-L52)
 - [GarageClaimDetailPage.tsx:67-79](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L67-L79)
 - [garageApi.ts:7-14](file://frontend/src/services/garageApi.ts#L7-L14)
 
 **Section sources**
-- [GarageClaimDetailPage.tsx:19-403](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L403)
+- [GarageClaimDetailPage.tsx:19-427](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L19-L427)
+
+### Manual Repair Day Override System
+- **Intelligent Auto-Computation**: Automatically calculates repair days based on labor hours (8 hours per day) as the baseline value
+- **Manual Override Capability**: Garages can input custom repair day values that override the auto-computed calculation
+- **Interactive Tooltips**: Hover tooltips display the auto-computed day count to help garages understand the baseline calculation
+- **Reset Functionality**: Easy "Auto" button appears when manual override differs from auto-computed value, allowing quick reset to calculated days
+- **State Management**: Maintains null state for auto-computation and numeric state for manual overrides
+- **Validation Integration**: Works seamlessly with existing estimate validation and submission workflows
+
+```mermaid
+flowchart TD
+LaborHours["Labor Hours Input"] --> Calc["Auto-Compute Days (8h/day)"]
+Calc --> Tooltip["Show Tooltip with Computed Value"]
+Tooltip --> ManualInput["Manual Override Input"]
+ManualInput --> Compare{"Manual != Auto?"}
+Compare --> |Yes| ShowAuto["Show 'Auto' Reset Button"]
+Compare --> |No| UseManual["Use Manual Value"]
+ShowAuto --> ResetClick{"Reset Clicked?"}
+ResetClick --> |Yes| UseAuto["Use Auto-Computed Value"]
+ResetClick --> |No| UseManual
+UseAuto --> Submit["Submit Estimate"]
+UseManual --> Submit
+```
+
+**Diagram sources**
+- [GarageClaimDetailPage.tsx:20-21](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L20-L21)
+- [GarageClaimDetailPage.tsx:50-51](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L50-L51)
+- [GarageClaimDetailPage.tsx:363-379](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L363-L379)
+
+**Section sources**
+- [GarageClaimDetailPage.tsx:20-21](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L20-L21)
+- [GarageClaimDetailPage.tsx:50-51](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L50-L51)
+- [GarageClaimDetailPage.tsx:363-379](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L363-L379)
 
 ### Garage Estimate Utilities and Data Normalization
 - **New Utility Module**: Provides standardized processing for both legacy array-based estimates and current object-based estimates.
@@ -281,6 +316,7 @@ D-->>D : Exit edit mode, show updated state with dual timestamps
 - **Current Format Support**: Processes modern format with separate parts list, labor hours, labor rate, and paint materials.
 - **Real-time Calculations**: Computes total costs, labor costs, and estimated days based on input changes.
 - **Default Values**: Applies sensible defaults like DEFAULT_LABOR_RATE (Rs. 3500/hour) when values are missing.
+- **Enhanced Day Calculation**: Supports both manual override values and auto-computation from labor hours with intelligent fallback logic.
 
 ```mermaid
 flowchart TD
@@ -290,15 +326,19 @@ Type --> |Object| Modern["Modern Format Processing"]
 Legacy --> Normalize["Normalize to StructuredEstimate"]
 Modern --> Normalize
 Normalize --> Calculate["Calculate Totals"]
-Calculate --> Output["Structured Estimate with Parts, Labor, Paint, Days"]
+Calculate --> Days{"Manual Days Override?"}
+Days --> |Yes| UseManual["Use Manual Days"]
+Days --> |No| AutoCalc["Auto-Compute from Labor Hours"]
+UseManual --> Output["Structured Estimate with Parts, Labor, Paint, Days"]
+AutoCalc --> Output
 ```
 
 **Diagram sources**
 - [garageEstimate.ts:17-39](file://frontend/src/utils/garageEstimate.ts#L17-L39)
-- [garageEstimate.ts:41-48](file://frontend/src/utils/garageEstimate.ts#L41-L48)
+- [garageEstimate.ts:41-52](file://frontend/src/utils/garageEstimate.ts#L41-L52)
 
 **Section sources**
-- [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
+- [garageEstimate.ts:1-52](file://frontend/src/utils/garageEstimate.ts#L1-L52)
 
 ### Garage Layout and Navigation
 - Renders a fixed sidebar with navigation links for Dashboard and Claims.
@@ -326,7 +366,7 @@ GarageProtectedRoute --> GarageLayout : "wraps"
 
 ### Data Models Used by Garage Pages
 - Claim, GarageEstimate, RepairEstimate, DamageAssessment, and related types define the shape of data displayed and submitted by garage pages.
-- **Enhanced**: New structured estimate format supporting both legacy and current data structures with normalized labor rates and paint materials. Includes support for estimateDate field alongside submittedAt for better audit trails.
+- **Enhanced**: New structured estimate format supporting both legacy and current data structures with normalized labor rates and paint materials. Includes support for estimateDate field alongside submittedAt for better audit trails. **Enhanced** with manual repair day override capability that maintains compatibility with both auto-computed and manually specified day values.
 
 ```mermaid
 erDiagram
@@ -370,11 +410,11 @@ GARAGE_ESTIMATE ||--|| GARAGE_ESTIMATE_ITEMS : "contains"
 ```
 
 **Diagram sources**
-- [index.ts:131-198](file://frontend/src/types/index.ts#L131-L198)
+- [index.ts:131-304](file://frontend/src/types/index.ts#L131-L304)
 - [garageEstimate.ts:8-13](file://frontend/src/utils/garageEstimate.ts#L8-L13)
 
 **Section sources**
-- [index.ts:131-198](file://frontend/src/types/index.ts#L131-L198)
+- [index.ts:131-304](file://frontend/src/types/index.ts#L131-L304)
 
 ## Dependency Analysis
 - Routing: App defines routes for garage login, register, dashboard, and claim detail. Garage routes are wrapped with GarageProtectedRoute and rendered inside GarageLayout.
@@ -406,13 +446,13 @@ GE --> Types["Types & Interfaces"]
 - [GarageDashboardPage.tsx:17-19](file://frontend/src/pages/garage/GarageDashboardPage.tsx#L17-L19)
 - [GarageClaimsPage.tsx:26-31](file://frontend/src/pages/garage/GarageClaimsPage.tsx#L26-L31)
 - [GarageClaimDetailPage.tsx:21-35](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L21-L35)
-- [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
+- [garageEstimate.ts:1-52](file://frontend/src/utils/garageEstimate.ts#L1-L52)
 - [garageApi.ts:1-31](file://frontend/src/services/garageApi.ts#L1-L31)
 
 **Section sources**
 - [App.tsx:30-66](file://frontend/src/App.tsx#L30-L66)
 - [garageApi.ts:1-31](file://frontend/src/services/garageApi.ts#L1-L31)
-- [garageEstimate.ts:1-49](file://frontend/src/utils/garageEstimate.ts#L1-L49)
+- [garageEstimate.ts:1-52](file://frontend/src/utils/garageEstimate.ts#L1-L52)
 - [AuthContext.tsx:17-82](file://frontend/src/context/AuthContext.tsx#L17-L82)
 
 ## Performance Considerations
@@ -420,21 +460,24 @@ GE --> Types["Types & Interfaces"]
 - Efficient list rendering: Ensure stable keys for claim lists to optimize reconciliation.
 - Network requests: Debounce or coalesce repeated requests where applicable; leverage caching strategies at the service layer if needed.
 - Image loading: Lazy-load images in galleries to reduce initial payload and improve perceived performance.
-- **Updated** Responsive design optimizations ensure optimal performance across different screen sizes and devices.
-- **New**: Data normalization utilities provide efficient processing of both legacy and current estimate formats without redundant calculations.
-- **New**: Claims page filtering is performed client-side for instant response times without additional network requests.
-- **Enhanced**: Date picker integration uses native HTML5 date input for optimal performance and accessibility across browsers.
+- Responsive design optimizations ensure optimal performance across different screen sizes and devices.
+- Data normalization utilities provide efficient processing of both legacy and current estimate formats without redundant calculations.
+- Claims page filtering is performed client-side for instant response times without additional network requests.
+- Date picker integration uses native HTML5 date input for optimal performance and accessibility across browsers.
+- **Enhanced**: Manual repair day override system uses efficient state management with minimal re-renders and smart tooltip calculations that don't impact performance.
 
 ## Troubleshooting Guide
 - Unauthorized access: If a request returns 401/403, the garage API interceptor clears local storage and redirects to login. Verify token presence and validity before making requests.
 - Pending approval: Login may return a specific message indicating the garage account is pending admin approval. In this case, inform the user to wait for approval with enhanced visual feedback.
 - Missing data: If claim detail does not show AI assessment or estimates, ensure backend has processed assessments and estimates; fallback behavior allows manual entry.
 - Navigation issues: Confirm routes are correctly defined in App and that protected routes are wrapping the intended components.
-- **Updated** Enhanced error handling provides better user feedback for common issues including network errors, authentication problems, and form validation failures.
-- **New**: Estimate normalization issues - if estimates don't display correctly, verify that the data format matches expected structure (either legacy array format or modern object format).
-- **New**: Claims page loading issues - if the claims page fails to load, check network connectivity and verify that the garage has proper permissions to access the claims endpoint.
-- **Enhanced**: Date picker issues - if the estimate date picker doesn't work properly, ensure the browser supports HTML5 date inputs and that the date format is correctly formatted as YYYY-MM-DD.
-- **Enhanced**: Validation issues - if the submit button remains disabled, verify that at least one cost entry exists (parts, labor hours, or paint materials) as the validation now accepts any cost type rather than requiring parts specifically.
+- Enhanced error handling provides better user feedback for common issues including network errors, authentication problems, and form validation failures.
+- Estimate normalization issues - if estimates don't display correctly, verify that the data format matches expected structure (either legacy array format or modern object format).
+- Claims page loading issues - if the claims page fails to load, check network connectivity and verify that the garage has proper permissions to access the claims endpoint.
+- Date picker issues - if the estimate date picker doesn't work properly, ensure the browser supports HTML5 date inputs and that the date format is correctly formatted as YYYY-MM-DD.
+- Validation issues - if the submit button remains disabled, verify that at least one cost entry exists (parts, labor hours, or paint materials) as the validation now accepts any cost type rather than requiring parts specifically.
+- **New**: Manual repair day override issues - if the repair days field isn't working correctly, verify that the labor hours input is properly populated and that the auto-computation formula (8 hours per day) is functioning as expected. Check that tooltips are displaying the correct computed values.
+- **New**: Reset functionality issues - if the "Auto" button isn't appearing or working, ensure that the manual override value differs from the auto-computed value and that the state management is properly tracking the difference.
 
 **Section sources**
 - [garageApi.ts:16-28](file://frontend/src/services/garageApi.ts#L16-L28)
@@ -442,6 +485,7 @@ GE --> Types["Types & Interfaces"]
 - [GarageClaimDetailPage.tsx:108-110](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L108-L110)
 - [garageEstimate.ts:17-39](file://frontend/src/utils/garageEstimate.ts#L17-L39)
 - [GarageClaimsPage.tsx:26-31](file://frontend/src/pages/garage/GarageClaimsPage.tsx#L26-L31)
+- [GarageClaimDetailPage.tsx:363-379](file://frontend/src/pages/garage/GarageClaimDetailPage.tsx#L363-L379)
 
 ## Conclusion
-The Garage Frontend Interface provides a focused, secure, and efficient experience for garage users to manage assigned claims and submit repair estimates. Recent improvements include a new dedicated GarageClaimsPage component that offers comprehensive claims listing with status-based filtering, real-time counts, and enhanced user interface for efficient claim management. The interface also includes enhanced AI vs garage estimate comparison, comprehensive data normalization utilities, improved estimate editing workflows, enhanced responsive design, consistent styling across all garage portal pages, better mobile responsiveness, and improved user interface elements. The interface leverages React Router for navigation, a dedicated API client for authenticated requests, clear UI patterns for dashboards and detailed workflows, and sophisticated estimate processing capabilities. The design supports both AI-assisted insights and manual adjustments, ensuring flexibility and accuracy in the estimation process with enhanced user experience across all devices. The new garageEstimate utilities provide robust handling of both legacy and current data formats, making the system more maintainable and future-proof. The addition of the dedicated claims listing page significantly improves the workflow for garage operators who need to manage multiple claims efficiently. **Enhanced** The latest updates to the GarageClaimDetailPage include a native date picker for precise estimate date selection, improved form state management that tracks estimate dates alongside other fields, enhanced validation logic that accepts any cost entries (parts, labor, or paint), and better display of submitted estimates showing both estimate date and submission timestamp for improved audit trails and user clarity.
+The Garage Frontend Interface provides a focused, secure, and efficient experience for garage users to manage assigned claims and submit repair estimates. Recent improvements include a new dedicated GarageClaimsPage component that offers comprehensive claims listing with status-based filtering, real-time counts, and enhanced user interface for efficient claim management. The interface also includes enhanced AI vs garage estimate comparison, comprehensive data normalization utilities, improved estimate editing workflows, enhanced responsive design, consistent styling across all garage portal pages, better mobile responsiveness, and improved user interface elements. The interface leverages React Router for navigation, a dedicated API client for authenticated requests, clear UI patterns for dashboards and detailed workflows, and sophisticated estimate processing capabilities. The design supports both AI-assisted insights and manual adjustments, ensuring flexibility and accuracy in the estimation process with enhanced user experience across all devices. The new garageEstimate utilities provide robust handling of both legacy and current data formats, making the system more maintainable and future-proof. The addition of the dedicated claims listing page significantly improves the workflow for garage operators who need to manage multiple claims efficiently. **Enhanced** The latest updates to the GarageClaimDetailPage include a native date picker for precise estimate date selection, improved form state management that tracks estimate dates alongside other fields, enhanced validation logic that accepts any cost entries (parts, labor, or paint), better display of submitted estimates showing both estimate date and submission timestamp for improved audit trails and user clarity, **and sophisticated manual repair day override functionality that allows garages to set custom repair durations while maintaining intelligent auto-computation from labor hours with helpful tooltips and easy reset options**. This enhancement provides maximum flexibility for garage operators while preserving the convenience of automated calculations.
