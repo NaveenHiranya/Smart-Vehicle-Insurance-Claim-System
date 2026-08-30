@@ -275,6 +275,8 @@ export interface Claim {
   status: ClaimStatus;
   incidentDate: string;
   incidentLocation: string;
+  incidentLatitude?: number | null;
+  incidentLongitude?: number | null;
   incidentDescription: string;
   weatherConditions?: string;
   hasPoliceReport: boolean;

@@ -5,6 +5,8 @@ import type { Claim, DamageItem } from '../types';
 import { ArrowLeft, AlertTriangle, RefreshCw, Upload, Shield, ListTodo, CheckCircle2, Circle, Clock, XCircle, StickyNote, Camera, Wrench, X, MapPin, Info, Check, FolderOpen, Trash2 } from 'lucide-react';
 import { uploadUrl } from '../utils/uploadUrl';
 import { normalizeGarageItems, estimateTotals } from '../utils/garageEstimate';
+import { MapDisplay } from '../components/MapDisplay';
+import { Modal } from '../components/Modal';
 
 export function ClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +16,7 @@ export function ClaimDetailPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [docUploading, setDocUploading] = useState('');
   const [garageModal, setGarageModal] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [garageList, setGarageList] = useState<any[]>([]);
   const [garagePick, setGaragePick] = useState('');
   const [garageSaving, setGarageSaving] = useState(false);
@@ -253,6 +256,22 @@ export function ClaimDetailPage() {
           <span className={`px-4 py-1.5 rounded-full text-sm font-medium self-start ${statusColors[claim.status]}`}>{claim.status.replace('_', ' ')}</span>
         </div>
         <p className="text-sm text-gray-600 mt-3">{claim.incidentDescription}</p>
+
+        {claim.incidentLatitude != null && claim.incidentLongitude != null && (
+          <button
+            onClick={() => setMapOpen(true)}
+            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition"
+          >
+            <MapPin className="h-4 w-4" /> Show Location
+          </button>
+        )}
+
+        {/* Incident location map — opened on demand so the page stays compact */}
+        <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Incident Location" size="lg">
+          {claim.incidentLatitude != null && claim.incidentLongitude != null && (
+            <MapDisplay latitude={claim.incidentLatitude} longitude={claim.incidentLongitude} className="h-[60vh] w-full" />
+          )}
+        </Modal>
 
         {/* Drivability Warning */}
         {claim.damageAssessment && claim.damageAssessment.overallSeverity === 'SEVERE' && (

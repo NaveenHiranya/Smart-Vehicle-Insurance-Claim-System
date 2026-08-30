@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
-import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw, CircleDollarSign, ChevronDown, AlertTriangle, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Clock, StickyNote, Trash2, Plus, Wrench, RefreshCw, CircleDollarSign, ChevronDown, AlertTriangle, MessageSquare, Send, MapPin } from 'lucide-react';
 import { uploadUrl } from '../../utils/uploadUrl';
 import { normalizeGarageItems, estimateTotals } from '../../utils/garageEstimate';
+import { MapDisplay } from '../../components/MapDisplay';
+import { Modal } from '../../components/Modal';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
@@ -47,6 +49,7 @@ export function AdminClaimDetailPage() {
   const [msgSending, setMsgSending] = useState(false);
   const [msgError, setMsgError] = useState('');
   const [msgSent, setMsgSent] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const [reconcileError, setReconcileError] = useState('');
   const [reconcileExpanded, setReconcileExpanded] = useState(false);
@@ -243,6 +246,22 @@ export function AdminClaimDetailPage() {
           </div>
           <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${statusColors[claim.status]}`}>{claim.status.replace('_', ' ')}</span>
         </div>
+
+        {claim.incidentLatitude != null && claim.incidentLongitude != null && (
+          <button
+            onClick={() => setMapOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition"
+          >
+            <MapPin className="h-4 w-4" /> Show Location
+          </button>
+        )}
+
+        {/* Incident location map — opened on demand so the page stays compact */}
+        <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Incident Location" size="lg">
+          {claim.incidentLatitude != null && claim.incidentLongitude != null && (
+            <MapDisplay latitude={claim.incidentLatitude} longitude={claim.incidentLongitude} className="h-[60vh] w-full" />
+          )}
+        </Modal>
 
         {/* Fraud Risk Panel */}
         {(() => {

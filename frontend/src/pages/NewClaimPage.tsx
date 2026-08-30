@@ -4,6 +4,8 @@ import { useDropzone } from 'react-dropzone';
 import api from '../services/api';
 import type { Vehicle } from '../types';
 import { Camera, Image, X, ChevronLeft, ChevronRight, Check, MapPin, FolderOpen, ShieldCheck } from 'lucide-react';
+import { MapPicker } from '../components/MapPicker';
+import { Modal } from '../components/Modal';
 
 const steps = ['Incident Info', 'Select Garage', 'Vehicle Photos', 'Damage Photos', 'Review & Submit'];
 
@@ -17,6 +19,9 @@ export function NewClaimPage() {
   const [error, setError] = useState('');
   const [uploadedImages, setUploadedImages] = useState<{ full: File[]; damage: File[] }>({ full: [], damage: [] });
   const [garages, setGarages] = useState<any[]>([]);
+  const [mapOpen, setMapOpen] = useState(false);
+  // Coordinates before the picker modal opened — Cancel restores them
+  const mapSnapshotRef = useRef<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const fullCameraRef = useRef<HTMLInputElement>(null);
   const damageCameraRef = useRef<HTMLInputElement>(null);
   const fullBrowseRef = useRef<HTMLInputElement>(null);
@@ -27,6 +32,8 @@ export function NewClaimPage() {
     garageId: '',
     incidentDate: new Date().toISOString().split('T')[0],
     incidentLocation: '',
+    incidentLatitude: null as number | null,
+    incidentLongitude: null as number | null,
     incidentDescription: '',
     weatherConditions: '',
     hasPoliceReport: false,
@@ -43,6 +50,16 @@ export function NewClaimPage() {
   const update = (f: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
     setForm((p) => ({ ...p, [f]: value }));
+  };
+
+  const openMapPicker = () => {
+    mapSnapshotRef.current = { lat: form.incidentLatitude, lng: form.incidentLongitude };
+    setMapOpen(true);
+  };
+
+  const cancelMapPicker = () => {
+    setForm((p) => ({ ...p, incidentLatitude: mapSnapshotRef.current.lat, incidentLongitude: mapSnapshotRef.current.lng }));
+    setMapOpen(false);
   };
 
   const onDropFull = useCallback((files: File[]) => {
@@ -178,7 +195,39 @@ export function NewClaimPage() {
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Incident Date *</label><input type="date" value={form.incidentDate} onChange={update('incidentDate')} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Weather (optional)</label><input type="text" value={form.weatherConditions} onChange={update('weatherConditions')} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" placeholder="Clear, rainy, etc." /></div>
             </div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Location *</label><input type="text" value={form.incidentLocation} onChange={update('incidentLocation')} required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" placeholder="Address or intersection" /></div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
+              <div className="flex gap-2">
+                <input type="text" value={form.incidentLocation} onChange={update('incidentLocation')} required className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" placeholder="Address or intersection" />
+                <button
+                  type="button"
+                  onClick={openMapPicker}
+                  className="flex items-center gap-1.5 px-3 py-2.5 bg-primary-50 text-primary-700 border border-primary-200 rounded-lg text-sm font-medium hover:bg-primary-100 transition whitespace-nowrap"
+                >
+                  <MapPin className="h-4 w-4" />
+                  {form.incidentLatitude != null ? 'Change Pin' : 'Pick Location'}
+                </button>
+              </div>
+              {form.incidentLatitude != null && form.incidentLongitude != null && (
+                <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
+                  <MapPin className="h-3 w-3 text-primary-600" />
+                  Pinned: {form.incidentLatitude.toFixed(5)}, {form.incidentLongitude.toFixed(5)}
+                </p>
+              )}
+            </div>
+
+            {/* Location picker modal — map mounts at full size each time it opens */}
+            <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Pick Incident Location" size="lg">
+              <MapPicker
+                latitude={form.incidentLatitude}
+                longitude={form.incidentLongitude}
+                onChange={(lat, lng) => setForm((p) => ({ ...p, incidentLatitude: lat, incidentLongitude: lng }))}
+              />
+              <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-gray-200">
+                <button type="button" onClick={cancelMapPicker} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button type="button" onClick={() => setMapOpen(false)} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition">Use This Location</button>
+              </div>
+            </Modal>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Description *</label><textarea value={form.incidentDescription} onChange={update('incidentDescription')} required rows={4} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none resize-none" placeholder="Describe what happened..." /></div>
             <label className="flex items-center gap-2"><input type="checkbox" checked={form.hasPoliceReport} onChange={update('hasPoliceReport')} className="rounded" /><span className="text-sm text-gray-700">Police report filed</span></label>
           </div>
@@ -332,6 +381,9 @@ export function NewClaimPage() {
             <div className="p-4 bg-gray-50 rounded-lg space-y-2">
               <div className="flex justify-between text-sm"><span className="text-gray-500">Date:</span><span className="font-medium">{form.incidentDate}</span></div>
               <div className="flex justify-between text-sm"><span className="text-gray-500">Location:</span><span className="font-medium">{form.incidentLocation}</span></div>
+              {form.incidentLatitude != null && form.incidentLongitude != null && (
+                <div className="flex justify-between text-sm"><span className="text-gray-500">Coordinates:</span><span className="font-medium">{form.incidentLatitude.toFixed(5)}, {form.incidentLongitude.toFixed(5)}</span></div>
+              )}
               <div className="text-sm"><span className="text-gray-500">Description:</span><p className="font-medium mt-1">{form.incidentDescription}</p></div>
               <div className="flex justify-between text-sm"><span className="text-gray-500">Police Report:</span><span className="font-medium">{form.hasPoliceReport ? 'Yes' : 'No'}</span></div>
             </div>

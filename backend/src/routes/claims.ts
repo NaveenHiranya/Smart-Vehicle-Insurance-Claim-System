@@ -39,10 +39,17 @@ const param = (req: AuthRequest, name: string): string => req.params[name] as st
 // selected vehicle's policy (insurance is vehicle-based)
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { vehicleId, garageId, incidentDate, incidentLocation, incidentDescription, weatherConditions, hasPoliceReport } = req.body;
+    const { vehicleId, garageId, incidentDate, incidentLocation, incidentLatitude, incidentLongitude, incidentDescription, weatherConditions, hasPoliceReport } = req.body;
 
     if (!vehicleId || !incidentDate || !incidentLocation || !incidentDescription) {
       res.status(400).json({ error: 'Vehicle, incident date, location, and description are required.' });
+      return;
+    }
+
+    const lat = incidentLatitude != null ? Number(incidentLatitude) : null;
+    const lng = incidentLongitude != null ? Number(incidentLongitude) : null;
+    if ((lat != null && Number.isNaN(lat)) || (lng != null && Number.isNaN(lng))) {
+      res.status(400).json({ error: 'Invalid incident coordinates.' });
       return;
     }
 
@@ -75,6 +82,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         garageId: garageId || null,
         incidentDate: new Date(incidentDate),
         incidentLocation,
+        incidentLatitude: lat,
+        incidentLongitude: lng,
         incidentDescription,
         weatherConditions: weatherConditions || null,
         hasPoliceReport: hasPoliceReport || false,

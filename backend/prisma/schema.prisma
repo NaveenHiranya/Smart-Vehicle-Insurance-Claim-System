@@ -139,6 +139,8 @@ model Claim {
   status              ClaimStatus @default(DRAFT)
   incidentDate        DateTime
   incidentLocation    String
+  incidentLatitude    Float?
+  incidentLongitude   Float?
   incidentDescription String
   weatherConditions   String?
   hasPoliceReport     Boolean     @default(false)
