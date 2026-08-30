@@ -372,6 +372,74 @@ router.post('/vehicles', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// PATCH /api/admin/vehicles/:id — correct vehicle details (make, model, year,
+// chassis/VIN, plate, color, mileage, class); payouts re-synced because the
+// vehicle class scales repair pricing
+router.patch('/vehicles/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { make, model, year, vin, licensePlate, color, mileage, vehicleType } = req.body;
+
+    const existing = await prisma.vehicle.findUnique({ where: { id: param(req, 'id') } });
+    if (!existing) {
+      res.status(404).json({ error: 'Vehicle not found.' });
+      return;
+    }
+
+    const data: Record<string, unknown> = {};
+    if (make !== undefined) {
+      if (!String(make).trim()) {
+        res.status(400).json({ error: 'Make cannot be empty.' });
+        return;
+      }
+      data.make = String(make).trim();
+    }
+    if (model !== undefined) {
+      if (!String(model).trim()) {
+        res.status(400).json({ error: 'Model cannot be empty.' });
+        return;
+      }
+      data.model = String(model).trim();
+    }
+    if (licensePlate !== undefined) {
+      if (!String(licensePlate).trim()) {
+        res.status(400).json({ error: 'License plate cannot be empty.' });
+        return;
+      }
+      data.licensePlate = String(licensePlate).trim();
+    }
+    if (color !== undefined) {
+      if (!String(color).trim()) {
+        res.status(400).json({ error: 'Color cannot be empty.' });
+        return;
+      }
+      data.color = String(color).trim();
+    }
+    if (year !== undefined) {
+      const parsedYear = parseInt(year);
+      if (Number.isNaN(parsedYear) || parsedYear < 1900 || parsedYear > 2100) {
+        res.status(400).json({ error: 'Year must be a valid number.' });
+        return;
+      }
+      data.year = parsedYear;
+    }
+    if (vin !== undefined) data.vin = String(vin).trim() || null;
+    if (mileage !== undefined) data.mileage = mileage === '' || mileage === null ? null : parseInt(mileage);
+    if (vehicleType !== undefined && (VEHICLE_TYPES as readonly string[]).includes(vehicleType)) data.vehicleType = vehicleType;
+
+    if (Object.keys(data).length === 0) {
+      res.status(400).json({ error: 'Nothing to update.' });
+      return;
+    }
+
+    const updated = await prisma.vehicle.update({ where: { id: param(req, 'id') }, data });
+    await syncVehiclePayouts(param(req, 'id'));
+    res.json(updated);
+  } catch (error) {
+    console.error('Admin vehicle edit error:', error);
+    res.status(500).json({ error: 'Failed to update vehicle.' });
+  }
+});
+
 // PATCH /api/admin/vehicles/:id/valuation — insurance company sets the vehicle's value (caps payouts)
 router.patch('/vehicles/:id/valuation', async (req: AuthRequest, res: Response) => {
   try {

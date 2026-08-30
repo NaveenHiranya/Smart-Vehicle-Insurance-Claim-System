@@ -135,7 +135,7 @@ export function VehicleDetailPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div><p className="text-xs text-gray-500 uppercase">Type</p><p className="font-medium text-gray-900">{VEHICLE_TYPE_LABELS[vehicle.vehicleType as VehicleType] || 'Car'}</p></div>
-          <div><p className="text-xs text-gray-500 uppercase">VIN</p><p className="font-medium text-gray-900">{vehicle.vin || 'N/A'}</p></div>
+          <div><p className="text-xs text-gray-500 uppercase">Chassis No.</p><p className="font-medium text-gray-900 font-mono text-sm">{vehicle.vin || 'N/A'}</p></div>
           <div><p className="text-xs text-gray-500 uppercase">License Plate</p><p className="font-medium text-gray-900">{vehicle.licensePlate}</p></div>
           <div><p className="text-xs text-gray-500 uppercase">Mileage</p><p className="font-medium text-gray-900">{vehicle.mileage ? `${vehicle.mileage.toLocaleString()} mi` : 'N/A'}</p></div>
         </div>
@@ -237,12 +237,14 @@ export function AddVehiclePage() {
   }, []);
 
   // AI detection state
+  const [detectSource, setDetectSource] = useState<'photo' | 'book'>('photo');
   const [detectImage, setDetectImage] = useState<File | null>(null);
   const [detectPreview, setDetectPreview] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [detectionResult, setDetectionResult] = useState<{
     make: string; model: string; year: number; color: string;
-    licensePlate: string; vehicleType: string; confidence: string; additionalInfo?: string;
+    licensePlate: string; chassisNumber?: string;
+    vehicleType: string; confidence: string; additionalInfo?: string;
   } | null>(null);
   const [detectionError, setDetectionError] = useState('');
   const vehicleCameraRef = useRef<HTMLInputElement>(null);
@@ -270,6 +272,7 @@ export function AddVehiclePage() {
     try {
       const fd = new FormData();
       fd.append('image', detectImage);
+      fd.append('source', detectSource);
       const res = await api.post('/vehicles/detect', fd);
       const data = res.data;
       setDetectionResult(data);
@@ -282,6 +285,7 @@ export function AddVehiclePage() {
         year: data.year ? String(data.year) : prev.year,
         color: data.color !== 'Unknown' ? data.color : prev.color,
         licensePlate: data.licensePlate ? data.licensePlate : prev.licensePlate,
+        vin: data.chassisNumber ? data.chassisNumber : prev.vin,
       }));
     } catch (err: any) {
       setDetectionError(err.response?.data?.error || 'Detection failed. Please fill in details manually.');
@@ -345,7 +349,24 @@ export function AddVehiclePage() {
           <h2 className="text-base font-semibold text-gray-900">AI Vehicle Recognition</h2>
           <span className="ml-auto text-xs px-2 py-0.5 bg-primary-100 text-primary-700 rounded-full font-medium">Powered by Gemini</span>
         </div>
-        <p className="text-sm text-gray-500 mb-4">Upload a photo of your vehicle and AI will auto-fill the details below.</p>
+        <p className="text-sm text-gray-500 mb-4">
+          {detectSource === 'book'
+            ? 'Upload a photo of your vehicle book (CR book) and AI will read the registered details below.'
+            : 'Upload a photo of your vehicle and AI will auto-fill the details below.'}
+        </p>
+
+        {/* Recognition source — vehicle photo vs vehicle book */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Recognize from</label>
+          <select
+            value={detectSource}
+            onChange={(e) => setDetectSource(e.target.value as 'photo' | 'book')}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+          >
+            <option value="photo">Vehicle Photo — identify the vehicle from a picture</option>
+            <option value="book">Vehicle Book (CR Book) — read details from the registration document</option>
+          </select>
+        </div>
 
         {!detectPreview ? (
           <div className="flex flex-col sm:flex-row gap-3">
@@ -358,7 +379,7 @@ export function AddVehiclePage() {
               <input {...getInputProps()} />
               <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-600">
-                {isDragActive ? 'Drop the image here...' : 'Drag & drop a vehicle photo, or '}
+                {isDragActive ? 'Drop the image here...' : detectSource === 'book' ? 'Drag & drop a vehicle book photo, or ' : 'Drag & drop a vehicle photo, or '}
                 {!isDragActive && <span className="text-primary-600 font-medium">browse</span>}
               </p>
               <p className="text-xs text-gray-400 mt-1">JPEG, PNG, or WebP (max 10MB)</p>
@@ -384,7 +405,7 @@ export function AddVehiclePage() {
         ) : (
           <div className="space-y-3">
             <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-              <img src={detectPreview} alt="Vehicle" className="w-full max-h-64 object-contain" />
+              <img src={detectPreview} alt={detectSource === 'book' ? 'Vehicle book' : 'Vehicle'} className="w-full max-h-64 object-contain" />
               <button
                 onClick={clearDetectImage}
                 className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1.5 hover:bg-black/80 transition"
@@ -403,6 +424,9 @@ export function AddVehiclePage() {
                     {detectionResult.confidence}
                   </span>
                 </div>
+                {detectionResult.chassisNumber && (
+                  <p className="text-xs mb-1">Chassis No: <span className="font-mono">{detectionResult.chassisNumber}</span></p>
+                )}
                 {detectionResult.additionalInfo && (
                   <p className="text-xs opacity-80">{detectionResult.additionalInfo}</p>
                 )}
@@ -423,9 +447,13 @@ export function AddVehiclePage() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-60 transition"
               >
                 {detecting ? (
-                  <><Loader className="h-4 w-4 animate-spin" /> Analyzing vehicle...</>
+                  detectSource === 'book'
+                    ? <><Loader className="h-4 w-4 animate-spin" /> Reading vehicle book...</>
+                    : <><Loader className="h-4 w-4 animate-spin" /> Analyzing vehicle...</>
                 ) : (
-                  <><Sparkles className="h-4 w-4" /> Detect Vehicle with AI</>
+                  detectSource === 'book'
+                    ? <><Sparkles className="h-4 w-4" /> Read Vehicle Book with AI</>
+                    : <><Sparkles className="h-4 w-4" /> Detect Vehicle with AI</>
                 )}
               </button>
             )}
@@ -497,10 +525,11 @@ export function AddVehiclePage() {
               placeholder="ABC-1234" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">VIN (optional)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Chassis Number (optional)</label>
             <input type="text" value={form.vin} onChange={update('vin')}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-              placeholder="17-character VIN" />
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono"
+              placeholder="From your vehicle book (e.g. NZE141-1234567)" />
+            <p className="text-xs text-gray-400 mt-1">Auto-read when you scan your vehicle book above.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mileage (optional)</label>

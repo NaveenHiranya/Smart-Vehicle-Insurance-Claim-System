@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
 import type { PolicyTemplate, VehicleType } from '../../types';
 import { VEHICLE_TYPE_LABELS } from '../../types';
-import { Banknote, Car, ClipboardList, Plus, Search, X, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { Banknote, Car, ClipboardList, Pencil, Plus, Search, X, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 
 interface AdminVehicle {
   id: string;
@@ -67,6 +67,11 @@ export function AdminVehiclesPage() {
   const [valuationVehicle, setValuationVehicle] = useState<AdminVehicle | null>(null);
   const [valuationInput, setValuationInput] = useState('');
   const [valuationSaving, setValuationSaving] = useState(false);
+
+  // Edit-details modal — correct vehicle data on the insurance company's side
+  const [editVehicle, setEditVehicle] = useState<AdminVehicle | null>(null);
+  const [editForm, setEditForm] = useState({ vehicleType: 'CAR', make: '', model: '', year: '', vin: '', licensePlate: '', color: '', mileage: '' });
+  const [editSaving, setEditSaving] = useState(false);
 
   // Vehicle verification — VERIFIED requires an attached policy
   const [verifying, setVerifying] = useState(false);
@@ -151,6 +156,47 @@ export function AdminVehiclesPage() {
       alert(err.response?.data?.error || 'Failed to save valuation.');
     } finally {
       setValuationSaving(false);
+    }
+  };
+
+  // Edit-details modal — corrects typos/AI misreads in the registered vehicle data
+  const openEdit = (v: AdminVehicle) => {
+    setEditVehicle(v);
+    setEditForm({
+      vehicleType: v.vehicleType || 'CAR',
+      make: v.make,
+      model: v.model,
+      year: String(v.year),
+      vin: v.vin || '',
+      licensePlate: v.licensePlate,
+      color: v.color,
+      mileage: v.mileage != null ? String(v.mileage) : '',
+    });
+  };
+
+  const setEdit = (key: keyof typeof editForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setEditForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const handleSaveEdit = async () => {
+    if (!editVehicle) return;
+    if (!editForm.make.trim() || !editForm.model.trim() || !editForm.year || !editForm.licensePlate.trim() || !editForm.color.trim()) {
+      alert('Make, model, year, license plate, and color are required.');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const res = await adminApi.patch(`/vehicles/${editVehicle.id}`, {
+        ...editForm,
+        vin: editForm.vin.trim(),
+        mileage: editForm.mileage === '' ? null : editForm.mileage,
+      });
+      // PATCH returns the bare vehicle row — keep the row's relations from the list
+      setVehicles((prev) => prev.map((v) => (v.id === editVehicle.id ? { ...v, ...res.data } : v)));
+      setEditVehicle(null);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to update vehicle.');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -350,7 +396,7 @@ export function AdminVehiclesPage() {
                     <p className="text-gray-900 font-medium">{v.year} {v.make} {v.model}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       <span className="inline-block px-1.5 py-0.5 rounded bg-primary-50 text-primary-700 font-medium">{VEHICLE_TYPE_LABELS[v.vehicleType || 'CAR']}</span>
-                      {v.vin && <> · VIN {v.vin}</>}
+                      {v.vin && <> · Chassis <span className="font-mono">{v.vin}</span></>}
                     </p>
                   </td>
                   <td className="px-5 py-3">
@@ -398,6 +444,10 @@ export function AdminVehiclesPage() {
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      <button onClick={() => openEdit(v)}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 font-medium whitespace-nowrap">
+                        <Pencil className="h-3 w-3" /> Edit
+                      </button>
                       <button onClick={() => openPolicyModal(v)}
                         className="text-xs px-2 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 font-medium whitespace-nowrap">
                         {v.insurancePolicy ? 'Edit Policy' : 'Add Policy'}
@@ -503,9 +553,9 @@ export function AdminVehiclesPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">VIN</label>
-                <input value={form.vin} onChange={set('vin')} placeholder="optional"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Chassis Number</label>
+                <input value={form.vin} onChange={set('vin')} placeholder="optional — from the vehicle book"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none font-mono" />
               </div>
             </div>
             <div className="p-4 border-t border-gray-200 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-xl">
@@ -514,6 +564,91 @@ export function AdminVehiclesPage() {
               <button onClick={handleAdd} disabled={saving}
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
                 {saving ? 'Adding...' : 'Add Vehicle'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit vehicle details modal — correct the registered data (owner stays fixed) */}
+      {editVehicle && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => !editSaving && setEditVehicle(null)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 sticky top-0 bg-white">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Edit Vehicle Details</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {editVehicle.year} {editVehicle.make} {editVehicle.model} · {editVehicle.user.firstName} {editVehicle.user.lastName}
+                </p>
+              </div>
+              <button onClick={() => setEditVehicle(null)} className="p-1 text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Vehicle Type *</label>
+                <select value={editForm.vehicleType} onChange={setEdit('vehicleType')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none">
+                  {(Object.keys(VEHICLE_TYPE_LABELS) as VehicleType[]).map((t) => (
+                    <option key={t} value={t}>{VEHICLE_TYPE_LABELS[t]}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Make *</label>
+                  <input value={editForm.make} onChange={setEdit('make')} placeholder="e.g. Toyota"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Model *</label>
+                  <input value={editForm.model} onChange={setEdit('model')} placeholder="e.g. Camry"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Year *</label>
+                  <input type="number" min="1900" max="2100" value={editForm.year} onChange={setEdit('year')} placeholder="e.g. 2024"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">License Plate *</label>
+                  <input value={editForm.licensePlate} onChange={setEdit('licensePlate')} placeholder="e.g. ABC 1234"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Color *</label>
+                  <input value={editForm.color} onChange={setEdit('color')} placeholder="e.g. Silver"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Mileage (km)</label>
+                  <input type="number" min="0" value={editForm.mileage} onChange={setEdit('mileage')} placeholder="optional"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Chassis Number</label>
+                <input value={editForm.vin} onChange={setEdit('vin')} placeholder="optional — from the vehicle book"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none font-mono" />
+              </div>
+
+              <p className="text-xs text-gray-400">
+                Claim payouts for this vehicle are recalculated after saving (the vehicle class scales repair pricing).
+              </p>
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-xl">
+              <button onClick={() => setEditVehicle(null)} disabled={editSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
+              <button onClick={handleSaveEdit} disabled={editSaving}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+                {editSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

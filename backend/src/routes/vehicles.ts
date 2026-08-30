@@ -12,7 +12,9 @@ router.use(authMiddleware);
 
 const param = (req: AuthRequest, name: string): string => req.params[name] as string;
 
-// POST /api/vehicles/detect - AI vehicle detection from image
+// POST /api/vehicles/detect - AI vehicle detection from an image
+// source=photo (default) recognizes the vehicle; source=book reads details
+// from the vehicle book (CR book / certificate of registration)
 router.post('/detect', uploadImage.single('image'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) {
@@ -20,8 +22,9 @@ router.post('/detect', uploadImage.single('image'), async (req: AuthRequest, res
       return;
     }
 
+    const source = req.body?.source === 'book' ? 'book' : 'photo';
     const imagePath = `/uploads/images/${req.file.filename}`;
-    const detection = await detectVehicleFromImage(imagePath);
+    const detection = await detectVehicleFromImage(imagePath, source);
 
     res.json({ ...detection, imagePath });
   } catch (error) {
