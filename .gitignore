@@ -1,6 +1,21 @@
 node_modules/
 dist/
 .env
+.env.local
+.env.*.local
 *.log
 uploads/
 .DS_Store
+Thumbs.db
+
+# Qoder IDE state — generated repo wiki, churns on every session; never commit
+.qoder/
+
+# TypeScript incremental build info (tsc -b)
+*.tsbuildinfo
+
+# Vercel CLI local project linkage
+.vercel/
+
+# Test coverage output
+coverage/
