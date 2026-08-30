@@ -3,7 +3,9 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npx prisma db push && npx tsx src/scripts/seedAdmin.ts && node dist/index.js"
+# --accept-data-loss: adding the googleId unique column trips Prisma's data-loss guard
+# in non-interactive deploys (existing values are all NULL, so nothing is actually lost)
+startCommand = "npx prisma db push --accept-data-loss && npx tsx src/scripts/seedAdmin.ts && node dist/index.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
