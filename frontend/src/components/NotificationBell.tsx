@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, CheckCheck, AlertCircle, Wrench, CircleDollarSign, FileText, MessageSquare } from 'lucide-react';
+import { Bell, CheckCheck, AlertCircle, Wrench, CircleDollarSign, FileText, MessageSquare } from 'lucide-react';
 import api from '../services/api';
 
 interface Notification {
