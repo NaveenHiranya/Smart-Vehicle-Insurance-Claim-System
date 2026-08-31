@@ -5,7 +5,8 @@ buildCommand = "cd backend && npm install && npm run build"
 [deploy]
 # --accept-data-loss: adding the googleId unique column trips Prisma's data-loss guard
 # in non-interactive deploys (existing values are all NULL, so nothing is actually lost)
-startCommand = "cd backend && npx prisma db push --accept-data-loss && node dist/index.js"
+# seedAdmin is idempotent and migrates legacy admin rows to the current credentials
+startCommand = "cd backend && npx prisma db push --accept-data-loss && npx tsx src/scripts/seedAdmin.ts && node dist/index.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
