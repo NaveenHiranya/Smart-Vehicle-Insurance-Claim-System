@@ -273,7 +273,8 @@ Structured output is enforced with `responseSchema` for damage analysis, fraud s
 * ✅ In-app notifications (auto-triggers + admin messages)
 * ✅ Fraud scoring
 * ✅ Garage estimate reconciliation
-* 🔄 Google OAuth login and auth hardening
+* ⏳ Vehicle Part Price Intelligence
+* ⏳ AI Accuracy & Automation Improvements
 * ⏳ Part tiers (OEM vs aftermarket)
 * ⏳ FX pricing for imported parts 
 
