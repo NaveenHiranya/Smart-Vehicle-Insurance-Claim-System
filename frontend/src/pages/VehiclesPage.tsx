@@ -222,6 +222,7 @@ export function VehicleDetailPage() {
 
 export function AddVehiclePage() {
   const [form, setForm] = useState({ vehicleType: 'CAR', make: '', model: '', year: '', vin: '', licensePlate: '', color: '', mileage: '' });
+  const [registrationMethod, setRegistrationMethod] = useState<'auto' | 'manual'>('auto');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -342,14 +343,47 @@ export function AddVehiclePage() {
     <div className="max-w-2xl mx-auto">
       <button onClick={() => navigate('/vehicles')} className="text-sm text-primary-600 hover:text-primary-700 mb-4 font-medium">&larr; Back</button>
 
-      {/* AI Detection Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="h-5 w-5 text-primary-600" />
-          <h2 className="text-base font-semibold text-gray-900">AI Vehicle Recognition</h2>
-          <span className="ml-auto text-xs px-2 py-0.5 bg-primary-100 text-primary-700 rounded-full font-medium">Powered by Gemini</span>
+      <div className="bg-primary-50/50 rounded-xl border border-primary-100 p-5 sm:p-6 mb-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white shadow-sm">
+            <Car className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-base font-semibold text-gray-900">How would you like to add your vehicle?</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Choose a faster assisted setup or enter every detail yourself.</p>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
+        <label htmlFor="registration-method" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 mb-1.5">
+          Registration method
+        </label>
+        <select
+          id="registration-method"
+          value={registrationMethod}
+          onChange={(e) => setRegistrationMethod(e.target.value as 'auto' | 'manual')}
+          className="w-full bg-white px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+        >
+          <option value="auto">Auto Select — use a vehicle photo or vehicle book</option>
+          <option value="manual">Manual Select — enter vehicle details myself</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-2">
+          {registrationMethod === 'auto'
+            ? 'Upload a vehicle photo or CR book and AI will update the details for you to review.'
+            : 'Enter the vehicle information manually without using AI recognition.'}
+        </p>
+      </div>
+
+      {/* AI Detection Card */}
+      {registrationMethod === 'auto' && <div className="bg-white rounded-xl shadow-sm border border-primary-100 p-6 mb-6">
+        <div className="flex items-start gap-3 mb-1">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-100">
+            <Sparkles className="h-5 w-5 text-primary-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Auto-fill vehicle details</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Upload one image and review the details before registering.</p>
+          </div>
+        </div>
+        <p className="text-sm text-gray-500 mb-4 mt-4">
           {detectSource === 'book'
             ? 'Upload a photo of your vehicle book (CR book) and AI will read the registered details below.'
             : 'Upload a photo of your vehicle and AI will auto-fill the details below.'}
@@ -468,12 +502,16 @@ export function AddVehiclePage() {
             )}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Manual Form Card */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-1">Vehicle Details</h1>
-        <p className="text-sm text-gray-500 mb-5">Review and complete the fields below. AI-detected values are pre-filled.</p>
+        <p className="text-sm text-gray-500 mb-5">
+          {registrationMethod === 'auto'
+            ? 'Review and complete the fields below. AI-detected values are pre-filled.'
+            : 'Enter the vehicle information below to register it manually.'}
+        </p>
         {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
         {success && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2">
