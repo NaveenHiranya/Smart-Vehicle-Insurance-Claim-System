@@ -59,13 +59,13 @@ function documentSignals(documents: Array<{ type: string; verificationStatus: st
     if (!doc) {
       flags.push({
         signal: 'doc_missing',
-        points: 10,
+        points: 1,
         detail: `${docType} not uploaded`,
       });
     } else if (doc.verificationStatus === 'ISSUES_FOUND' || doc.verificationStatus === 'UNREADABLE' || doc.verificationStatus === 'REJECTED') {
       flags.push({
         signal: 'doc_verification_failed',
-        points: 25,
+        points: 1,
         detail: `${docType} verification failed (${doc.verificationStatus})`,
       });
     }
