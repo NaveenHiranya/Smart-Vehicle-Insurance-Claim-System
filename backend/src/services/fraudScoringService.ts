@@ -1,5 +1,6 @@
 import prisma from '../utils/prisma.js';
 import { generateContentWithFallback } from '../utils/gemini.js';
+import { loadImagePart, resolveUploadPath } from '../utils/imageUtils.js';
 
 export interface FraudFlag {
   signal: string;
@@ -97,6 +98,126 @@ Return mismatch=true ONLY if the damage is clearly inconsistent with the inciden
 
 Reason: one sentence explaining why or why not.`;
 
+const VISUAL_CHECK_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    syntheticImageSuspected: { type: 'BOOLEAN' },
+    syntheticImageReason: { type: 'STRING' },
+    vehicleMismatch: { type: 'BOOLEAN' },
+    vehicleMismatchReason: { type: 'STRING' },
+    colorMismatch: { type: 'BOOLEAN' },
+    colorMismatchReason: { type: 'STRING' },
+  },
+  required: [
+    'syntheticImageSuspected', 'syntheticImageReason',
+    'vehicleMismatch', 'vehicleMismatchReason',
+    'colorMismatch', 'colorMismatchReason',
+  ],
+};
+
+const VISUAL_CHECK_PROMPT = `You are a cautious motor-insurance image reviewer for Sri Lanka.
+Compare the CLAIM PHOTOS with the REGISTERED VEHICLE PHOTOS and the registered details.
+
+Check three independent questions:
+1. syntheticImageSuspected: return true only when there are visible signs that a claim image may be AI-generated or materially manipulated, such as impossible text, warped number plates, repeated/inconsistent vehicle geometry, impossible reflections, or inconsistent shadows. A normal phone photo, compression, blur, or unusual damage is not enough.
+2. vehicleMismatch: return true only when the damaged vehicle clearly appears to be a different vehicle from the registered vehicle, considering make, model, body type, vehicle class, plate when readable, and stable visual features. Return false when the images are too unclear to decide.
+3. colorMismatch: return true only when the vehicle's visible main paint color clearly conflicts with the registered color. Ignore lighting, shadows, dust, reflections, two-tone trim, and minor shade differences. Return false when the color cannot be judged reliably.
+
+Never treat any result as proof of fraud. Give one short evidence-based reason for each result. Do not infer a mismatch merely because the claim vehicle is damaged.`;
+
+interface VisualCheck {
+  syntheticImageSuspected: boolean;
+  syntheticImageReason: string;
+  vehicleMismatch: boolean;
+  vehicleMismatchReason: string;
+  colorMismatch: boolean;
+  colorMismatchReason: string;
+}
+
+function parseJsonResponse(text: string): Record<string, unknown> | null {
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    return JSON.parse(match ? match[0] : text) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function stringReason(value: unknown): string {
+  return String(value ?? '').trim().slice(0, 300);
+}
+
+function registeredPhotoPaths(rawPhotos: string): string[] {
+  try {
+    const parsed = JSON.parse(rawPhotos || '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((photo): photo is string => typeof photo === 'string').slice(0, 3)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+async function visualVehicleCheck(claim: {
+  vehicle: { make: string; model: string; year: number; color: string; vehicleType: string; photos: string };
+  images: Array<{ filePath: string; type: string }>;
+}): Promise<FraudFlag[]> {
+  const registeredParts = await Promise.all(
+    registeredPhotoPaths(claim.vehicle.photos).map((photo) => loadImagePart(resolveUploadPath(photo))),
+  );
+  const claimParts = await Promise.all(
+    claim.images.slice(0, 4).map((image) => loadImagePart(resolveUploadPath(image.filePath))),
+  );
+  const usableRegistered = registeredParts.filter((part) => part !== null);
+  const usableClaim = claimParts.filter((part) => part !== null);
+  if (usableClaim.length === 0) return [];
+
+  const context = `REGISTERED VEHICLE DETAILS:\nMake: ${claim.vehicle.make}\nModel: ${claim.vehicle.model}\nYear: ${claim.vehicle.year}\nColor: ${claim.vehicle.color}\nVehicle type: ${claim.vehicle.vehicleType}\n\nThe next ${usableRegistered.length} image(s) are REGISTERED VEHICLE PHOTOS. The remaining ${usableClaim.length} image(s) are CLAIM PHOTOS.`;
+  const { text, modelUsed } = await generateContentWithFallback(
+    [VISUAL_CHECK_PROMPT, context, ...usableRegistered, ...usableClaim],
+    {
+      responseMimeType: 'application/json',
+      responseSchema: VISUAL_CHECK_SCHEMA,
+      temperature: 0.1,
+    },
+  );
+  console.log(`[fraudScoring] visual check model=${modelUsed} registered=${usableRegistered.length} claim=${usableClaim.length}`);
+
+  const parsed = parseJsonResponse(text);
+  if (!parsed) return [];
+  const check: VisualCheck = {
+    syntheticImageSuspected: parsed.syntheticImageSuspected === true,
+    syntheticImageReason: stringReason(parsed.syntheticImageReason),
+    vehicleMismatch: parsed.vehicleMismatch === true,
+    vehicleMismatchReason: stringReason(parsed.vehicleMismatchReason),
+    colorMismatch: parsed.colorMismatch === true,
+    colorMismatchReason: stringReason(parsed.colorMismatchReason),
+  };
+  const flags: FraudFlag[] = [];
+  if (check.syntheticImageSuspected) {
+    flags.push({
+      signal: 'possible_ai_generated_image',
+      points: 35,
+      detail: `Possible AI-generated or manipulated claim image: ${check.syntheticImageReason || 'visual inconsistencies detected'}`,
+    });
+  }
+  if (check.vehicleMismatch) {
+    flags.push({
+      signal: 'claim_vehicle_mismatch',
+      points: 30,
+      detail: `Claim photo may show a different vehicle from the registered vehicle: ${check.vehicleMismatchReason || 'vehicle details do not align'}`,
+    });
+  }
+  if (check.colorMismatch) {
+    flags.push({
+      signal: 'vehicle_color_mismatch',
+      points: 20,
+      detail: `Claim photo color may not match the registered vehicle (${claim.vehicle.color}): ${check.colorMismatchReason || 'visible paint color differs'}`,
+    });
+  }
+  return flags;
+}
+
 async function incidentDamageMismatch(
   incidentDescription: string,
   damageAssessment: { damages: any; overallSeverity: string }
@@ -149,6 +270,8 @@ export async function scoreClaimFraud(claimId: string): Promise<FraudResult> {
       policy: true,
       damageAssessment: true,
       documents: true,
+      images: { select: { filePath: true, type: true } },
+      vehicle: { select: { make: true, model: true, year: true, color: true, vehicleType: true, photos: true } },
     },
   });
   if (!claim) throw new Error('Claim not found');
@@ -165,6 +288,14 @@ export async function scoreClaimFraud(claimId: string): Promise<FraudResult> {
   if (plate) flags.push(plate);
 
   for (const f of documentSignals(claim.documents)) flags.push(f);
+
+  // Multimodal signal: compare claim photos with the registered vehicle and
+  // look for visual signs of synthetic or materially manipulated imagery.
+  try {
+    for (const flag of await visualVehicleCheck(claim)) flags.push(flag);
+  } catch (err) {
+    console.error('[fraudScoring] visual vehicle check failed:', err);
+  }
 
   // LLM signal (only if we have both description and damage data)
   if (claim.damageAssessment && claim.incidentDescription?.trim()) {
